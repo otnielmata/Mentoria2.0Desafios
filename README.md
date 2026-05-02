@@ -58,8 +58,29 @@ npm install
 - `GET /api/health`
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
+- `POST /api/usuarios/login` (MR-2)
 - `POST /api/auth/login`
 - `GET /api/docs` (Swagger UI)
+
+## Regras da User Story MR-2 implementadas
+
+- Login por e-mail e senha em `POST /api/usuarios/login`
+- Mensagem genérica em falha de autenticação (sem revelar se falhou e-mail ou senha)
+- Apenas usuário com `status: active` pode autenticar
+- Tentativas inválidas persistidas para auditoria básica
+- Token JWT retornado com expiração configurada por `JWT_EXPIRES_IN`
+
+## Testes unitários
+
+```bash
+npm test
+```
+
+Cobertura adicionada para login:
+- sucesso com credenciais válidas
+- senha incorreta
+- usuário inexistente
+- usuário inativo
 
 ## Próximos passos planejados
 

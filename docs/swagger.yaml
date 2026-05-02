@@ -32,6 +32,35 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "409":
           description: E-mail já cadastrado
+  /api/usuarios/login:
+    post:
+      tags: [Usuarios]
+      summary: Autentica usuário com e-mail e senha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/auth/login:
     post:
       tags: [Auth]
@@ -109,6 +138,9 @@ components:
           type: string
           format: email
           example: otniel@email.com
+        status:
+          type: string
+          example: active
     AuthResponse:
       type: object
       properties:
@@ -117,3 +149,23 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Credenciais inválidas.
+        code:
+          type: string
+          example: INVALID_CREDENTIALS
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: E-mail é obrigatório.
