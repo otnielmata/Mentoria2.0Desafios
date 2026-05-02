@@ -13,7 +13,14 @@ async function register(req, res, next) {
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
-    const result = await authService.loginUser({ email, password });
+    const result = await authService.loginUser({
+      email,
+      password,
+      metadata: {
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+      },
+    });
     return res.status(200).json(result);
   } catch (error) {
     return next(error);
