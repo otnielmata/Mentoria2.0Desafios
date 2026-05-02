@@ -57,9 +57,29 @@ npm install
 
 - `GET /api/health`
 - `GET /api/health/protected` (requer JWT)
-- `POST /api/auth/register`
+- `POST /api/usuarios/registro` (MR-1)
+- `POST /api/auth/register` (compatibilidade)
 - `POST /api/auth/login`
 - `GET /api/docs` (Swagger UI)
+
+## Regras da User Story MR-1 implementadas
+
+- E-mail único na base de usuários
+- Senha persistida com hash
+- Campos obrigatórios: nome, e-mail e senha (com validação)
+- Usuário criado com status `active` por padrão
+- Respostas de erro de validação padronizadas com `code` e `details`
+
+## Testes unitários
+
+```bash
+npm test
+```
+
+Os testes cobrem o serviço de registro de usuário para:
+- sucesso no cadastro
+- e-mail duplicado
+- payload inválido
 
 ## Próximos passos planejados
 

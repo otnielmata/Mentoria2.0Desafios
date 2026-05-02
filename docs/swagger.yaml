@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Mentoria API
-  version: 1.0.0
-  description: Estrutura inicial de API REST com Express, JWT e MongoDB.
+  version: 1.1.0
+  description: API REST com Express, JWT e MongoDB.
 servers:
   - url: http://localhost:3000
 paths:
@@ -13,9 +13,9 @@ paths:
       responses:
         "200":
           description: API disponível
-  /api/auth/register:
+  /api/usuarios/registro:
     post:
-      tags: [Auth]
+      tags: [Usuarios]
       summary: Registra um novo usuário
       requestBody:
         required: true
@@ -30,8 +30,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: E-mail já cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Compatibilidade para registro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Usuário criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
   /api/auth/login:
     post:
       tags: [Auth]
@@ -109,6 +136,9 @@ components:
           type: string
           format: email
           example: otniel@email.com
+        status:
+          type: string
+          example: active
     AuthResponse:
       type: object
       properties:
@@ -117,3 +147,23 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Dados de validação inválidos.
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: E-mail inválido.
