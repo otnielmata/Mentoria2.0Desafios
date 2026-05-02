@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Mentoria API
+  version: 1.0.0
+  description: Estrutura inicial de API REST com Express, JWT e MongoDB.
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Verifica o status da API
+      responses:
+        "200":
+          description: API disponível
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Registra um novo usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Usuário criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: E-mail já cadastrado
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Autentica usuário e retorna token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Credenciais inválidas
+  /api/health/protected:
+    get:
+      tags: [Health]
+      summary: Exemplo de rota protegida por JWT
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Token válido
+        "401":
+          description: Token inválido ou ausente
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          example: Otniel Mata
+        email:
+          type: string
+          format: email
+          example: otniel@email.com
+        password:
+          type: string
+          format: password
+          example: "123456"
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: otniel@email.com
+        password:
+          type: string
+          format: password
+          example: "123456"
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Otniel Mata
+        email:
+          type: string
+          format: email
+          example: otniel@email.com
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...

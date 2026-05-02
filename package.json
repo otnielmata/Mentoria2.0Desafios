@@ -1,0 +1,37 @@
+{
+  "name": "mentoria2.0desafios",
+  "version": "1.0.0",
+  "description": "Estrutura inicial de API REST com Express, JWT e MongoDB.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "echo \"No tests configured yet\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/otnielmata/Mentoria2.0Desafios.git"
+  },
+  "keywords": [],
+  "author": "Otniel Mata",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/otnielmata/Mentoria2.0Desafios/issues"
+  },
+  "homepage": "https://github.com/otnielmata/Mentoria2.0Desafios#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.1",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
