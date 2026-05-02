@@ -59,7 +59,27 @@ npm install
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/heuristicas` (MR-3, requer JWT)
 - `GET /api/docs` (Swagger UI)
+
+## Regras da User Story MR-3 implementadas
+
+- Apenas usuários autenticados podem cadastrar heurística
+- Campos obrigatórios: `title` e `description`
+- Título único por usuário autor
+- Persistência de metadados mínimos de autoria (`authorId`, `authorEmail`) e criação (`createdAt`)
+- Validação executada antes da persistência
+
+## Testes unitários
+
+```bash
+npm test
+```
+
+Cobertura adicionada para cadastro de heurística:
+- sucesso com payload válido
+- rejeição quando faltam campos obrigatórios
+- rejeição quando há título duplicado para o mesmo autor
 
 ## Próximos passos planejados
 
