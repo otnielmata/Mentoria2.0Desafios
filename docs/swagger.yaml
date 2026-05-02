@@ -32,6 +32,39 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "409":
           description: E-mail já cadastrado
+  /api/heuristicas:
+    post:
+      tags: [Heuristicas]
+      summary: Cadastra uma heurística
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HeuristicRequest"
+      responses:
+        "201":
+          description: Heurística criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeuristicResponse"
+        "400":
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Não autorizado
+        "409":
+          description: Título duplicado para o autor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/auth/login:
     post:
       tags: [Auth]
@@ -117,3 +150,54 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    HeuristicRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          example: Visibilidade do status do sistema
+        description:
+          type: string
+          example: O sistema deve manter o usuário informado sobre o que está acontecendo.
+    HeuristicResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        title:
+          type: string
+          example: Visibilidade do status do sistema
+        description:
+          type: string
+          example: O sistema deve manter o usuário informado sobre o que está acontecendo.
+        authorId:
+          type: string
+          example: 6814f12ab3f34872f7558f01
+        authorEmail:
+          type: string
+          example: user@email.com
+        createdAt:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Dados de validação inválidos.
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: title
+              message:
+                type: string
+                example: Título é obrigatório.
