@@ -52,6 +52,7 @@ npm install
 
 - `npm run dev`: inicia com `nodemon` e reinicia automaticamente a cada alteração
 - `npm start`: inicia em modo estático
+- `npm test`: executa os testes unitários com Jest
 
 ## Endpoints iniciais
 
@@ -59,11 +60,33 @@ npm install
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/heuristicas` (MR-4, requer JWT)
 - `GET /api/docs` (Swagger UI)
+
+## Regras da User Story MR-4 implementadas
+
+- Apenas usuários autenticados podem listar heurísticas
+- A resposta retorna uma lista consistente, inclusive quando vazia
+- Cada heurística contém `id`, `title`, `description` e `createdAt`
+- A listagem retorna somente heurísticas ativas e publicáveis
+- A ordenação considera a data de criação, da mais recente para a mais antiga
+
+## Contrato da listagem de heurísticas
+
+```json
+[
+  {
+    "id": "6814f12ab3f34872f7558f49",
+    "title": "Visibilidade de status",
+    "description": "Informe o usuário sobre o que está acontecendo.",
+    "createdAt": "2026-05-04T10:00:00.000Z"
+  }
+]
+```
 
 ## Próximos passos planejados
 
 - Evoluir endpoints com base nas user stories do Jira
-- Adicionar testes automatizados
+- Ampliar testes automatizados conforme novas regras de negócio
 - Configurar CI com GitHub Actions
 - Configurar deploy na Vercel

@@ -51,6 +51,24 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/heuristicas:
+    get:
+      tags: [Heuristicas]
+      summary: Lista heurísticas ativas e publicáveis
+      description: Retorna a coleção de heurísticas cadastradas, ordenada por data de criação da mais recente para a mais antiga.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Heurísticas retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Heuristic"
+        "401":
+          description: Token inválido ou ausente
   /api/health/protected:
     get:
       tags: [Health]
@@ -117,3 +135,19 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    Heuristic:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        title:
+          type: string
+          example: Visibilidade de status
+        description:
+          type: string
+          example: Informe o usuário sobre o que está acontecendo.
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-04T10:00:00.000Z"
