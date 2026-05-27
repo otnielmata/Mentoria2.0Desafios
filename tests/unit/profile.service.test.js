@@ -4,13 +4,15 @@ jest.mock("../../src/models/user.model", () => ({
 }));
 
 const User = require("../../src/models/user.model");
-const { updateAuthenticatedUser } = require("../../src/services/profile.service");
+const { getAuthenticatedUser, updateAuthenticatedUser } = require("../../src/services/profile.service");
 
 function makeUser(overrides = {}) {
   const user = {
     id: "user-1",
     name: "Nome Antigo",
     email: "antigo@email.com",
+    role: "student",
+    status: "active",
     passwordHash: "hash-secreto",
     save: jest.fn(function save() {
       return Promise.resolve(this);
@@ -24,6 +26,64 @@ function makeUser(overrides = {}) {
 describe("profile.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("retorna o perfil do usuário autenticado sem campos sensíveis", async () => {
+    const user = makeUser({
+      turmas: ["turma-1", "turma-2"],
+    });
+    User.findById.mockResolvedValue(user);
+
+    const result = await getAuthenticatedUser("user-1");
+
+    expect(User.findById).toHaveBeenCalledWith("user-1");
+    expect(result).toEqual({
+      id: "user-1",
+      name: "Nome Antigo",
+      email: "antigo@email.com",
+      role: "student",
+      status: "active",
+      turmas: ["turma-1", "turma-2"],
+    });
+    expect(result.password).toBeUndefined();
+    expect(result.passwordHash).toBeUndefined();
+  });
+
+  it("omite turmas quando o usuário não possui vínculos", async () => {
+    const user = makeUser();
+    User.findById.mockResolvedValue(user);
+
+    const result = await getAuthenticatedUser("user-1");
+
+    expect(result).toEqual({
+      id: "user-1",
+      name: "Nome Antigo",
+      email: "antigo@email.com",
+      role: "student",
+      status: "active",
+    });
+  });
+
+  it("aplica valores padrão de role e status para usuários antigos", async () => {
+    const user = makeUser({
+      role: undefined,
+      status: undefined,
+    });
+    User.findById.mockResolvedValue(user);
+
+    const result = await getAuthenticatedUser("user-1");
+
+    expect(result.role).toBe("student");
+    expect(result.status).toBe("active");
+  });
+
+  it("retorna erro ao consultar perfil de usuário autenticado inexistente", async () => {
+    User.findById.mockResolvedValue(null);
+
+    await expect(getAuthenticatedUser("user-1")).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Usuário autenticado não encontrado.",
+    });
   });
 
   it("atualiza nome e e-mail permitidos e retorna usuário sem campos sensíveis", async () => {
@@ -43,6 +103,8 @@ describe("profile.service", () => {
       id: "user-1",
       name: "Nome Novo",
       email: "novo@email.com",
+      role: "student",
+      status: "active",
     });
     expect(result.password).toBeUndefined();
     expect(result.passwordHash).toBeUndefined();

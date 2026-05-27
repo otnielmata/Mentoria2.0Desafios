@@ -1,4 +1,5 @@
 jest.mock("../../src/services/profile.service", () => ({
+  getAuthenticatedUser: jest.fn(),
   updateAuthenticatedUser: jest.fn(),
 }));
 
@@ -17,6 +18,44 @@ describe("profile.controller", () => {
     jest.clearAllMocks();
   });
 
+  it("consulta o perfil do usuário autenticado", async () => {
+    const req = {
+      user: { id: "user-1" },
+    };
+    const res = makeResponse();
+    const next = jest.fn();
+    const profileUser = {
+      id: "user-1",
+      name: "Nome",
+      email: "user@email.com",
+      role: "student",
+      status: "active",
+    };
+    profileService.getAuthenticatedUser.mockResolvedValue(profileUser);
+
+    await profileController.getMe(req, res, next);
+
+    expect(profileService.getAuthenticatedUser).toHaveBeenCalledWith("user-1");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ user: profileUser });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("encaminha erros da consulta de perfil para o middleware de erro", async () => {
+    const req = {
+      user: { id: "user-1" },
+    };
+    const res = makeResponse();
+    const next = jest.fn();
+    const error = new Error("Usuário autenticado não encontrado.");
+    profileService.getAuthenticatedUser.mockRejectedValue(error);
+
+    await profileController.getMe(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(error);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it("atualiza o perfil do usuário autenticado", async () => {
     const req = {
       user: { id: "user-1" },
@@ -24,7 +63,13 @@ describe("profile.controller", () => {
     };
     const res = makeResponse();
     const next = jest.fn();
-    const updatedUser = { id: "user-1", name: "Nome Novo", email: "user@email.com" };
+    const updatedUser = {
+      id: "user-1",
+      name: "Nome Novo",
+      email: "user@email.com",
+      role: "student",
+      status: "active",
+    };
     profileService.updateAuthenticatedUser.mockResolvedValue(updatedUser);
 
     await profileController.updateMe(req, res, next);

@@ -2,6 +2,8 @@ const User = require("../models/user.model");
 
 const EDITABLE_FIELDS = ["name", "email"];
 const FORBIDDEN_FIELDS = ["role", "status", "password", "passwordHash"];
+const DEFAULT_ROLE = "student";
+const DEFAULT_STATUS = "active";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -20,11 +22,34 @@ function assertObjectPayload(payload) {
 }
 
 function serializeUser(user) {
-  return {
+  const serializedUser = {
     id: user.id,
     name: user.name,
     email: user.email,
+    role: user.role || DEFAULT_ROLE,
+    status: user.status || DEFAULT_STATUS,
   };
+
+  if (Array.isArray(user.turmas) && user.turmas.length > 0) {
+    serializedUser.turmas = user.turmas.map((turma) => String(turma));
+  }
+
+  return serializedUser;
+}
+
+async function findAuthenticatedUser(userId) {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw createHttpError("Usuário autenticado não encontrado.", 404);
+  }
+
+  return user;
+}
+
+async function getAuthenticatedUser(userId) {
+  const user = await findAuthenticatedUser(userId);
+  return serializeUser(user);
 }
 
 function assertForbiddenFields(payload) {
@@ -69,10 +94,7 @@ async function updateAuthenticatedUser(userId, payload = {}) {
     throw createHttpError(`Informe pelo menos um campo editável: ${EDITABLE_FIELDS.join(", ")}.`, 400);
   }
 
-  const user = await User.findById(userId);
-  if (!user) {
-    throw createHttpError("Usuário autenticado não encontrado.", 404);
-  }
+  const user = await findAuthenticatedUser(userId);
 
   if (updates.email && updates.email !== user.email) {
     const existingUser = await User.findOne({ email: updates.email });
@@ -97,5 +119,6 @@ async function updateAuthenticatedUser(userId, payload = {}) {
 }
 
 module.exports = {
+  getAuthenticatedUser,
   updateAuthenticatedUser,
 };
