@@ -51,6 +51,33 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/me:
+    patch:
+      tags: [Profile]
+      summary: Atualiza o perfil do usuário autenticado
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Perfil atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "400":
+          description: Campos inválidos, protegidos ou ausentes
+        "401":
+          description: Token inválido ou ausente
+        "404":
+          description: Usuário autenticado não encontrado
+        "409":
+          description: E-mail já cadastrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +136,17 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    UpdateProfileRequest:
+      type: object
+      description: Campos protegidos como role, status, password e passwordHash são rejeitados.
+      properties:
+        name:
+          type: string
+          example: Otniel Mata
+        email:
+          type: string
+          format: email
+          example: otniel@email.com
     AuthResponse:
       type: object
       properties:
@@ -117,3 +155,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    ProfileResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
