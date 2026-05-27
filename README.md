@@ -59,11 +59,68 @@ npm install
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/me` (MR-5, requer JWT)
+- `PATCH /api/me` (MR-6, requer JWT)
 - `GET /api/docs` (Swagger UI)
+
+## Regras da User Story MR-5 implementadas
+
+- Apenas usuários autenticados podem consultar o próprio perfil
+- A resposta retorna `id`, `name`, `email`, `role` e `status`
+- `turmas` é retornado quando o usuário possuir vínculos
+- As respostas nunca retornam `password` nem `passwordHash`
+
+## Contrato da visualização de perfil
+
+```json
+{
+  "user": {
+    "id": "6814f12ab3f34872f7558f49",
+    "name": "Otniel Mata",
+    "email": "otniel@email.com",
+    "role": "student",
+    "status": "active",
+    "turmas": ["turma-frontend"]
+  }
+}
+```
+
+## Regras da User Story MR-6 implementadas
+
+- Apenas usuários autenticados podem atualizar o próprio perfil
+- Os campos editáveis são `name` e `email`
+- O `email` permanece único quando atualizado
+- Os campos `role`, `status`, `password` e `passwordHash` são rejeitados
+- As respostas nunca retornam `password` nem `passwordHash`
+
+## Contrato da atualização de perfil
+
+Requisição:
+
+```json
+{
+  "name": "Otniel Mata",
+  "email": "otniel@email.com"
+}
+```
+
+Resposta:
+
+```json
+{
+  "user": {
+    "id": "6814f12ab3f34872f7558f49",
+    "name": "Otniel Mata",
+    "email": "otniel@email.com",
+    "role": "student",
+    "status": "active"
+  }
+}
+```
 
 ## Próximos passos planejados
 
 - Evoluir endpoints com base nas user stories do Jira
-- Adicionar testes automatizados
+- Ampliar testes automatizados conforme novas regras de negócio
 - Configurar CI com GitHub Actions
 - Configurar deploy na Vercel
