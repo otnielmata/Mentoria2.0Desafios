@@ -51,6 +51,59 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/alunos:
+    get:
+      tags: [Alunos]
+      summary: Lista alunos
+      description: Apenas usuários autenticados com role professor ou admin podem listar alunos.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Página da listagem.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Quantidade de alunos por página.
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra alunos vinculados à turma informada.
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Filtra alunos pelo status.
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Busca textual por nome ou e-mail.
+      responses:
+        "200":
+          description: Lista paginada de alunos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentListResponse"
+        "400":
+          description: Parâmetros de filtro ou paginação inválidos
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode listar alunos
+        "404":
+          description: Usuário autenticado não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +162,45 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Student:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f50
+        name:
+          type: string
+          example: Maria Silva
+        email:
+          type: string
+          format: email
+          example: maria@email.com
+        role:
+          type: string
+          example: aluno
+        status:
+          type: string
+          example: ativo
+        turmas:
+          type: array
+          items:
+            type: string
+          example: ["6814f12ab3f34872f7558f49"]
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 1
     AuthResponse:
       type: object
       properties:
@@ -117,3 +209,12 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    StudentListResponse:
+      type: object
+      properties:
+        students:
+          type: array
+          items:
+            $ref: "#/components/schemas/Student"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
