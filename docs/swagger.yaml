@@ -51,6 +51,34 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/alunos:
+    post:
+      tags: [Alunos]
+      summary: Cadastra um aluno
+      description: Apenas usuários autenticados com role professor ou admin podem cadastrar alunos.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudentRequest"
+      responses:
+        "201":
+          description: Aluno cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentResponse"
+        "400":
+          description: Dados inválidos ou turma inicial inexistente
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode cadastrar alunos
+        "409":
+          description: E-mail já cadastrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +137,49 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Student:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f50
+        name:
+          type: string
+          example: Maria Silva
+        email:
+          type: string
+          format: email
+          example: maria@email.com
+        role:
+          type: string
+          example: aluno
+        status:
+          type: string
+          example: ativo
+        turmas:
+          type: array
+          items:
+            type: string
+          example: ["6814f12ab3f34872f7558f49"]
+    CreateStudentRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          example: Maria Silva
+        email:
+          type: string
+          format: email
+          example: maria@email.com
+        password:
+          type: string
+          format: password
+          example: "123456"
+        turmaId:
+          type: string
+          description: Identificador da turma inicial. Campo opcional.
+          example: 6814f12ab3f34872f7558f49
     AuthResponse:
       type: object
       properties:
@@ -117,3 +188,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    StudentResponse:
+      type: object
+      properties:
+        student:
+          $ref: "#/components/schemas/Student"
