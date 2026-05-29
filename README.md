@@ -52,6 +52,7 @@ npm install
 
 - `npm run dev`: inicia com `nodemon` e reinicia automaticamente a cada alteração
 - `npm start`: inicia em modo estático
+- `npm test`: executa os testes unitários com Jest
 
 ## Endpoints iniciais
 
@@ -59,11 +60,43 @@ npm install
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/alunos/:id` (MR-9, requer JWT de professor ou admin)
 - `GET /api/docs` (Swagger UI)
+
+## Regras da User Story MR-9 implementadas
+
+- Apenas usuários autenticados com `role` professor ou admin podem visualizar detalhes de alunos
+- A consulta retorna 404 quando o aluno não existe
+- A resposta inclui dados cadastrais, turmas vinculadas e `pointsSummary` quando disponível
+- A resposta nunca retorna `password` nem `passwordHash`
+
+## Contrato da visualização de aluno
+
+```json
+{
+  "student": {
+    "id": "6814f12ab3f34872f7558f50",
+    "name": "Maria Silva",
+    "email": "maria@email.com",
+    "role": "aluno",
+    "status": "ativo",
+    "turmas": [
+      {
+        "id": "6814f12ab3f34872f7558f49",
+        "name": "Turma Frontend"
+      }
+    ],
+    "pointsSummary": {
+      "total": 120,
+      "available": 90
+    }
+  }
+}
+```
 
 ## Próximos passos planejados
 
 - Evoluir endpoints com base nas user stories do Jira
-- Adicionar testes automatizados
+- Ampliar testes automatizados conforme novas regras de negócio
 - Configurar CI com GitHub Actions
 - Configurar deploy na Vercel
