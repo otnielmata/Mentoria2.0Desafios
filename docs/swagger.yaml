@@ -51,6 +51,33 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/alunos/{id}:
+    get:
+      tags: [Alunos]
+      summary: Visualiza detalhes de um aluno
+      description: Apenas usuários autenticados com role professor ou admin podem visualizar alunos.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Identificador do aluno.
+      responses:
+        "200":
+          description: Detalhes do aluno retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentDetailResponse"
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode visualizar alunos
+        "404":
+          description: Aluno ou usuário autenticado não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +136,44 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Turma:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Turma Frontend
+    StudentDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f50
+        name:
+          type: string
+          example: Maria Silva
+        email:
+          type: string
+          format: email
+          example: maria@email.com
+        role:
+          type: string
+          example: aluno
+        status:
+          type: string
+          example: ativo
+        turmas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Turma"
+        pointsSummary:
+          type: object
+          additionalProperties: true
+          example:
+            total: 120
+            available: 90
     AuthResponse:
       type: object
       properties:
@@ -117,3 +182,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    StudentDetailResponse:
+      type: object
+      properties:
+        student:
+          $ref: "#/components/schemas/StudentDetail"
