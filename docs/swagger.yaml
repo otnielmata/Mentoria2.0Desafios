@@ -51,6 +51,33 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/pilares:
+    get:
+      tags: [Pilares]
+      summary: Lista pilares do Método do Alavanque
+      description: Todos os usuários autenticados podem listar pilares. Alunos visualizam apenas ativos; professor e admin podem filtrar por status.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            example: ativo
+          description: Filtro por status disponível para professor e admin. Alunos permanecem restritos a pilares ativos.
+      responses:
+        "200":
+          description: Pilares listados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilarListResponse"
+        "400":
+          description: Filtro inválido
+        "401":
+          description: Token inválido ou ausente
+        "404":
+          description: Usuário autenticado não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +136,21 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Pilar:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Clareza
+        description:
+          type: string
+          example: Pilar do Método do Alavanque
+        status:
+          type: string
+          example: ativo
     AuthResponse:
       type: object
       properties:
@@ -117,3 +159,10 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    PilarListResponse:
+      type: object
+      properties:
+        pilares:
+          type: array
+          items:
+            $ref: "#/components/schemas/Pilar"
