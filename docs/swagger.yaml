@@ -51,6 +51,34 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/turmas:
+    post:
+      tags: [Turmas]
+      summary: Cadastra uma turma
+      description: Apenas usuários autenticados com role professor ou admin podem cadastrar turmas.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTurmaRequest"
+      responses:
+        "201":
+          description: Turma cadastrada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurmaResponse"
+        "400":
+          description: Dados inválidos ou período inconsistente
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode cadastrar turmas
+        "404":
+          description: Usuário autenticado não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +137,43 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Turma:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Turma Frontend
+        status:
+          type: string
+          example: ativa
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-07-01T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2026-08-01T00:00:00.000Z"
+    CreateTurmaRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Turma Frontend
+        startDate:
+          type: string
+          format: date
+          description: Data inicial opcional.
+          example: "2026-07-01"
+        endDate:
+          type: string
+          format: date
+          description: Data final opcional.
+          example: "2026-08-01"
     AuthResponse:
       type: object
       properties:
@@ -117,3 +182,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    TurmaResponse:
+      type: object
+      properties:
+        turma:
+          $ref: "#/components/schemas/Turma"
