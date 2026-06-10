@@ -51,6 +51,50 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/turmas:
+    get:
+      tags: [Turmas]
+      summary: Lista turmas
+      description: Apenas usuários autenticados com role professor ou admin podem listar turmas.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Página da listagem.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Quantidade de itens por página. Valores acima de 100 são limitados a 100.
+        - in: query
+          name: status
+          schema:
+            type: string
+            example: ativa
+          description: Filtra turmas pelo status informado.
+      responses:
+        "200":
+          description: Turmas listadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurmaListResponse"
+        "400":
+          description: Parâmetros de paginação ou filtro inválidos
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode listar turmas
+        "404":
+          description: Usuário autenticado não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +153,47 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Turma:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Turma Frontend
+        status:
+          type: string
+          example: ativa
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-07-01T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2026-08-01T00:00:00.000Z"
+        totals:
+          type: object
+          additionalProperties: true
+          example:
+            students: 24
+            activeStudents: 22
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 1
     AuthResponse:
       type: object
       properties:
@@ -117,3 +202,12 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    TurmaListResponse:
+      type: object
+      properties:
+        turmas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Turma"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
