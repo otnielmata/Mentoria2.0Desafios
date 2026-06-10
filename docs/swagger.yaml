@@ -51,6 +51,33 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/turmas/{id}:
+    get:
+      tags: [Turmas]
+      summary: Visualiza detalhes de uma turma
+      description: Apenas usuários autenticados com role professor ou admin podem visualizar turmas.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Identificador da turma.
+      responses:
+        "200":
+          description: Turma encontrada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurmaDetailResponse"
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode visualizar turmas
+        "404":
+          description: Usuário autenticado ou turma não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +136,29 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Turma:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Turma Frontend
+        status:
+          type: string
+          example: ativa
+        studentCount:
+          type: integer
+          example: 24
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-07-01T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2026-08-01T00:00:00.000Z"
     AuthResponse:
       type: object
       properties:
@@ -117,3 +167,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    TurmaDetailResponse:
+      type: object
+      properties:
+        turma:
+          $ref: "#/components/schemas/Turma"
