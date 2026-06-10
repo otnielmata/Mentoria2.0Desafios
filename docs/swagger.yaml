@@ -51,6 +51,36 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/pilares:
+    post:
+      tags: [Pilares]
+      summary: Cadastra pilar do Método do Alavanque
+      description: Apenas professor ou admin pode cadastrar pilares. O nome é único entre pilares ativos.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePilarRequest"
+      responses:
+        "201":
+          description: Pilar criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilarResponse"
+        "400":
+          description: Dados inválidos
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode cadastrar pilares
+        "404":
+          description: Usuário autenticado não encontrado
+        "409":
+          description: Já existe um pilar ativo com este nome
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +139,32 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    Pilar:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Clareza
+        description:
+          type: string
+          example: Pilar do Método do Alavanque
+        status:
+          type: string
+          example: ativo
+    CreatePilarRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Clareza
+        description:
+          type: string
+          description: Descrição opcional do pilar.
+          example: Pilar do Método do Alavanque
     AuthResponse:
       type: object
       properties:
@@ -117,3 +173,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    PilarResponse:
+      type: object
+      properties:
+        pilar:
+          $ref: "#/components/schemas/Pilar"
