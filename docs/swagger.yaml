@@ -51,6 +51,32 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/pilares/{id}:
+    get:
+      tags: [Pilares]
+      summary: Visualiza pilar do Método do Alavanque
+      description: Alunos só podem visualizar pilares ativos. Professor e admin podem visualizar pilares independentemente do status.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador do pilar
+          schema:
+            type: string
+            example: 6814f12ab3f34872f7558f49
+      responses:
+        "200":
+          description: Pilar encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilarResponse"
+        "401":
+          description: Token inválido ou ausente
+        "404":
+          description: Pilar inexistente, inacessível ou usuário autenticado não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +135,46 @@ components:
           type: string
           format: email
           example: otniel@email.com
+        role:
+          type: string
+          example: aluno
+    PilarDesafio:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f50
+        title:
+          type: string
+          example: Diagnosticar ponto de partida
+        name:
+          type: string
+          example: Diagnóstico inicial
+        description:
+          type: string
+          example: Mapear o estado atual antes da execução.
+        status:
+          type: string
+          example: ativo
+    Pilar:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Clareza
+        description:
+          type: string
+          example: Pilar do Método do Alavanque
+        status:
+          type: string
+          example: ativo
+        desafios:
+          type: array
+          items:
+            $ref: "#/components/schemas/PilarDesafio"
     AuthResponse:
       type: object
       properties:
@@ -117,3 +183,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    PilarResponse:
+      type: object
+      properties:
+        pilar:
+          $ref: "#/components/schemas/Pilar"
