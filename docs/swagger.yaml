@@ -51,6 +51,39 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/turmas/{turmaId}/alunos/{alunoId}:
+    delete:
+      tags: [Turmas]
+      summary: Remove aluno de turma
+      description: Remove o vínculo atual entre aluno e turma sem apagar submissões, pontuações ou histórico. Se o vínculo já estiver ausente, retorna 200 com removed igual a false.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: turmaId
+          required: true
+          schema:
+            type: string
+          description: Identificador da turma.
+        - in: path
+          name: alunoId
+          required: true
+          schema:
+            type: string
+          description: Identificador do aluno.
+      responses:
+        "200":
+          description: Remoção processada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentRemovalResponse"
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Usuário autenticado não pode remover alunos de turmas
+        "404":
+          description: Usuário autenticado, turma ou aluno não encontrado
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +142,50 @@ components:
           type: string
           format: email
           example: otniel@email.com
+    EnrollmentRemoval:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49:6814f12ab3f34872f7558f50
+        turmaId:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        studentId:
+          type: string
+          example: 6814f12ab3f34872f7558f50
+        status:
+          type: string
+          enum: [removida, ausente]
+          example: removida
+        removed:
+          type: boolean
+          example: true
+        student:
+          type: object
+          properties:
+            id:
+              type: string
+              example: 6814f12ab3f34872f7558f50
+            name:
+              type: string
+              example: Aluno Teste
+            email:
+              type: string
+              format: email
+              example: aluno@email.com
+        turma:
+          type: object
+          properties:
+            id:
+              type: string
+              example: 6814f12ab3f34872f7558f49
+            name:
+              type: string
+              example: Turma Frontend
+            status:
+              type: string
+              example: ativa
     AuthResponse:
       type: object
       properties:
@@ -117,3 +194,8 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    EnrollmentRemovalResponse:
+      type: object
+      properties:
+        matricula:
+          $ref: "#/components/schemas/EnrollmentRemoval"
