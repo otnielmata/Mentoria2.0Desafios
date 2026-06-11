@@ -2,9 +2,21 @@ openapi: 3.0.3
 info:
   title: Mentoria API
   version: 1.0.0
-  description: Estrutura inicial de API REST com Express, JWT e MongoDB.
+  description: API consolidada para desafios, pontuação, rankings, dashboards e relatórios do Método do Alavanque.
 servers:
   - url: http://localhost:3000
+tags:
+  - name: Auth
+  - name: Perfil
+  - name: Alunos
+  - name: Turmas
+  - name: Pilares
+  - name: Desafios
+  - name: Envios
+  - name: Admin
+  - name: Ranking
+  - name: Relatórios
+  - name: Health
 paths:
   /api/health:
     get:
@@ -16,104 +28,241 @@ paths:
   /api/auth/register:
     post:
       tags: [Auth]
-      summary: Registra um novo usuário
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterRequest"
+      summary: Registra um usuário aluno
       responses:
         "201":
-          description: Usuário criado com sucesso
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-        "409":
-          description: E-mail já cadastrado
+          description: Usuário criado
   /api/auth/login:
     post:
       tags: [Auth]
-      summary: Autentica usuário e retorna token JWT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
+      summary: Autentica usuário e retorna JWT
       responses:
         "200":
-          description: Login realizado com sucesso
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-        "401":
-          description: Credenciais inválidas
-  /api/health/protected:
+          description: Login realizado
+  /api/me:
     get:
-      tags: [Health]
-      summary: Exemplo de rota protegida por JWT
+      tags: [Perfil]
       security:
         - bearerAuth: []
+      summary: Consulta dados do usuário autenticado
       responses:
         "200":
-          description: Token válido
-        "401":
-          description: Token inválido ou ausente
+          description: Perfil encontrado
+    patch:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Atualiza dados editáveis do perfil
+      responses:
+        "200":
+          description: Perfil atualizado
+  /api/alunos:
+    get:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Lista alunos
+      responses:
+        "200":
+          description: Lista retornada
+    post:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Cadastra aluno
+      responses:
+        "201":
+          description: Aluno cadastrado
+  /api/turmas:
+    get:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Lista turmas
+      responses:
+        "200":
+          description: Lista retornada
+    post:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Cadastra turma
+      responses:
+        "201":
+          description: Turma cadastrada
+  /api/turmas/{turmaId}/alunos:
+    post:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Matricula aluno em turma usando alunos_turmas
+      parameters:
+        - $ref: "#/components/parameters/turmaId"
+      responses:
+        "201":
+          description: Matrícula criada
+  /api/turmas/{turmaId}/alunos/{alunoId}:
+    delete:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Remove aluno da turma preservando histórico em alunos_turmas
+      parameters:
+        - $ref: "#/components/parameters/turmaId"
+        - $ref: "#/components/parameters/alunoId"
+      responses:
+        "200":
+          description: Matrícula removida
+  /api/pilares:
+    get:
+      tags: [Pilares]
+      security:
+        - bearerAuth: []
+      summary: Lista pilares do Método do Alavanque
+      responses:
+        "200":
+          description: Lista retornada
+    post:
+      tags: [Pilares]
+      security:
+        - bearerAuth: []
+      summary: Cadastra pilar
+      responses:
+        "201":
+          description: Pilar cadastrado
+  /api/desafios:
+    get:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Lista desafios
+      responses:
+        "200":
+          description: Lista retornada
+    post:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Cadastra desafio com dificuldade e pontuação
+      responses:
+        "201":
+          description: Desafio cadastrado
+  /api/envios-desafios:
+    post:
+      tags: [Envios]
+      security:
+        - bearerAuth: []
+      summary: Registra desafio executado pelo aluno
+      responses:
+        "201":
+          description: Envio criado
+  /api/envios-desafios/{id}/participantes:
+    put:
+      tags: [Envios]
+      security:
+        - bearerAuth: []
+      summary: Atualiza participantes do envio em grupo usando participantes_envio
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Participantes atualizados
+  /api/admin/envios-desafios/pendentes:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Lista envios pendentes de aprovação
+      responses:
+        "200":
+          description: Lista retornada
+  /api/admin/envios-desafios/{id}/avaliacao:
+    patch:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Aprova, reprova ou solicita ajuste em envio
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Envio avaliado e pontuação gerada quando aprovado
+  /api/me/pontuacoes:
+    get:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Consulta pontuação e histórico do aluno
+      responses:
+        "200":
+          description: Pontuação retornada
+  /api/rankings:
+    get:
+      tags: [Ranking]
+      security:
+        - bearerAuth: []
+      summary: Ranking com filtros por turma, pilar, período e tipo
+      responses:
+        "200":
+          description: Ranking retornado
+  /api/me/dashboard:
+    get:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Dashboard do aluno
+      responses:
+        "200":
+          description: Dashboard retornado
+  /api/admin/dashboard:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Dashboard administrativo
+      responses:
+        "200":
+          description: Dashboard retornado
+  /api/admin/relatorios/participacao:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Relatório de participação
+      responses:
+        "200":
+          description: Relatório retornado
+  /api/admin/relatorios/baixa-participacao:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Relatório de alunos com baixa participação
+      responses:
+        "200":
+          description: Relatório retornado
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  schemas:
-    RegisterRequest:
-      type: object
-      required: [name, email, password]
-      properties:
-        name:
-          type: string
-          example: Otniel Mata
-        email:
-          type: string
-          format: email
-          example: otniel@email.com
-        password:
-          type: string
-          format: password
-          example: "123456"
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email:
-          type: string
-          format: email
-          example: otniel@email.com
-        password:
-          type: string
-          format: password
-          example: "123456"
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 6814f12ab3f34872f7558f49
-        name:
-          type: string
-          example: Otniel Mata
-        email:
-          type: string
-          format: email
-          example: otniel@email.com
-    AuthResponse:
-      type: object
-      properties:
-        user:
-          $ref: "#/components/schemas/User"
-        token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    turmaId:
+      in: path
+      name: turmaId
+      required: true
+      schema:
+        type: string
+    alunoId:
+      in: path
+      name: alunoId
+      required: true
+      schema:
+        type: string
