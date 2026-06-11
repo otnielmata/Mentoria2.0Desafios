@@ -11,12 +11,12 @@ async function registerUser({ name, email, password }) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ name, email, passwordHash });
+  const user = await User.create({ name, email, passwordHash, role: "aluno", status: "ativo" });
 
   const token = generateToken({ sub: user.id, email: user.email });
 
   return {
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status },
     token,
   };
 }
@@ -39,7 +39,7 @@ async function loginUser({ email, password }) {
   const token = generateToken({ sub: user.id, email: user.email });
 
   return {
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status },
     token,
   };
 }
