@@ -62,12 +62,98 @@ paths:
           description: Token válido
         "401":
           description: Token inválido ou ausente
+  /api/turmas/{turmaId}/alunos:
+    post:
+      tags: [Turmas]
+      summary: Matricula aluno na turma usando alunos_turmas
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/turmaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId:
+                  type: string
+                  example: 6814f12ab3f34872f7558f50
+      responses:
+        "201":
+          description: Matrícula criada
+        "409":
+          description: Aluno já matriculado nesta turma
+  /api/turmas/{turmaId}/alunos/{alunoId}:
+    delete:
+      tags: [Turmas]
+      summary: Remove aluno da turma preservando histórico em alunos_turmas
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/turmaId"
+        - $ref: "#/components/parameters/alunoId"
+      responses:
+        "200":
+          description: Matrícula marcada como removida
+  /api/envios-desafios:
+    post:
+      tags: [Envios]
+      summary: Registra envio de desafio e cria participantes_envio quando for grupo
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Envio criado
+  /api/envios-desafios/{id}/participantes:
+    put:
+      tags: [Envios]
+      summary: Atualiza participantes ativos em participantes_envio
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Participantes atualizados
+  /api/admin/envios-desafios/{id}/avaliacao:
+    patch:
+      tags: [Admin]
+      summary: Avalia envio e pontua participantes ativos de participantes_envio
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Envio avaliado
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    turmaId:
+      in: path
+      name: turmaId
+      required: true
+      schema:
+        type: string
+    alunoId:
+      in: path
+      name: alunoId
+      required: true
+      schema:
+        type: string
   schemas:
     RegisterRequest:
       type: object
@@ -117,3 +203,31 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    AlunoTurma:
+      type: object
+      properties:
+        aluno:
+          type: string
+        turma:
+          type: string
+        status:
+          type: string
+          example: ativa
+        removedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ParticipanteEnvio:
+      type: object
+      properties:
+        envio:
+          type: string
+        aluno:
+          type: string
+        status:
+          type: string
+          example: ativo
+        removedAt:
+          type: string
+          format: date-time
+          nullable: true
