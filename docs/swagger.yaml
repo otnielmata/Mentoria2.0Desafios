@@ -62,12 +62,78 @@ paths:
           description: Token válido
         "401":
           description: Token inválido ou ausente
+  /api/desafios:
+    get:
+      tags: [Desafios]
+      summary: Lista desafios com dificuldade e pontuação
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de desafios
+    post:
+      tags: [Desafios]
+      summary: Cadastra desafio com pontuação por dificuldade
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesafioRequest"
+      responses:
+        "201":
+          description: Desafio cadastrado
+        "400":
+          description: Dificuldade ou pontuação inválida
+        "403":
+          description: Apenas professor ou admin pode cadastrar desafios
+  /api/desafios/{id}:
+    get:
+      tags: [Desafios]
+      summary: Consulta desafio com difficulty e points
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Desafio encontrado
+    patch:
+      tags: [Desafios]
+      summary: Atualiza desafio, dificuldade e/ou pontos
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Desafio atualizado
+  /api/admin/envios-desafios/{id}/avaliacao:
+    patch:
+      tags: [Admin]
+      summary: Aprova envio e gera pontuação usando pontos calculados do desafio
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Envio avaliado
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
   schemas:
     RegisterRequest:
       type: object
@@ -117,3 +183,33 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    DesafioRequest:
+      type: object
+      required: [pilarId, title, description, difficulty, type]
+      properties:
+        pilarId:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        title:
+          type: string
+          example: Publicar artigo técnico
+        description:
+          type: string
+          example: Compartilhar aprendizado técnico com evidências.
+        difficulty:
+          type: string
+          enum: [facil, medio, dificil, extra]
+          example: dificil
+        points:
+          type: number
+          description: Opcional. Quando não informado, usa a pontuação padrão da dificuldade.
+          example: 30
+        type:
+          type: string
+          enum: [individual, grupo, ambos]
+          example: individual
+        maxParticipantes:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 1
