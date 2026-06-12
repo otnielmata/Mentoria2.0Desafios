@@ -1,0 +1,19 @@
+{
+  "name": "mentoria-desafios-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplicacao web inicial para o Desafios Mentoria 2.0 conectada a API REST.",
+  "scripts": {
+    "dev": "next dev",
+    "start": "next start",
+    "build": "next build"
+  },
+  "dependencies": {
+    "next": "^16.2.9",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
+  }
+}
