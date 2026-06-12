@@ -62,6 +62,32 @@ paths:
           description: Token válido
         "401":
           description: Token inválido ou ausente
+  /api/pilares:
+    get:
+      tags: [Pilares]
+      summary: Lista pilares ativos do Método do Alavanque
+      description: Retorna os pilares criados automaticamente pelo seed idempotente da MR-49.
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Filtra por status. Quando ausente, usa ativo.
+      responses:
+        "200":
+          description: Lista de pilares retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 7
+                  pilares:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Pilar"
 components:
   securitySchemes:
     bearerAuth:
@@ -117,3 +143,24 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    Pilar:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Conhecimento Técnico Alinhado ao Mercado
+        normalizedName:
+          type: string
+          example: conhecimento tecnico alinhado ao mercado
+        description:
+          type: string
+          example: Aprendizado técnico conectado às demandas reais do mercado.
+        status:
+          type: string
+          example: ativo
+        isDefault:
+          type: boolean
+          example: true
