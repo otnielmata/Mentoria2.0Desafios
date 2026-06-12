@@ -9,6 +9,7 @@ const pilarSchema = new mongoose.Schema(
     isDefault: { type: Boolean, default: false, index: true },
   },
   {
+    collection: "pilares",
     timestamps: true,
   }
 );

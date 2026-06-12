@@ -2,6 +2,7 @@ const Desafio = require("../models/desafio.model");
 const Pilar = require("../models/pilar.model");
 const User = require("../models/user.model");
 const {
+  buildPagination,
   createHttpError,
   getEntityId,
   getFirstValue,
@@ -10,6 +11,7 @@ const {
   parseObjectId,
   parseOptionalObjectId,
   parseOptionalText,
+  parsePagination,
   parseRequiredText,
   pointsForDifficulty,
 } = require("./domain-utils");
@@ -48,6 +50,17 @@ async function assertAdmin(authenticatedUserId, message) {
   const user = await User.findById(authenticatedUserId);
   if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
   if (!ADMIN_ROLES.includes(normalizeText(user.role))) throw createHttpError(message, 403);
+  return user;
+}
+
+async function getAuthenticatedUser(authenticatedUserId) {
+  const user = await User.findById(authenticatedUserId);
+  if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
+  return user;
+}
+
+function isAdminUser(user) {
+  return ADMIN_ROLES.includes(normalizeText(user.role));
 }
 
 function parseType(value) {
@@ -104,19 +117,38 @@ async function createDesafio(authenticatedUserId, payload = {}) {
 }
 
 async function listDesafios(authenticatedUserId, query = {}) {
-  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode listar desafios.");
+  const user = await getAuthenticatedUser(authenticatedUserId);
+  const isAdmin = isAdminUser(user);
   const filters = {};
   const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
   if (pilarId) filters.pilar = pilarId;
-  if (query.status) filters.status = String(query.status).trim();
-  const desafios = await Desafio.find(filters).populate("pilar").sort({ title: 1 }).lean();
-  return { total: desafios.length, desafios: desafios.map(serializeDesafio) };
+
+  if (query.type || query.tipo) filters.type = parseType(query.type || query.tipo);
+  if (isAdmin && query.status) {
+    filters.status = String(query.status).trim();
+  } else if (!isAdmin) {
+    filters.status = ACTIVE_STATUS;
+  }
+
+  const { page, limit, skip } = parsePagination(query);
+  const [total, desafios] = await Promise.all([
+    Desafio.countDocuments(filters),
+    Desafio.find(filters).populate("pilar").sort({ title: 1 }).skip(skip).limit(limit).lean(),
+  ]);
+
+  return {
+    total,
+    pagination: buildPagination(total, page, limit),
+    desafios: desafios.map(serializeDesafio),
+  };
 }
 
 async function getDesafio(authenticatedUserId, desafioId) {
-  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode visualizar desafios.");
+  const user = await getAuthenticatedUser(authenticatedUserId);
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
-  const desafio = await Desafio.findById(id).populate("pilar").lean();
+  const filters = { _id: id };
+  if (!isAdminUser(user)) filters.status = ACTIVE_STATUS;
+  const desafio = await Desafio.findOne(filters).populate("pilar").lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   return serializeDesafio(desafio);
 }

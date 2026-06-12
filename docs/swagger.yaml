@@ -7,6 +7,7 @@ servers:
   - url: http://localhost:3000
 tags:
   - name: Auth
+  - name: Heurísticas
   - name: Perfil
   - name: Alunos
   - name: Turmas
@@ -39,6 +40,37 @@ paths:
       responses:
         "200":
           description: Login realizado
+  /api/usuarios/registro:
+    post:
+      tags: [Auth]
+      summary: Alias MR-1 para registrar usuário
+      responses:
+        "201":
+          description: Usuário criado
+  /api/usuarios/login:
+    post:
+      tags: [Auth]
+      summary: Alias MR-2 para autenticar usuário
+      responses:
+        "200":
+          description: Login realizado
+  /api/heuristicas:
+    get:
+      tags: [Heurísticas]
+      security:
+        - bearerAuth: []
+      summary: Lista heurísticas ativas e publicáveis
+      responses:
+        "200":
+          description: Lista retornada
+    post:
+      tags: [Heurísticas]
+      security:
+        - bearerAuth: []
+      summary: Cadastra heurística para o usuário autenticado
+      responses:
+        "201":
+          description: Heurística criada
   /api/me:
     get:
       tags: [Perfil]
@@ -73,6 +105,37 @@ paths:
       responses:
         "201":
           description: Aluno cadastrado
+  /api/alunos/{id}:
+    get:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Visualiza aluno com turmas e resumo de pontuação
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Aluno retornado
+    patch:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Edita dados de aluno
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Aluno atualizado
+    delete:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Desativa aluno por status inativo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Aluno desativado
   /api/turmas:
     get:
       tags: [Turmas]
@@ -90,6 +153,37 @@ paths:
       responses:
         "201":
           description: Turma cadastrada
+  /api/turmas/{id}:
+    get:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Visualiza turma com quantidade de alunos
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Turma retornada
+    patch:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Edita turma
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Turma atualizada
+    delete:
+      tags: [Turmas]
+      security:
+        - bearerAuth: []
+      summary: Encerra turma sem apagar histórico
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Turma encerrada
   /api/turmas/{turmaId}/alunos:
     post:
       tags: [Turmas]

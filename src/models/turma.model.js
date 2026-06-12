@@ -14,6 +14,7 @@ const turmaSchema = new mongoose.Schema(
     deletedAt: { type: Date, default: null },
   },
   {
+    collection: "turmas",
     timestamps: true,
   }
 );

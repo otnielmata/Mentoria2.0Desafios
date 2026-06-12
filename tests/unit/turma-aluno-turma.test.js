@@ -5,6 +5,9 @@ jest.mock("../../src/models/aluno-turma.model", () => ({
 }));
 
 jest.mock("../../src/models/turma.model", () => ({
+  countDocuments: jest.fn(),
+  create: jest.fn(),
+  find: jest.fn(),
   findById: jest.fn(),
   updateOne: jest.fn(),
 }));
@@ -18,7 +21,7 @@ jest.mock("../../src/models/user.model", () => ({
 const AlunoTurma = require("../../src/models/aluno-turma.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { enrollStudent, removeStudent } = require("../../src/services/turma.service");
+const { createTurma, enrollStudent, removeStudent } = require("../../src/services/turma.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const TURMA_ID = "6814f12ab3f34872f7558f41";
@@ -60,5 +63,20 @@ describe("turma.service alunos_turmas", () => {
     expect(User.updateOne).toHaveBeenCalledWith({ _id: STUDENT_ID }, { $pull: { turmas: TURMA_ID } });
     expect(Turma.updateOne).toHaveBeenCalledWith({ _id: TURMA_ID }, { $pull: { alunos: STUDENT_ID } });
     expect(result.status).toBe("removida");
+  });
+
+  it("bloqueia cadastro de turma com data inicial posterior à final", async () => {
+    await expect(
+      createTurma(ADMIN_ID, {
+        name: "Turma inválida",
+        startDate: "2026-07-10",
+        endDate: "2026-07-01",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "data_inicio não pode ser posterior à data_fim.",
+    });
+
+    expect(Turma.create).not.toHaveBeenCalled();
   });
 });

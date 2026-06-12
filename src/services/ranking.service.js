@@ -11,6 +11,10 @@ const STUDENT_ROLE = "aluno";
 const GLOBAL_ROLES = ["professor", "admin"];
 const ALLOWED_TYPES = ["individual", "grupo"];
 
+function shouldHideInactiveStudents() {
+  return normalizeText(process.env.RANKING_HIDE_INACTIVE_STUDENTS) === "true";
+}
+
 function createHttpError(message, statusCode) {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -368,7 +372,11 @@ async function getFilteredRanking(authenticatedUserId, query = {}) {
     .filter(isValidApprovedPontuacao)
     .filter((pontuacao) => matchesScope(pontuacao, scope))
     .filter((pontuacao) => matchesFilters(pontuacao, filters));
-  const ranking = assignPositions(sortRankingRows(buildRankingRows(filteredPontuacoes)));
+  const rows = buildRankingRows(filteredPontuacoes).filter((row) => {
+    if (!shouldHideInactiveStudents()) return true;
+    return normalizeText(row.aluno.status) === "ativo";
+  });
+  const ranking = assignPositions(sortRankingRows(rows));
 
   return {
     totalParticipantes: ranking.length,

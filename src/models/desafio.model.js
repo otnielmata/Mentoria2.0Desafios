@@ -23,6 +23,7 @@ const desafioSchema = new mongoose.Schema(
     status: { type: String, default: "ativo", trim: true, index: true },
   },
   {
+    collection: "desafios",
     timestamps: true,
   }
 );

@@ -25,6 +25,7 @@ const envioDesafioSchema = new mongoose.Schema(
     canceledAt: { type: Date, default: null },
   },
   {
+    collection: "envios_desafios",
     timestamps: true,
   }
 );

@@ -8,6 +8,7 @@ const desafioRoutes = require("./desafio.routes");
 const envioDesafioRoutes = require("./envio-desafio.routes");
 const grupoRoutes = require("./grupo.routes");
 const healthRoutes = require("./health.routes");
+const heuristicRoutes = require("./heuristic.routes");
 const meDashboardRoutes = require("./me-dashboard.routes");
 const mePontuacaoRoutes = require("./me-pontuacao.routes");
 const pilarRoutes = require("./pilar.routes");
@@ -15,6 +16,7 @@ const profileRoutes = require("./profile.routes");
 const rankingRoutes = require("./ranking.routes");
 const studentRoutes = require("./student.routes");
 const turmaRoutes = require("./turma.routes");
+const usuarioRoutes = require("./usuario.routes");
 
 const router = express.Router();
 
@@ -26,6 +28,7 @@ router.use("/auth", authRoutes);
 router.use(desafioRoutes);
 router.use(envioDesafioRoutes);
 router.use(grupoRoutes);
+router.use("/heuristicas", heuristicRoutes);
 router.use("/health", healthRoutes);
 router.use(meDashboardRoutes);
 router.use(mePontuacaoRoutes);
@@ -34,5 +37,6 @@ router.use(profileRoutes);
 router.use(rankingRoutes);
 router.use(studentRoutes);
 router.use(turmaRoutes);
+router.use("/usuarios", usuarioRoutes);
 
 module.exports = router;

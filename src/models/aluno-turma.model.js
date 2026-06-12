@@ -8,6 +8,7 @@ const alunoTurmaSchema = new mongoose.Schema(
     removedAt: { type: Date, default: null },
   },
   {
+    collection: "alunos_turmas",
     timestamps: true,
   }
 );

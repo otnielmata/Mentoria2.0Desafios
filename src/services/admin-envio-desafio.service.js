@@ -4,11 +4,14 @@ const ParticipanteEnvio = require("../models/participante-envio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 const {
+  buildPagination,
   createHttpError,
   getEntityId,
   getFirstValue,
   normalizeText,
   parseObjectId,
+  parseOptionalObjectId,
+  parsePagination,
   parsePeriod,
   toIsoDate,
 } = require("./domain-utils");
@@ -70,14 +73,44 @@ async function listPending(authenticatedUserId, query = {}) {
   const period = parsePeriod(query);
   const filters = { status: PENDING_STATUS };
   if (period.createdAt) filters.createdAt = period.createdAt;
-  if (query.turmaId) filters.turma = parseObjectId(query.turmaId, "Turma deve ser um identificador válido.");
-  const envios = await EnvioDesafio.find(filters)
-    .populate("aluno", "name email role status")
-    .populate("turma", "name code status")
-    .populate("desafio", "title points difficulty type pilar")
-    .sort({ createdAt: -1 })
-    .lean();
-  return { total: envios.length, envios: envios.map(serializeEnvio) };
+  const turmaId = parseOptionalObjectId(query.turmaId || query.turma_id || query.turma, "Turma deve ser um identificador válido.");
+  if (turmaId) filters.turma = turmaId;
+
+  const desafioId = parseOptionalObjectId(query.desafioId || query.desafio_id || query.desafio, "Desafio deve ser um identificador válido.");
+  const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
+  if (pilarId) {
+    const desafios = await Desafio.find({ pilar: pilarId }).select("_id").lean();
+    const desafioIds = (desafios || []).map(getEntityId);
+    filters.desafio = desafioId ? (desafioIds.includes(desafioId) ? desafioId : { $in: [] }) : { $in: desafioIds };
+  } else if (desafioId) {
+    filters.desafio = desafioId;
+  }
+
+  const alunoId = parseOptionalObjectId(query.alunoId || query.aluno_id || query.aluno, "Aluno deve ser um identificador válido.");
+  if (alunoId) filters.$or = [{ aluno: alunoId }, { participantes: alunoId }];
+
+  const { page, limit, skip } = parsePagination(query);
+  const sortDirection = ["desc", "recentes", "-createdAt"].includes(String(query.sort || query.ordenacao || "").trim()) ? -1 : 1;
+  const [total, envios] = await Promise.all([
+    EnvioDesafio.countDocuments(filters),
+    EnvioDesafio.find(filters)
+      .populate("aluno", "name email role status")
+      .populate("turma", "name code status")
+      .populate({
+        path: "desafio",
+        select: "title points difficulty type pilar",
+        populate: { path: "pilar", select: "name description status" },
+      })
+      .sort({ createdAt: sortDirection })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
+  return {
+    total,
+    pagination: buildPagination(total, page, limit),
+    envios: envios.map(serializeEnvio),
+  };
 }
 
 function applyEvaluation(envio, reviewer, parsedEvaluation) {
@@ -141,7 +174,7 @@ async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
 
   const currentStatus = normalizeText(envio.status);
   if (currentStatus === CANCELED_STATUS) throw createHttpError("Envios cancelados não podem ser avaliados.", 400);
-  if (currentStatus === APPROVED_STATUS && parsedEvaluation.decision !== APPROVED_STATUS) {
+  if (currentStatus === APPROVED_STATUS) {
     throw createHttpError("Envios aprovados não podem receber nova decisão.", 400);
   }
 

@@ -7,9 +7,11 @@ const DIFFICULTY_POINTS = {
   extra: 50,
 };
 
-function createHttpError(message, statusCode) {
+function createHttpError(message, statusCode = 500, options = {}) {
   const error = new Error(message);
   error.statusCode = statusCode;
+  if (options.code) error.code = options.code;
+  if (options.details) error.details = options.details;
   return error;
 }
 
@@ -91,6 +93,39 @@ function parseRequiredText(value, fieldName) {
   return value.trim();
 }
 
+function parsePositiveInteger(value, fieldName, fallback, max = 100) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw createHttpError(`${fieldName} deve ser um número inteiro maior que zero.`, 400);
+  }
+
+  return Math.min(parsed, max);
+}
+
+function parsePagination(query = {}) {
+  const page = parsePositiveInteger(getFirstValue(query, ["page", "pagina"]), "page", 1, Number.MAX_SAFE_INTEGER);
+  const limit = parsePositiveInteger(getFirstValue(query, ["limit", "perPage", "per_page", "tamanho"]), "limit", 20, 100);
+
+  return {
+    page,
+    limit,
+    skip: (page - 1) * limit,
+  };
+}
+
+function buildPagination(total, page, limit) {
+  return {
+    page,
+    limit,
+    total,
+    totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+  };
+}
+
 function parseOptionalText(value, fieldName) {
   if (value === undefined || value === null || value === "") {
     return undefined;
@@ -170,9 +205,11 @@ function toIsoDate(value) {
 module.exports = {
   DIFFICULTY_POINTS,
   assertObjectPayload,
+  buildPagination,
   createHttpError,
   getEntityId,
   getFirstValue,
+  hasOwn,
   normalizeName,
   normalizeText,
   omitUndefined,
@@ -180,6 +217,7 @@ module.exports = {
   parseObjectId,
   parseOptionalObjectId,
   parseOptionalText,
+  parsePagination,
   parsePeriod,
   parseRequiredText,
   pointsForDifficulty,
