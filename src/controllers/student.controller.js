@@ -27,8 +27,28 @@ async function show(req, res, next) {
   }
 }
 
+async function update(req, res, next) {
+  try {
+    const aluno = await studentService.updateStudent(req.user.id, req.params.id, req.body);
+    return res.status(200).json({ aluno });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function disable(req, res, next) {
+  try {
+    const aluno = await studentService.disableStudent(req.user.id, req.params.id);
+    return res.status(200).json({ aluno });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   create,
+  disable,
   list,
   show,
+  update,
 };

@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     turmas: [{ type: mongoose.Schema.Types.ObjectId, ref: "Turma" }],
   },
   {
+    collection: "users",
     timestamps: true,
   }
 );

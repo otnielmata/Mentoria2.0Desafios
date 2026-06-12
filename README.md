@@ -41,6 +41,7 @@ cp .env.example .env
 - `MONGODB_URI`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
+- `RANKING_HIDE_INACTIVE_STUDENTS`
 
 ## Instalação
 
@@ -60,9 +61,11 @@ npm install
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/usuarios/registro` e `POST /api/usuarios/login` (aliases MR-1/MR-2)
 - `GET /api/me` e `PATCH /api/me`
-- `POST /api/alunos`, `GET /api/alunos`, `GET /api/alunos/:id`
-- `POST /api/turmas`, `GET /api/turmas`, `GET /api/turmas/:id`, `PATCH /api/turmas/:id`
+- `POST /api/heuristicas` e `GET /api/heuristicas`
+- `POST /api/alunos`, `GET /api/alunos`, `GET /api/alunos/:id`, `PATCH /api/alunos/:id`, `DELETE /api/alunos/:id`
+- `POST /api/turmas`, `GET /api/turmas`, `GET /api/turmas/:id`, `PATCH /api/turmas/:id`, `DELETE /api/turmas/:id`
 - `POST /api/turmas/:turmaId/alunos` e `DELETE /api/turmas/:turmaId/alunos/:alunoId`
 - `POST /api/pilares`, `GET /api/pilares`, `GET /api/pilares/:id`, `PATCH /api/pilares/:id`, `DELETE /api/pilares/:id`
 - `POST /api/desafios`, `GET /api/desafios`, `GET /api/desafios/:id`, `PATCH /api/desafios/:id`, `DELETE /api/desafios/:id`
@@ -107,6 +110,8 @@ Se o admin/professor informar `points`, a pontuação customizada é preservada.
 ## Coleções principais
 
 - `users`: alunos, professores e administradores
+- `auth_attempts`: auditoria básica de tentativas inválidas de login
+- `heuristicas`: diretrizes cadastradas por usuários autenticados
 - `turmas`: turmas da mentoria
 - `alunos_turmas`: vínculo histórico entre alunos e turmas
 - `pilares`: tópicos do Método do Alavanque
@@ -121,10 +126,17 @@ Se o admin/professor informar `points`, a pontuação customizada é preservada.
 - Envios começam com status `pendente`.
 - Evidência é obrigatória.
 - Envios em grupo usam participantes em coleção própria e mantêm array legado para compatibilidade.
-- Grupo respeita o limite máximo definido no desafio, até 5 participantes.
+- Grupo respeita o limite máximo definido no desafio, até 5 alunos no total incluindo o responsável.
+- Participantes de grupo não podem ser duplicados e devem estar ativos na mesma turma.
 - Professor/admin pode aprovar, reprovar ou solicitar ajuste.
 - Ao aprovar, a API gera pontuação para responsável e participantes ativos.
 - Rankings e dashboards consideram pontuações de envios aprovados.
+- Usuários inativos não podem fazer login.
+- Alunos são desativados por soft delete (`status: inativo`), preservando envios, pontuações e vínculos históricos.
+
+## Cobertura consolidada MR-1 a MR-49
+
+Esta branch consolida os contratos das User Stories MR-1 a MR-49: autenticação, perfil, heurísticas, alunos, turmas, pilares, desafios, envios, grupos, aprovações, pontuação automática, rankings, dashboards, relatórios, coleções relacionais (`alunos_turmas` e `participantes_envio`), pontuação por dificuldade e seed idempotente dos 7 pilares padrão.
 
 ## Próximos passos planejados
 

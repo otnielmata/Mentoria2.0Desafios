@@ -2,11 +2,13 @@ const AlunoTurma = require("../models/aluno-turma.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const {
+  buildPagination,
   createHttpError,
   getEntityId,
   normalizeText,
   parseObjectId,
   parseOptionalText,
+  parsePagination,
   parseRequiredText,
   toIsoDate,
 } = require("./domain-utils");
@@ -25,6 +27,7 @@ function serializeTurma(turma, alunos = []) {
     startDate: toIsoDate(turma.startDate),
     endDate: toIsoDate(turma.endDate),
     status: turma.status,
+    quantidadeAlunos: alunos.length || (Array.isArray(turma.alunos) ? turma.alunos.length : 0),
     alunos: alunos.map((aluno) => ({
       id: getEntityId(aluno),
       name: aluno.name,
@@ -47,15 +50,24 @@ function parseDateField(value, fieldName) {
   return date;
 }
 
+function assertValidPeriod(startDate, endDate) {
+  if (startDate && endDate && startDate > endDate) {
+    throw createHttpError("data_inicio não pode ser posterior à data_fim.", 400);
+  }
+}
+
 async function createTurma(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode cadastrar turmas.");
+  const startDate = parseDateField(payload.startDate || payload.data_inicio, "data_inicio");
+  const endDate = parseDateField(payload.endDate || payload.data_fim, "data_fim");
+  assertValidPeriod(startDate, endDate);
 
   const turma = await Turma.create({
     name: parseRequiredText(payload.name || payload.nome, "Nome"),
     code: parseOptionalText(payload.code || payload.codigo, "Código") || null,
     description: parseOptionalText(payload.description || payload.descricao, "Descrição") || null,
-    startDate: parseDateField(payload.startDate || payload.data_inicio, "data_inicio"),
-    endDate: parseDateField(payload.endDate || payload.data_fim, "data_fim"),
+    startDate,
+    endDate,
     status: payload.status || ACTIVE_TURMA_STATUS,
   });
 
@@ -66,8 +78,16 @@ async function listTurmas(authenticatedUserId, query = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode listar turmas.");
   const filters = {};
   if (query.status) filters.status = String(query.status).trim();
-  const turmas = await Turma.find(filters).sort({ name: 1 }).lean();
-  return { total: turmas.length, turmas: turmas.map((turma) => serializeTurma(turma)) };
+  const { page, limit, skip } = parsePagination(query);
+  const [total, turmas] = await Promise.all([
+    Turma.countDocuments(filters),
+    Turma.find(filters).sort({ name: 1 }).skip(skip).limit(limit).lean(),
+  ]);
+  return {
+    total,
+    pagination: buildPagination(total, page, limit),
+    turmas: turmas.map((turma) => serializeTurma(turma)),
+  };
 }
 
 async function getTurma(authenticatedUserId, turmaId) {
@@ -93,8 +113,14 @@ async function updateTurma(authenticatedUserId, turmaId, payload = {}) {
   if (payload.startDate || payload.data_inicio) updates.startDate = parseDateField(payload.startDate || payload.data_inicio, "data_inicio");
   if (payload.endDate || payload.data_fim) updates.endDate = parseDateField(payload.endDate || payload.data_fim, "data_fim");
 
+  const current = await Turma.findById(id).lean();
+  if (!current) throw createHttpError("Turma não encontrada.", 404);
+  assertValidPeriod(
+    Object.prototype.hasOwnProperty.call(updates, "startDate") ? updates.startDate : current.startDate,
+    Object.prototype.hasOwnProperty.call(updates, "endDate") ? updates.endDate : current.endDate
+  );
+
   const turma = await Turma.findByIdAndUpdate(id, updates, { new: true }).lean();
-  if (!turma) throw createHttpError("Turma não encontrada.", 404);
   return serializeTurma(turma);
 }
 

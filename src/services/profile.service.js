@@ -25,6 +25,10 @@ async function getMe(authenticatedUserId) {
 
 async function updateMe(authenticatedUserId, payload = {}) {
   const updates = {};
+  const currentUser = await User.findById(authenticatedUserId).lean();
+  if (!currentUser) {
+    throw createHttpError("Usuário autenticado não encontrado.", 404);
+  }
 
   FORBIDDEN_FIELDS.forEach((field) => {
     if (Object.prototype.hasOwnProperty.call(payload, field)) {
@@ -36,12 +40,16 @@ async function updateMe(authenticatedUserId, payload = {}) {
   if (name) updates.name = name;
 
   const email = parseOptionalText(payload.email, "E-mail");
-  if (email) updates.email = email.toLowerCase();
+  if (email) {
+    const normalizedEmail = email.toLowerCase();
+    if (normalizedEmail !== currentUser.email) {
+      const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: authenticatedUserId } }).lean();
+      if (existingUser) throw createHttpError("E-mail já está em uso.", 409, { code: "EMAIL_ALREADY_IN_USE" });
+    }
+    updates.email = normalizedEmail;
+  }
 
   const user = await User.findByIdAndUpdate(authenticatedUserId, updates, { new: true }).lean();
-  if (!user) {
-    throw createHttpError("Usuário autenticado não encontrado.", 404);
-  }
 
   return serializeUser(user);
 }

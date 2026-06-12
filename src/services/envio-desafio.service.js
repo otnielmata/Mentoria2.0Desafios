@@ -1,3 +1,4 @@
+const AlunoTurma = require("../models/aluno-turma.model");
 const Desafio = require("../models/desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
@@ -5,12 +6,15 @@ const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const {
   assertObjectPayload,
+  buildPagination,
   createHttpError,
   getEntityId,
   getFirstValue,
+  hasOwn,
   normalizeText,
   parseObjectId,
   parseOptionalObjectId,
+  parsePagination,
   parsePeriod,
   parseRequiredText,
   toIsoDate,
@@ -25,16 +29,74 @@ const GROUP_TYPE = "grupo";
 const ALLOWED_SUBMISSION_TYPES = ["individual", "grupo"];
 const EDITABLE_STATUSES = [PENDING_STATUS, ADJUST_STATUS];
 
+function serializeUser(user) {
+  if (!user || typeof user !== "object") return user ? { id: getEntityId(user) } : null;
+  return {
+    id: getEntityId(user),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+  };
+}
+
+function serializePilar(pilar) {
+  if (!pilar || typeof pilar !== "object") return pilar ? { id: getEntityId(pilar) } : null;
+  return {
+    id: getEntityId(pilar),
+    name: pilar.name,
+    description: pilar.description,
+    status: pilar.status,
+  };
+}
+
+function serializeTurma(turma) {
+  if (!turma || typeof turma !== "object") return turma ? { id: getEntityId(turma) } : null;
+  return {
+    id: getEntityId(turma),
+    name: turma.name,
+    code: turma.code,
+    description: turma.description,
+    status: turma.status,
+  };
+}
+
+function serializeDesafio(desafio) {
+  if (!desafio || typeof desafio !== "object") return desafio ? { id: getEntityId(desafio) } : null;
+  return {
+    id: getEntityId(desafio),
+    title: desafio.title,
+    description: desafio.description,
+    pilar: serializePilar(desafio.pilar),
+    points: desafio.points,
+    difficulty: desafio.difficulty,
+    type: desafio.type,
+    maxParticipantes: desafio.maxParticipantes,
+    status: desafio.status,
+  };
+}
+
 function serializeEnvio(envio, participantes = []) {
+  const participantesSource = participantes.length > 0 ? participantes : envio.participantes || [];
+  const participantesIds = participantesSource.map(getEntityId);
+  const participantesDetalhes = participantesSource
+    .filter((participante) => participante && typeof participante === "object")
+    .map(serializeUser);
+
   return {
     id: getEntityId(envio),
     desafioId: getEntityId(envio.desafio),
+    desafio: serializeDesafio(envio.desafio),
+    pilar: serializePilar(envio.desafio && envio.desafio.pilar),
     turmaId: getEntityId(envio.turma),
+    turma: serializeTurma(envio.turma),
     alunoId: getEntityId(envio.aluno),
+    aluno: serializeUser(envio.aluno),
     description: envio.description,
     type: envio.type,
     evidencias: envio.evidencias,
-    participantes: participantes.length > 0 ? participantes.map(getEntityId) : (envio.participantes || []).map(getEntityId),
+    participantes: participantesIds,
+    participantesDetalhes,
     status: envio.status,
     feedback: envio.feedback,
     approvedBy: envio.approvedBy ? getEntityId(envio.approvedBy) : null,
@@ -74,7 +136,9 @@ function parseParticipantes(payload, type) {
   const participantes = getFirstValue(payload, ["participantes", "participants"]);
   if (!Array.isArray(participantes) || participantes.length === 0) throw createHttpError("Participantes são obrigatórios para envio em grupo.", 400);
 
-  return [...new Set(participantes.map((participante) => parseObjectId(participante, "Participantes devem conter identificadores válidos.")))];
+  const parsed = participantes.map((participante) => parseObjectId(participante, "Participantes devem conter identificadores válidos."));
+  if (new Set(parsed).size !== parsed.length) throw createHttpError("Participantes não podem conter duplicidades.", 400);
+  return parsed;
 }
 
 async function getActiveDesafio(desafioId) {
@@ -97,17 +161,27 @@ function assertChallengeAllowsSubmissionType(desafio, submissionType) {
 }
 
 function assertParticipantsLimit(participantes, desafio) {
-  if (participantes.length > desafio.maxParticipantes) {
+  if (participantes.length + 1 > desafio.maxParticipantes) {
     throw createHttpError("Participantes excedem o limite permitido para este desafio.", 400);
   }
 }
 
-async function assertValidParticipants(participantes, responsibleId) {
+async function assertValidParticipants(participantes, responsibleId, turmaId) {
   if (participantes.includes(responsibleId)) throw createHttpError("Aluno responsável não deve ser incluído como participante.", 400);
   if (participantes.length === 0) return;
 
   const users = await User.find({ _id: { $in: participantes }, role: STUDENT_ROLE, status: ACTIVE_STATUS }).lean();
   if ((users || []).length !== participantes.length) throw createHttpError("Todos os participantes devem ser alunos ativos.", 400);
+
+  const links = await AlunoTurma.find({
+    turma: turmaId,
+    aluno: { $in: participantes },
+    status: "ativa",
+  }).lean();
+  const linkedStudentIds = new Set((links || []).map((link) => getEntityId(link.aluno)));
+  if (linkedStudentIds.size !== participantes.length) {
+    throw createHttpError("Participantes devem ser alunos ativos da mesma turma.", 400);
+  }
 }
 
 async function syncParticipantes(envioId, participanteIds) {
@@ -130,7 +204,7 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
 
   assertChallengeAllowsSubmissionType(desafio, type);
   assertParticipantsLimit(participantes, desafio);
-  await assertValidParticipants(participantes, responsibleId);
+  await assertValidParticipants(participantes, responsibleId, turmaId);
 
   const envio = await EnvioDesafio.create({
     desafio: desafioId,
@@ -158,15 +232,46 @@ async function listMine(authenticatedUserId, query = {}) {
   if (period.createdAt) filters.createdAt = period.createdAt;
   const turmaId = parseOptionalObjectId(query.turmaId || query.turma_id || query.turma, "Turma deve ser um identificador válido.");
   if (turmaId) filters.turma = turmaId;
-  const envios = await EnvioDesafio.find(filters).populate("desafio").populate("turma").sort({ createdAt: -1 }).lean();
-  return { total: envios.length, envios: envios.map((envio) => serializeEnvio(envio)) };
+  const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
+  if (pilarId) {
+    const desafios = await Desafio.find({ pilar: pilarId }).select("_id").lean();
+    filters.desafio = { $in: (desafios || []).map(getEntityId) };
+  }
+
+  const { page, limit, skip } = parsePagination(query);
+  const [total, envios] = await Promise.all([
+    EnvioDesafio.countDocuments(filters),
+    EnvioDesafio.find(filters)
+      .populate({
+        path: "desafio",
+        populate: { path: "pilar" },
+      })
+      .populate("turma")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
+  return {
+    total,
+    pagination: buildPagination(total, page, limit),
+    envios: envios.map((envio) => serializeEnvio(envio)),
+  };
 }
 
 async function getEnvio(authenticatedUserId, envioId) {
   const id = parseObjectId(envioId, "Envio deve ser um identificador válido.");
   const user = await User.findById(authenticatedUserId);
   if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
-  const envio = await EnvioDesafio.findById(id).populate("desafio").populate("turma").lean();
+  const envio = await EnvioDesafio.findById(id)
+    .populate({
+      path: "desafio",
+      populate: { path: "pilar" },
+    })
+    .populate("turma")
+    .populate("aluno", "name email role status")
+    .populate("participantes", "name email role status")
+    .lean();
   if (!envio) throw createHttpError("Envio de desafio não encontrado.", 404);
 
   const isOwner = getEntityId(envio.aluno) === authenticatedUserId;
@@ -185,7 +290,8 @@ async function updateEnvio(authenticatedUserId, envioId, payload = {}) {
   if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser alterados.", 400);
 
   if (payload.description || payload.descricao) envio.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
-  if (payload.evidencias || payload.evidences || payload.evidence || payload.evidencia_url) envio.evidencias = parseEvidencias(payload);
+  const hasEvidenceField = ["evidencias", "evidences", "evidence", "evidencia_url"].some((field) => hasOwn(payload, field));
+  if (hasEvidenceField) envio.evidencias = parseEvidencias(payload);
   const updated = await envio.save();
   return serializeEnvio(updated);
 }
@@ -201,7 +307,7 @@ async function updateParticipantes(authenticatedUserId, envioId, payload = {}) {
 
   const participantes = parseParticipantes(payload, GROUP_TYPE);
   assertParticipantsLimit(participantes, envio.desafio);
-  await assertValidParticipants(participantes, authenticatedUserId);
+  await assertValidParticipants(participantes, authenticatedUserId, getEntityId(envio.turma));
   envio.participantes = participantes;
   const updated = await envio.save();
   await syncParticipantes(id, participantes);
@@ -214,7 +320,7 @@ async function cancelEnvio(authenticatedUserId, envioId) {
   const envio = await EnvioDesafio.findById(id);
   if (!envio) throw createHttpError("Envio de desafio não encontrado.", 404);
   if (getEntityId(envio.aluno) !== authenticatedUserId) throw createHttpError("Apenas o aluno responsável pode cancelar este envio.", 403);
-  if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser cancelados.", 400);
+  if (normalizeText(envio.status) !== PENDING_STATUS) throw createHttpError("Somente envios pendentes podem ser cancelados.", 400);
   envio.status = CANCELED_STATUS;
   envio.canceledAt = new Date();
   const updated = await envio.save();

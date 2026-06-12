@@ -1,14 +1,17 @@
 const bcrypt = require("bcryptjs");
 const AlunoTurma = require("../models/aluno-turma.model");
+const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const {
+  buildPagination,
   createHttpError,
   getEntityId,
   normalizeText,
   parseObjectId,
   parseOptionalObjectId,
   parseOptionalText,
+  parsePagination,
   parseRequiredText,
 } = require("./domain-utils");
 
@@ -25,6 +28,10 @@ function serializeStudent(user) {
     status: user.status,
     turmas: Array.isArray(user.turmas) ? user.turmas.map(getEntityId) : [],
   };
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function assertAdmin(authenticatedUserId, message) {
@@ -77,6 +84,7 @@ async function listStudents(authenticatedUserId, query = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode listar alunos.");
 
   const filters = { role: STUDENT_ROLE };
+  const andFilters = [];
   const status = parseOptionalText(query.status, "status");
   if (status) filters.status = status;
 
@@ -84,13 +92,38 @@ async function listStudents(authenticatedUserId, query = {}) {
   if (turmaId) {
     const links = await AlunoTurma.find({ turma: turmaId, status: "ativa" }).lean();
     const alunoIds = (links || []).map((link) => getEntityId(link.aluno)).filter(Boolean);
-    filters.$or = [{ _id: { $in: alunoIds } }, { turmas: turmaId }];
+    andFilters.push({ $or: [{ _id: { $in: alunoIds } }, { turmas: turmaId }] });
   }
 
-  const students = await User.find(filters).sort({ name: 1 }).lean();
+  const search = parseOptionalText(query.search || query.q || query.texto, "Busca");
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    andFilters.push({ $or: [{ name: searchRegex }, { email: searchRegex }] });
+  }
+
+  if (andFilters.length > 0) filters.$and = andFilters;
+
+  const { page, limit, skip } = parsePagination(query);
+  const [total, students] = await Promise.all([
+    User.countDocuments(filters),
+    User.find(filters).sort({ name: 1 }).skip(skip).limit(limit).lean(),
+  ]);
+
   return {
-    total: students.length,
+    total,
+    pagination: buildPagination(total, page, limit),
     alunos: students.map(serializeStudent),
+  };
+}
+
+async function getPontuacaoResumo(studentId) {
+  const pontuacoes = await Pontuacao.find({ aluno: studentId }).lean();
+  const totalPontos = (pontuacoes || []).reduce((total, pontuacao) => total + Number(pontuacao.pontos || 0), 0);
+  const desafiosAprovados = new Set((pontuacoes || []).map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean)).size;
+
+  return {
+    totalPontos,
+    desafiosAprovados,
   };
 }
 
@@ -99,11 +132,51 @@ async function getStudent(authenticatedUserId, studentId) {
   const id = parseObjectId(studentId, "Aluno deve ser um identificador válido.");
   const student = await User.findOne({ _id: id, role: STUDENT_ROLE }).populate("turmas").lean();
   if (!student) throw createHttpError("Aluno não encontrado.", 404);
+  return {
+    ...serializeStudent(student),
+    pontuacao: await getPontuacaoResumo(id),
+  };
+}
+
+async function updateStudent(authenticatedUserId, studentId, payload = {}) {
+  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode editar alunos.");
+  const id = parseObjectId(studentId, "Aluno deve ser um identificador válido.");
+  const student = await User.findOne({ _id: id, role: STUDENT_ROLE }).lean();
+  if (!student) throw createHttpError("Aluno não encontrado.", 404);
+
+  const updates = {};
+  const name = parseOptionalText(payload.name || payload.nome, "Nome");
+  if (name) updates.name = name;
+
+  const email = parseOptionalText(payload.email, "E-mail");
+  if (email) {
+    const normalizedEmail = email.toLowerCase();
+    if (normalizedEmail !== student.email) {
+      const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: id } }).lean();
+      if (existingUser) throw createHttpError("E-mail já está em uso.", 409, { code: "EMAIL_ALREADY_IN_USE" });
+    }
+    updates.email = normalizedEmail;
+  }
+
+  const status = parseOptionalText(payload.status, "Status");
+  if (status) updates.status = status;
+
+  const updated = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
+  return serializeStudent(updated);
+}
+
+async function disableStudent(authenticatedUserId, studentId) {
+  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode desativar alunos.");
+  const id = parseObjectId(studentId, "Aluno deve ser um identificador válido.");
+  const student = await User.findOneAndUpdate({ _id: id, role: STUDENT_ROLE }, { status: "inativo" }, { new: true }).lean();
+  if (!student) throw createHttpError("Aluno não encontrado.", 404);
   return serializeStudent(student);
 }
 
 module.exports = {
   createStudent,
+  disableStudent,
   getStudent,
   listStudents,
+  updateStudent,
 };

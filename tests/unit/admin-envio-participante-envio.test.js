@@ -76,4 +76,21 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       alunos: [OWNER_ID, PARTICIPANT_ID],
     });
   });
+
+  it("bloqueia reavaliação de envio já aprovado", async () => {
+    EnvioDesafio.findById.mockResolvedValue({
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, points: 20, difficulty: "medio" },
+      aluno: OWNER_ID,
+      type: "individual",
+      status: "aprovado",
+    });
+
+    await expect(evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "aprovado" })).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Envios aprovados não podem receber nova decisão.",
+    });
+
+    expect(Pontuacao.create).not.toHaveBeenCalled();
+  });
 });

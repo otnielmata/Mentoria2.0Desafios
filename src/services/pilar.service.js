@@ -1,3 +1,4 @@
+const Desafio = require("../models/desafio.model");
 const Pilar = require("../models/pilar.model");
 const User = require("../models/user.model");
 const {
@@ -21,6 +22,19 @@ function serializePilar(pilar) {
     description: pilar.description,
     status: pilar.status,
     isDefault: Boolean(pilar.isDefault),
+  };
+}
+
+function serializeDesafioResumo(desafio) {
+  return {
+    id: getEntityId(desafio),
+    title: desafio.title,
+    description: desafio.description,
+    points: desafio.points,
+    difficulty: desafio.difficulty,
+    type: desafio.type,
+    maxParticipantes: desafio.maxParticipantes,
+    status: desafio.status,
   };
 }
 
@@ -71,15 +85,24 @@ async function getPilar(authenticatedUserId, pilarId) {
   const user = await getAuthenticatedUser(authenticatedUserId);
   const id = parseObjectId(pilarId, "Pilar deve ser um identificador válido.");
   const filters = { _id: id };
-  if (!ADMIN_ROLES.includes(normalizeText(user.role))) filters.status = ACTIVE_STATUS;
+  const isAdmin = ADMIN_ROLES.includes(normalizeText(user.role));
+  if (!isAdmin) filters.status = ACTIVE_STATUS;
   const pilar = await Pilar.findOne(filters).lean();
   if (!pilar) throw createHttpError("Pilar não encontrado.", 404);
-  return serializePilar(pilar);
+  const desafioFilters = { pilar: id };
+  if (!isAdmin) desafioFilters.status = ACTIVE_STATUS;
+  const desafios = await Desafio.find(desafioFilters).sort({ title: 1 }).lean();
+  return {
+    ...serializePilar(pilar),
+    desafios: desafios.map(serializeDesafioResumo),
+  };
 }
 
 async function updatePilar(authenticatedUserId, pilarId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode editar pilares.");
   const id = parseObjectId(pilarId, "Pilar deve ser um identificador válido.");
+  const current = await Pilar.findById(id).lean();
+  if (!current) throw createHttpError("Pilar não encontrado.", 404);
   const updates = {};
 
   if (payload.name || payload.nome) {
@@ -93,8 +116,18 @@ async function updatePilar(authenticatedUserId, pilarId, payload = {}) {
   }
 
   if (payload.status) updates.status = parseRequiredText(payload.status, "Status");
+  const targetStatus = updates.status || current.status;
+  const targetNormalizedName = updates.normalizedName || current.normalizedName;
+  if (normalizeText(targetStatus) === ACTIVE_STATUS) {
+    const duplicate = await Pilar.findOne({
+      _id: { $ne: id },
+      normalizedName: targetNormalizedName,
+      status: ACTIVE_STATUS,
+    }).lean();
+    if (duplicate) throw createHttpError("Pilar já cadastrado.", 409);
+  }
+
   const pilar = await Pilar.findByIdAndUpdate(id, updates, { new: true }).lean();
-  if (!pilar) throw createHttpError("Pilar não encontrado.", 404);
   return serializePilar(pilar);
 }
 

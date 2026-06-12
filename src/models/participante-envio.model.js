@@ -8,6 +8,7 @@ const participanteEnvioSchema = new mongoose.Schema(
     removedAt: { type: Date, default: null },
   },
   {
+    collection: "participantes_envio",
     timestamps: true,
   }
 );

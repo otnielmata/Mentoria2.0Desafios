@@ -10,6 +10,7 @@ const pontuacaoSchema = new mongoose.Schema(
     source: { type: String, default: "envio_desafio", trim: true },
   },
   {
+    collection: "pontuacoes",
     timestamps: true,
   }
 );
