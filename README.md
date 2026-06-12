@@ -1,15 +1,23 @@
-# Mentoria API - Estrutura Inicial
+# Mentoria 2.0 Desafios
 
-Estrutura inicial de uma API REST construída com JavaScript, Express, autenticação JWT e MongoDB, organizada em camadas para facilitar evolução por user stories.
+Estrutura inicial de uma API REST construída com JavaScript, Express, autenticação JWT e MongoDB, com uma aplicação web inicial em Next.js para consumir os endpoints do backend.
 
-## Stack
+## Stack da API
 
 - Node.js + Express
 - MongoDB + Mongoose
 - JWT (`jsonwebtoken`)
 - Swagger (`swagger-ui-express` + `yamljs`)
 
-## Arquitetura de pastas
+## Stack da Web
+
+- Next.js
+- React
+- JavaScript
+- Tema claro/escuro
+- Cliente HTTP conectado a API REST
+
+## Arquitetura de pastas da API
 
 ```text
 src/
@@ -25,7 +33,21 @@ docs/
   swagger.yaml
 ```
 
+## Arquitetura de pastas da Web
+
+```text
+web/
+  src/
+    app/             # Views e rotas do Next.js
+    components/      # Componentes visuais reutilizaveis
+    controllers/     # Orquestracao das acoes das telas
+    models/          # Validacoes e contratos de entrada
+    services/        # Integracao com API REST e sessao local
+```
+
 ## Configuração de ambiente
+
+### API
 
 1. Copie o exemplo:
 
@@ -42,16 +64,44 @@ cp .env.example .env
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
 
-## Instalação
+### Web
+
+1. Copie o exemplo:
+
+```bash
+cp web/.env.example web/.env.local
+```
+
+2. Ajuste a URL da API:
+
+- `NEXT_PUBLIC_API_BASE_URL`
+
+## Instalação da API
 
 ```bash
 npm install
 ```
 
-## Scripts
+## Instalação da Web
+
+```bash
+cd web
+npm install
+```
+
+## Scripts da API
 
 - `npm run dev`: inicia com `nodemon` e reinicia automaticamente a cada alteração
 - `npm start`: inicia em modo estático
+
+## Scripts da Web
+
+Execute dentro da pasta `web/`:
+
+- `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
+- `npm start`: inicia a aplicação web em modo estático/producao depois do build
+- `npm run build`: gera a versão de produção
+- `npm test`: executa os testes unitários da aplicação web
 
 ## Endpoints iniciais
 
@@ -60,6 +110,20 @@ npm install
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/docs` (Swagger UI)
+
+## Telas iniciais da Web
+
+- Inicio
+- Login
+- Registrar usuario usando `POST /api/usuarios/registro`
+- Dashboard
+- Heuristicas
+
+## Integração Web + API
+
+A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação JWT e as regras de negócio continuam centralizados na API REST. A web consome os endpoints por meio da variável `NEXT_PUBLIC_API_BASE_URL` e armazena o token JWT localmente para chamadas autenticadas.
+
+Na funcionalidade de cadastro da web, somente token e dados básicos do usuário são persistidos na sessão local; a senha não é exibida nem armazenada fora do estado temporário do formulário.
 
 ## Próximos passos planejados
 
