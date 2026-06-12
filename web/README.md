@@ -48,6 +48,7 @@ npm install
 - `npm run dev`: inicia a aplicacao em modo desenvolvimento, reiniciando quando arquivos forem alterados
 - `npm start`: inicia a aplicacao em modo estatico/producao depois do build
 - `npm run build`: gera a versao de producao
+- `npm test`: executa testes unitarios da camada web
 
 ## Telas iniciais
 
@@ -56,6 +57,16 @@ npm install
 - Registrar usuario
 - Dashboard
 - Heuristicas
+
+## Cadastro de usuario
+
+A tela `Registrar usuario` implementa a MR-50 e usa somente o endpoint:
+
+```text
+POST /api/usuarios/registro
+```
+
+O formulario valida nome, e-mail e senha antes de chamar a API, destaca campos invalidos com mensagens acessiveis, evita duplo envio e mostra estado de carregamento. Quando a API retorna um token JWT, a sessao local e iniciada com token e dados basicos do usuario; a senha nunca e persistida.
 
 ## Integracao com a API
 

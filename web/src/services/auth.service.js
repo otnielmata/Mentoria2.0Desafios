@@ -7,7 +7,7 @@ async function authenticate(path, payload) {
     body: JSON.stringify(payload),
   });
 
-  if (result.ok) {
+  if (result.ok && result.data?.token) {
     saveSession(result.data);
   }
 
@@ -19,5 +19,5 @@ export function loginUser(payload) {
 }
 
 export function registerUser(payload) {
-  return authenticate("/api/auth/register", payload);
+  return authenticate("/api/usuarios/registro", payload);
 }

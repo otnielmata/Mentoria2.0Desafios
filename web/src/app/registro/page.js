@@ -17,30 +17,63 @@ const initialForm = {
 export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState(initialForm);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [status, setStatus] = useState({ type: "", message: "" });
   const [isSubmitting, setSubmitting] = useState(false);
 
   function updateField(event) {
+    const { name, value } = event.target;
+
     setForm((current) => ({
       ...current,
-      [event.target.name]: event.target.value,
+      [name]: value,
     }));
+
+    if (fieldErrors[name]) {
+      setFieldErrors((current) => ({
+        ...current,
+        [name]: "",
+      }));
+    }
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
     setSubmitting(true);
+    setFieldErrors({});
     setStatus({ type: "", message: "" });
 
     const result = await register(form);
     setSubmitting(false);
 
     if (!result.ok) {
+      setFieldErrors(result.fieldErrors || {});
       setStatus({ type: "error", message: result.message });
+
+      if (result.status) {
+        setForm((current) => ({ ...current, password: "" }));
+      }
+
       return;
     }
 
-    router.push("/dashboard");
+    const hasToken = Boolean(result.data?.token);
+
+    setStatus({
+      type: "success",
+      message: hasToken
+        ? "Cadastro realizado com sucesso. Sua sessao foi iniciada."
+        : "Cadastro realizado com sucesso. Entre para acessar o painel.",
+    });
+
+    window.setTimeout(() => {
+      router.push(hasToken ? "/dashboard" : "/login");
+    }, 700);
   }
 
   return (
@@ -48,8 +81,9 @@ export default function RegisterPage() {
       <section className="auth-panel">
         <p className="eyebrow">Novo acesso</p>
         <h1>Registrar usuario</h1>
-        <form className="form-stack" onSubmit={handleSubmit}>
+        <form aria-busy={isSubmitting} className="form-stack" noValidate onSubmit={handleSubmit}>
           <Input
+            error={fieldErrors.name}
             label="Nome"
             name="name"
             value={form.name}
@@ -58,6 +92,7 @@ export default function RegisterPage() {
             required
           />
           <Input
+            error={fieldErrors.email}
             label="E-mail"
             name="email"
             type="email"
@@ -67,7 +102,9 @@ export default function RegisterPage() {
             required
           />
           <Input
+            error={fieldErrors.password}
             label="Senha"
+            minLength={6}
             name="password"
             type="password"
             value={form.password}
