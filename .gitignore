@@ -5,3 +5,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 coverage
+.codex-worktrees/
+.next
+web/.next
+web/out
+web/.env.local
