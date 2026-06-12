@@ -6,16 +6,29 @@ function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function hasErrors(fieldErrors) {
+  return Object.keys(fieldErrors).length > 0;
+}
+
 export function validateLoginPayload(payload) {
-  const email = cleanText(payload.email).toLowerCase();
-  const password = cleanText(payload.password);
+  const email = cleanText(payload?.email).toLowerCase();
+  const password = cleanText(payload?.password);
+  const fieldErrors = {};
 
   if (!isEmail(email)) {
-    return { ok: false, message: "Informe um e-mail valido." };
+    fieldErrors.email = "Informe um e-mail valido.";
   }
 
   if (password.length < 6) {
-    return { ok: false, message: "A senha deve ter pelo menos 6 caracteres." };
+    fieldErrors.password = "Informe a senha com pelo menos 6 caracteres.";
+  }
+
+  if (hasErrors(fieldErrors)) {
+    return {
+      ok: false,
+      message: "Revise os campos destacados antes de continuar.",
+      fieldErrors,
+    };
   }
 
   return {
@@ -25,7 +38,7 @@ export function validateLoginPayload(payload) {
 }
 
 export function validateRegisterPayload(payload) {
-  const name = cleanText(payload.name);
+  const name = cleanText(payload?.name);
   const loginValidation = validateLoginPayload(payload);
 
   if (name.length < 2) {

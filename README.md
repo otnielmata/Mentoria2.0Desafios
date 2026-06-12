@@ -101,6 +101,7 @@ Execute dentro da pasta `web/`:
 - `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
 - `npm start`: inicia a aplicação web em modo estático/producao depois do build
 - `npm run build`: gera a versão de produção
+- `npm test`: executa os testes unitários da aplicação web
 
 ## Endpoints iniciais
 
@@ -113,7 +114,7 @@ Execute dentro da pasta `web/`:
 ## Telas iniciais da Web
 
 - Inicio
-- Login
+- Login usando `POST /api/usuarios/login`
 - Registrar usuario
 - Dashboard
 - Heuristicas
@@ -121,6 +122,8 @@ Execute dentro da pasta `web/`:
 ## Integração Web + API
 
 A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação JWT e as regras de negócio continuam centralizados na API REST. A web consome os endpoints por meio da variável `NEXT_PUBLIC_API_BASE_URL` e armazena o token JWT localmente para chamadas autenticadas.
+
+Na funcionalidade de login da web, falhas de autenticação são apresentadas como mensagem genérica de credenciais inválidas e o token JWT não é exibido na interface.
 
 ## Próximos passos planejados
 

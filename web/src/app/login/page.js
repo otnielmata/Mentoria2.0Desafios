@@ -16,26 +16,48 @@ const initialForm = {
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState(initialForm);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [status, setStatus] = useState({ type: "", message: "" });
   const [isSubmitting, setSubmitting] = useState(false);
 
   function updateField(event) {
+    const { name, value } = event.target;
+
     setForm((current) => ({
       ...current,
-      [event.target.name]: event.target.value,
+      [name]: value,
     }));
+
+    if (fieldErrors[name]) {
+      setFieldErrors((current) => ({
+        ...current,
+        [name]: "",
+      }));
+    }
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
     setSubmitting(true);
+    setFieldErrors({});
     setStatus({ type: "", message: "" });
 
     const result = await login(form);
     setSubmitting(false);
 
     if (!result.ok) {
+      setFieldErrors(result.fieldErrors || {});
       setStatus({ type: "error", message: result.message });
+
+      if (result.status) {
+        setForm((current) => ({ ...current, password: "" }));
+      }
+
       return;
     }
 
@@ -47,8 +69,9 @@ export default function LoginPage() {
       <section className="auth-panel">
         <p className="eyebrow">Acesso</p>
         <h1>Entrar no painel</h1>
-        <form className="form-stack" onSubmit={handleSubmit}>
+        <form aria-busy={isSubmitting} className="form-stack" noValidate onSubmit={handleSubmit}>
           <Input
+            error={fieldErrors.email}
             label="E-mail"
             name="email"
             type="email"
@@ -58,7 +81,9 @@ export default function LoginPage() {
             required
           />
           <Input
+            error={fieldErrors.password}
             label="Senha"
+            minLength={6}
             name="password"
             type="password"
             value={form.password}
