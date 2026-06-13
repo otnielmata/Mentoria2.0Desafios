@@ -1,12 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { login } from "@/controllers/auth.controller";
-import Alert from "@/components/ui/Alert";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import LoginView from "@/views/auth/LoginView";
 
 const initialForm = {
   email: "",
@@ -43,38 +40,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="auth-layout">
-      <section className="auth-panel">
-        <p className="eyebrow">Acesso</p>
-        <h1>Entrar no painel</h1>
-        <form className="form-stack" onSubmit={handleSubmit}>
-          <Input
-            label="E-mail"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={updateField}
-            autoComplete="email"
-            required
-          />
-          <Input
-            label="Senha"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={updateField}
-            autoComplete="current-password"
-            required
-          />
-          <Alert type={status.type}>{status.message}</Alert>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Entrando..." : "Entrar"}
-          </Button>
-        </form>
-        <p className="muted-link">
-          Ainda nao tem conta? <Link href="/registro">Registrar usuario</Link>
-        </p>
-      </section>
-    </main>
+    <LoginView
+      form={form}
+      isSubmitting={isSubmitting}
+      onChange={updateField}
+      onSubmit={handleSubmit}
+      status={status}
+    />
   );
 }

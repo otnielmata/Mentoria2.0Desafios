@@ -39,11 +39,14 @@ docs/
 web/
   src/
     app/             # Views e rotas do Next.js
+    views/           # Views de tela
     components/      # Componentes visuais reutilizaveis
     controllers/     # Orquestracao das acoes das telas
     models/          # Validacoes e contratos de entrada
     services/        # Integracao com API REST e sessao local
 ```
+
+A arquitetura web adapta MVC para Next.js: `app/` concentra rotas e composicao, `views/` renderiza telas, `controllers/` orquestram ações, `models/` validam/normalizam contratos e `services/` isolam a API REST. A documentação detalhada fica em `web/docs/architecture.md`.
 
 ## Configuração de ambiente
 
@@ -101,6 +104,7 @@ Execute dentro da pasta `web/`:
 - `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
 - `npm start`: inicia a aplicação web em modo estático/producao depois do build
 - `npm run build`: gera a versão de produção
+- `npm test`: executa os testes unitários da aplicação web
 
 ## Endpoints iniciais
 
