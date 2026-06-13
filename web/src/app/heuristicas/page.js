@@ -1,119 +1,92 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  createHeuristic,
-  listHeuristics,
-} from "@/controllers/heuristic.controller";
+import { listHeuristics } from "@/controllers/heuristic.controller";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-
-const initialForm = {
-  titulo: "",
-  descricao: "",
-};
+import { getToken } from "@/services/session.service";
 
 export default function HeuristicsPage() {
+  const router = useRouter();
+  const [emptyState, setEmptyState] = useState(null);
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [isLoading, setLoading] = useState(true);
-  const [isSubmitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    async function loadItems() {
-      setLoading(true);
-      const result = await listHeuristics();
+  async function loadItems() {
+    if (!getToken()) {
       setLoading(false);
-
-      if (!result.ok) {
-        setStatus({ type: "error", message: result.message });
-        return;
-      }
-
-      setItems(result.data);
-    }
-
-    loadItems();
-  }, []);
-
-  function updateField(event) {
-    setForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setSubmitting(true);
-    setStatus({ type: "", message: "" });
-
-    const result = await createHeuristic(form);
-    setSubmitting(false);
-
-    if (!result.ok) {
-      setStatus({ type: "error", message: result.message });
+      setStatus({
+        type: "error",
+        message: "Entre na sua conta para visualizar heuristicas.",
+      });
+      router.replace("/login");
       return;
     }
 
-    setItems((current) => [result.data, ...current]);
-    setForm(initialForm);
-    setStatus({ type: "success", message: "Heuristica cadastrada com sucesso." });
+    setLoading(true);
+    setStatus({ type: "", message: "" });
+
+    const result = await listHeuristics();
+    setLoading(false);
+
+    if (!result.ok) {
+      setStatus({ type: "error", message: result.message });
+
+      if (result.shouldRedirectToLogin || result.status === 401) {
+        router.replace("/login");
+      }
+
+      return;
+    }
+
+    setItems(result.data);
+    setEmptyState(result.emptyState);
   }
+
+  useEffect(() => {
+    loadItems();
+  }, [router]);
 
   return (
     <main className="content-layout">
       <section className="section-header">
         <p className="eyebrow">Heuristicas</p>
-        <h1>Cadastrar e apresentar heuristicas</h1>
-        <p>Fluxo inicial para manter a funcionalidade conectada a API REST.</p>
+        <h1>Apresentar heuristicas</h1>
+        <p>Consulte rapidamente as diretrizes registradas na plataforma.</p>
       </section>
 
-      <section className="two-column">
-        <form className="form-panel form-stack" onSubmit={handleSubmit}>
-          <h2>Nova heuristica</h2>
-          <Input
-            label="Titulo"
-            name="titulo"
-            value={form.titulo}
-            onChange={updateField}
-            required
-          />
-          <label className="field-group">
-            <span>Descricao</span>
-            <textarea
-              name="descricao"
-              value={form.descricao}
-              onChange={updateField}
-              rows={5}
-              required
-            />
-          </label>
-          <Alert type={status.type}>{status.message}</Alert>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Salvando..." : "Salvar heuristica"}
+      <section className="list-panel heuristic-page-panel" aria-live="polite">
+        <div className="list-heading">
+          <div>
+            <h2>Heuristicas cadastradas</h2>
+            <p>Ordem preservada conforme retorno da API.</p>
+          </div>
+          <Button disabled={isLoading} onClick={loadItems} type="button" variant="secondary">
+            {isLoading ? "Carregando..." : "Tentar novamente"}
           </Button>
-        </form>
+        </div>
 
-        <section className="list-panel" aria-live="polite">
-          <h2>Heuristicas cadastradas</h2>
-          {isLoading ? (
-            <p className="empty-state">Carregando heuristicas...</p>
-          ) : items.length === 0 ? (
-            <p className="empty-state">Nenhuma heuristica encontrada.</p>
-          ) : (
-            <div className="heuristic-list">
-              {items.map((item) => (
-                <article className="heuristic-item" key={item.id || item._id || item.titulo}>
-                  <h3>{item.titulo || item.title}</h3>
-                  <p>{item.descricao || item.description}</p>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+        <Alert type={status.type}>{status.message}</Alert>
+
+        {isLoading ? (
+          <p className="empty-state">Carregando heuristicas...</p>
+        ) : emptyState ? (
+          <div className="empty-state-box">
+            <h3>{emptyState.title}</h3>
+            <p>{emptyState.description}</p>
+          </div>
+        ) : (
+          <div className="heuristic-list">
+            {items.map((item) => (
+              <article className="heuristic-item" key={item.id}>
+                <h3>{item.titulo}</h3>
+                <p>{item.descricao}</p>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

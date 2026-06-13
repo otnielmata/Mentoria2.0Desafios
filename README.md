@@ -101,6 +101,7 @@ Execute dentro da pasta `web/`:
 - `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
 - `npm start`: inicia a aplicação web em modo estático/producao depois do build
 - `npm run build`: gera a versão de produção
+- `npm test`: executa os testes unitários da aplicação web
 
 ## Endpoints iniciais
 
@@ -116,11 +117,13 @@ Execute dentro da pasta `web/`:
 - Login
 - Registrar usuario
 - Dashboard
-- Heuristicas
+- Heuristicas usando `GET /api/heuristicas`
 
 ## Integração Web + API
 
 A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação JWT e as regras de negócio continuam centralizados na API REST. A web consome os endpoints por meio da variável `NEXT_PUBLIC_API_BASE_URL` e armazena o token JWT localmente para chamadas autenticadas.
+
+Na funcionalidade de apresentação de heurísticas, a tela é protegida por sessão local, envia token nas chamadas autenticadas e mostra estados de carregamento, erro, vazio e lista carregada.
 
 ## Próximos passos planejados
 

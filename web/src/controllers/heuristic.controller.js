@@ -1,4 +1,5 @@
 import {
+  buildEmptyHeuristicsState,
   normalizeHeuristicList,
   validateHeuristicPayload,
 } from "@/models/heuristic.model";
@@ -14,9 +15,12 @@ export async function listHeuristics() {
     return result;
   }
 
+  const data = normalizeHeuristicList(result.data);
+
   return {
     ok: true,
-    data: normalizeHeuristicList(result.data),
+    data,
+    emptyState: buildEmptyHeuristicsState(data),
   };
 }
 

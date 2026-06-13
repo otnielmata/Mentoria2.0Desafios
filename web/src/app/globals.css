@@ -407,6 +407,35 @@ h3 {
   gap: 0.8rem;
 }
 
+.heuristic-page-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.list-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.list-heading p {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.empty-state-box {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1.2rem;
+}
+
+.empty-state-box p {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
 .heuristic-item {
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -430,13 +459,15 @@ h3 {
   .topbar,
   .main-nav,
   .toolbar,
-  .inline-panel {
+  .inline-panel,
+  .list-heading {
     align-items: stretch;
   }
 
   .main-nav,
   .toolbar,
-  .inline-panel {
+  .inline-panel,
+  .list-heading {
     flex-wrap: wrap;
     justify-content: flex-start;
   }

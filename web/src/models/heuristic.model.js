@@ -21,17 +21,28 @@ export function validateHeuristicPayload(payload) {
 }
 
 export function normalizeHeuristicList(data) {
-  if (Array.isArray(data)) {
-    return data;
+  const items = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.heuristicas)
+        ? data.heuristicas
+        : [];
+
+  return items.map((item) => ({
+    id: item.id || item._id || item.titulo || item.title,
+    titulo: item.titulo || item.title || "Sem titulo",
+    descricao: item.descricao || item.description || "Sem descricao",
+  }));
+}
+
+export function buildEmptyHeuristicsState(items) {
+  if (items.length > 0) {
+    return null;
   }
 
-  if (Array.isArray(data?.items)) {
-    return data.items;
-  }
-
-  if (Array.isArray(data?.heuristicas)) {
-    return data.heuristicas;
-  }
-
-  return [];
+  return {
+    title: "Nenhuma heuristica encontrada.",
+    description: "Quando houver heuristicas disponiveis, elas aparecerao aqui.",
+  };
 }
