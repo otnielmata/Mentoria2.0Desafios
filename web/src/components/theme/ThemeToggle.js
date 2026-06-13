@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const STORAGE_KEY = "mentoria-theme";
+import { getNextTheme, THEME_STORAGE_KEY } from "@/config/theme";
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState("light");
@@ -13,9 +12,9 @@ export default function ThemeToggle() {
   }, []);
 
   function toggleTheme() {
-    const nextTheme = theme === "dark" ? "light" : "dark";
+    const nextTheme = getNextTheme(theme);
     document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     setTheme(nextTheme);
   }
 

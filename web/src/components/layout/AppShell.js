@@ -4,13 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import Button from "@/components/ui/Button";
+import { navigationItems } from "@/config/routes";
 import { clearSession } from "@/services/session.service";
-
-const navItems = [
-  { href: "/", label: "Inicio" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/heuristicas", label: "Heuristicas" },
-];
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
@@ -29,7 +24,7 @@ export default function AppShell({ children }) {
           <strong>Desafios Mentoria 2.0</strong>
         </Link>
         <nav className="main-nav" aria-label="Navegacao principal">
-          {navItems.map((item) => (
+          {navigationItems.map((item) => (
             <Link
               aria-current={pathname === item.href ? "page" : undefined}
               className={pathname === item.href ? "active" : ""}

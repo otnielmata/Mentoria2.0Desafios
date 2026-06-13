@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-
-const STORAGE_KEY = "mentoria-theme";
+import { resolveInitialTheme, THEME_STORAGE_KEY } from "@/config/theme";
 
 export default function ThemeProvider({ children }) {
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(STORAGE_KEY);
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const theme = storedTheme || (prefersDark ? "dark" : "light");
+    const theme = resolveInitialTheme({ storedTheme, prefersDark });
     document.documentElement.dataset.theme = theme;
   }, []);
 

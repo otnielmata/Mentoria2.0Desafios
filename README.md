@@ -40,10 +40,13 @@ web/
   src/
     app/             # Views e rotas do Next.js
     components/      # Componentes visuais reutilizaveis
+    config/          # Ambiente, rotas e tema
     controllers/     # Orquestracao das acoes das telas
     models/          # Validacoes e contratos de entrada
     services/        # Integracao com API REST e sessao local
 ```
+
+A aplicação web usa App Router do Next.js, JavaScript com alias `@/` via `jsconfig.json`, rotas públicas/protegidas em `web/src/config/routes.js` e tema claro/escuro centralizado em `web/src/config/theme.js`.
 
 ## Configuração de ambiente
 
@@ -101,6 +104,7 @@ Execute dentro da pasta `web/`:
 - `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
 - `npm start`: inicia a aplicação web em modo estático/producao depois do build
 - `npm run build`: gera a versão de produção
+- `npm test`: executa os testes unitários da aplicação web
 
 ## Endpoints iniciais
 
@@ -121,6 +125,8 @@ Execute dentro da pasta `web/`:
 ## Integração Web + API
 
 A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação JWT e as regras de negócio continuam centralizados na API REST. A web consome os endpoints por meio da variável `NEXT_PUBLIC_API_BASE_URL` e armazena o token JWT localmente para chamadas autenticadas.
+
+O cliente HTTP da web usa somente `NEXT_PUBLIC_API_BASE_URL` para montar a URL da API REST; sem essa variável, a aplicação retorna uma falha de configuração em vez de depender de URL fixa no código.
 
 ## Próximos passos planejados
 

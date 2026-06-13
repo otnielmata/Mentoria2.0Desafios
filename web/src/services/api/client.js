@@ -1,9 +1,8 @@
+import { getApiBaseUrl } from "@/config/env";
 import { getToken } from "@/services/session.service";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-
-function buildUrl(path) {
-  return `${API_BASE_URL}${path}`;
+function buildUrl(apiBaseUrl, path) {
+  return `${apiBaseUrl}${path}`;
 }
 
 async function parseResponse(response) {
@@ -26,6 +25,16 @@ async function parseResponse(response) {
 }
 
 export async function apiRequest(path, options = {}) {
+  const apiBaseUrl = getApiBaseUrl();
+
+  if (!apiBaseUrl) {
+    return {
+      ok: false,
+      message: "Configure NEXT_PUBLIC_API_BASE_URL para conectar a API REST.",
+      status: 0,
+    };
+  }
+
   const token = getToken();
   const headers = {
     "Content-Type": "application/json",
@@ -37,7 +46,7 @@ export async function apiRequest(path, options = {}) {
   }
 
   try {
-    const response = await fetch(buildUrl(path), {
+    const response = await fetch(buildUrl(apiBaseUrl, path), {
       ...options,
       headers,
     });
