@@ -101,6 +101,7 @@ Execute dentro da pasta `web/`:
 - `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
 - `npm start`: inicia a aplicação web em modo estático/producao depois do build
 - `npm run build`: gera a versão de produção
+- `npm test`: executa testes unitários da aplicação web
 
 ## Endpoints iniciais
 
@@ -121,6 +122,10 @@ Execute dentro da pasta `web/`:
 ## Integração Web + API
 
 A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação JWT e as regras de negócio continuam centralizados na API REST. A web consome os endpoints por meio da variável `NEXT_PUBLIC_API_BASE_URL` e armazena o token JWT localmente para chamadas autenticadas.
+
+## Layout Da Web
+
+A aplicação web possui layout base com separação entre rotas públicas e rotas autenticadas. A navegação fica centralizada em `web/src/config/navigation.js`, filtra menus por perfil de usuário e usa um cabeçalho responsivo para desktop e mobile. O `AppShell` mantém cabeçalho, área de conteúdo, controle de tema e região global de feedback de forma consistente entre páginas.
 
 ## Próximos passos planejados
 
