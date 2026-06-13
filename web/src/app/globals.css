@@ -1,6 +1,7 @@
 :root {
   color-scheme: light;
   --background: #f7f7f2;
+  --background-glow: rgba(15, 118, 110, 0.08);
   --surface: #ffffff;
   --surface-strong: #f0efe7;
   --text: #20211d;
@@ -8,15 +9,25 @@
   --line: #deddd1;
   --primary: #0f766e;
   --primary-strong: #115e59;
+  --primary-soft: #dff7f2;
+  --on-primary: #ffffff;
   --secondary: #f59e0b;
   --danger: #b42318;
+  --danger-surface: #f9e6e3;
   --success: #157347;
+  --success-surface: #e4f5ec;
+  --focus-ring: #9ee7db;
+  --hover-surface: #e7e5d8;
+  --disabled-background: #e6e4d8;
+  --disabled-text: #737568;
+  --loading-surface: #eceadd;
   --shadow: 0 20px 50px rgba(38, 40, 34, 0.12);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
   --background: #171812;
+  --background-glow: rgba(45, 212, 191, 0.08);
   --surface: #24251d;
   --surface-strong: #303127;
   --text: #f5f3e9;
@@ -24,9 +35,18 @@
   --line: #434437;
   --primary: #2dd4bf;
   --primary-strong: #5eead4;
+  --primary-soft: #163b36;
+  --on-primary: #062f2b;
   --secondary: #fbbf24;
   --danger: #f87171;
+  --danger-surface: #3f1f1f;
   --success: #6ee7b7;
+  --success-surface: #17392d;
+  --focus-ring: #134e4a;
+  --hover-surface: #37382e;
+  --disabled-background: #33342a;
+  --disabled-text: #9b9688;
+  --loading-surface: #2d2e24;
   --shadow: 0 20px 50px rgba(0, 0, 0, 0.26);
 }
 
@@ -42,7 +62,7 @@ body {
 
 body {
   background:
-    linear-gradient(180deg, rgba(15, 118, 110, 0.08), transparent 36rem),
+    linear-gradient(180deg, var(--background-glow), transparent 36rem),
     var(--background);
   color: var(--text);
   font-family:
@@ -89,7 +109,7 @@ textarea {
   align-items: center;
   background: var(--primary);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--on-primary);
   display: inline-flex;
   font-weight: 800;
   height: 2.25rem;
@@ -121,7 +141,7 @@ textarea {
 
 .main-nav a.active,
 .main-nav a:hover {
-  background: var(--surface-strong);
+  background: var(--hover-surface);
   color: var(--text);
 }
 
@@ -137,6 +157,20 @@ textarea {
   cursor: pointer;
   min-height: 2.4rem;
   padding: 0.45rem 0.75rem;
+}
+
+.theme-toggle:hover {
+  background: var(--hover-surface);
+}
+
+.theme-toggle:focus-visible,
+.button:focus-visible,
+.field-group input:focus-visible,
+.field-group textarea:focus-visible,
+.main-nav a:focus-visible,
+.muted-link a:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .button {
@@ -156,8 +190,10 @@ textarea {
 }
 
 .button:disabled {
+  background: var(--disabled-background);
+  border-color: var(--disabled-background);
+  color: var(--disabled-text);
   cursor: not-allowed;
-  opacity: 0.68;
 }
 
 .button:not(:disabled):hover {
@@ -166,13 +202,22 @@ textarea {
 
 .button-primary {
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-primary);
+}
+
+.button-primary:not(:disabled):hover {
+  background: var(--primary-strong);
 }
 
 .button-secondary {
   background: var(--surface);
   border-color: var(--line);
   color: var(--text);
+}
+
+.button-secondary:not(:disabled):hover,
+.button-ghost:not(:disabled):hover {
+  background: var(--hover-surface);
 }
 
 .button-ghost {
@@ -277,6 +322,16 @@ h3 {
   color: var(--muted);
 }
 
+.empty-state {
+  background: var(--loading-surface);
+  border-radius: 8px;
+  padding: 0.8rem;
+}
+
+[aria-busy="true"] {
+  background-image: linear-gradient(90deg, transparent, var(--loading-surface), transparent);
+}
+
 .metric {
   color: var(--secondary);
   display: block;
@@ -328,10 +383,17 @@ h3 {
   width: 100%;
 }
 
+.field-group input:disabled,
+.field-group textarea:disabled {
+  background: var(--disabled-background);
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
 .field-group input:focus,
 .field-group textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .alert {
@@ -342,12 +404,12 @@ h3 {
 }
 
 .alert-error {
-  background: rgba(180, 35, 24, 0.12);
+  background: var(--danger-surface);
   color: var(--danger);
 }
 
 .alert-success {
-  background: rgba(21, 115, 71, 0.12);
+  background: var(--success-surface);
   color: var(--success);
 }
 

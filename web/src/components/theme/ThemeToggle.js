@@ -1,33 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-const STORAGE_KEY = "mentoria-theme";
+import { getThemeButtonLabel } from "@/config/theme";
+import { useTheme } from "@/components/theme/ThemeProvider";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState("light");
-
-  useEffect(() => {
-    const currentTheme = document.documentElement.dataset.theme || "light";
-    setTheme(currentTheme);
-  }, []);
-
-  function toggleTheme() {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem(STORAGE_KEY, nextTheme);
-    setTheme(nextTheme);
-  }
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <button
       aria-label="Alternar tema claro ou escuro"
+      aria-pressed={theme === "dark"}
       className="theme-toggle"
       onClick={toggleTheme}
       title="Alternar tema"
       type="button"
     >
-      {theme === "dark" ? "Claro" : "Escuro"}
+      {getThemeButtonLabel(theme)}
     </button>
   );
 }
