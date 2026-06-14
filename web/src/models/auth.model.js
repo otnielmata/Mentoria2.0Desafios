@@ -1,46 +1,78 @@
-function cleanText(value) {
-  return String(value || "").trim();
-}
+import {
+  cleanText,
+  createValidationError,
+  createValidationSuccess,
+  isEmail,
+} from "@/models/validation.model";
 
-function isEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-export function validateLoginPayload(payload) {
-  const email = cleanText(payload.email).toLowerCase();
-  const password = cleanText(payload.password);
-
-  if (!isEmail(email)) {
-    return { ok: false, message: "Informe um e-mail valido." };
-  }
-
-  if (password.length < 6) {
-    return { ok: false, message: "A senha deve ter pelo menos 6 caracteres." };
-  }
-
+export function toLoginRequestDto(payload = {}) {
   return {
-    ok: true,
-    data: { email, password },
+    email: cleanText(payload.email).toLowerCase(),
+    password: cleanText(payload.password),
   };
 }
 
-export function validateRegisterPayload(payload) {
-  const name = cleanText(payload.name);
-  const loginValidation = validateLoginPayload(payload);
+export function toRegisterRequestDto(payload = {}) {
+  return {
+    name: cleanText(payload.name),
+    ...toLoginRequestDto(payload),
+  };
+}
 
-  if (name.length < 2) {
-    return { ok: false, message: "Informe um nome com pelo menos 2 caracteres." };
+export function toAuthUserDto(user = {}) {
+  const { _id, email, id, name, role, status } = user;
+
+  return Object.fromEntries(
+    Object.entries({
+      _id,
+      email,
+      id,
+      name,
+      role,
+      status,
+    }).filter(([, value]) => value !== undefined && value !== null)
+  );
+}
+
+export function toAuthResponseDto(response = {}) {
+  return {
+    token: response.token || response.accessToken || "",
+    user: toAuthUserDto(response.user || response.usuario || response.aluno || {}),
+  };
+}
+
+export function validateLoginPayload(payload) {
+  const dto = toLoginRequestDto(payload);
+
+  if (!isEmail(dto.email)) {
+    return createValidationError("Informe um e-mail valido.", {
+      email: "Informe um e-mail valido.",
+    });
   }
+
+  if (dto.password.length < 6) {
+    return createValidationError("A senha deve ter pelo menos 6 caracteres.", {
+      password: "A senha deve ter pelo menos 6 caracteres.",
+    });
+  }
+
+  return createValidationSuccess(dto);
+}
+
+export function validateRegisterPayload(payload) {
+  const dto = toRegisterRequestDto(payload);
+
+  if (dto.name.length < 2) {
+    return createValidationError("Informe um nome com pelo menos 2 caracteres.", {
+      name: "Informe um nome com pelo menos 2 caracteres.",
+    });
+  }
+
+  const loginValidation = validateLoginPayload(dto);
 
   if (!loginValidation.ok) {
     return loginValidation;
   }
 
-  return {
-    ok: true,
-    data: {
-      name,
-      ...loginValidation.data,
-    },
-  };
+  return createValidationSuccess(dto);
 }

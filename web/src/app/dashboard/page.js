@@ -18,8 +18,8 @@ export default function DashboardPage() {
         <p className="eyebrow">Dashboard</p>
         <h1>Ola{user?.name ? `, ${user.name}` : ""}.</h1>
         <p>
-          Esta area concentra os proximos fluxos da aplicacao: desafios,
-          heuristicas, pontuacao e ranking.
+          Esta area concentra os fluxos do Metodo do Alavanque: desafios,
+          pilares, pontuacao, aprovacoes e ranking.
         </p>
       </section>
 
@@ -34,17 +34,17 @@ export default function DashboardPage() {
         </article>
         <article className="metric-card">
           <span>0</span>
-          <p>Heuristicas cadastradas</p>
+          <p>Envios pendentes</p>
         </article>
       </section>
 
       <section className="inline-panel">
         <div>
-          <h2>Heuristicas</h2>
-          <p>Cadastre e consulte heuristicas pela integracao com a API REST.</p>
+          <h2>Desafios</h2>
+          <p>Registre atividades realizadas e acompanhe a avaliacao do professor.</p>
         </div>
-        <Button as={Link} href="/heuristicas">
-          Abrir heuristicas
+        <Button as={Link} href="/registrar-desafio">
+          Registrar desafio
         </Button>
       </section>
     </main>

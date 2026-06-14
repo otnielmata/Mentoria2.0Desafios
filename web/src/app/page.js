@@ -8,8 +8,8 @@ export default function HomePage() {
         <p className="eyebrow">Desafios Mentoria 2.0</p>
         <h1>Painel inicial para alunos e administradores acompanharem desafios.</h1>
         <p className="hero-copy">
-          Estrutura web pronta para evoluir pelas user stories: login, registro,
-          dashboard e heuristicas consumindo a API REST.
+          Estrutura web pronta para evoluir pelas user stories de desafios,
+          pilares, pontuacao, aprovacoes e ranking consumindo a API REST.
         </p>
         <div className="action-row">
           <Button as={Link} href="/login">
@@ -33,9 +33,9 @@ export default function HomePage() {
           <p>Views, controllers, models e services organizados para crescimento controlado.</p>
         </article>
         <article className="info-card">
-          <span className="metric">API</span>
-          <h2>Integracao</h2>
-          <p>Cliente HTTP centralizado para consumir a API REST com token de sessao.</p>
+          <span className="metric">RANK</span>
+          <h2>Pontuacao</h2>
+          <p>Desafios aprovados geram pontos para ranking individual e por grupo.</p>
         </article>
       </section>
     </main>

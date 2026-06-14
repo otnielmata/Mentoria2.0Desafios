@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { login } from "@/controllers/auth.controller";
+import { useFormController } from "@/controllers/form.controller";
+import { resolvePostLoginRedirect } from "@/config/access-control";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -15,39 +16,23 @@ const initialForm = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState(initialForm);
-  const [status, setStatus] = useState({ type: "", message: "" });
-  const [isSubmitting, setSubmitting] = useState(false);
-
-  function updateField(event) {
-    setForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setSubmitting(true);
-    setStatus({ type: "", message: "" });
-
-    const result = await login(form);
-    setSubmitting(false);
-
-    if (!result.ok) {
-      setStatus({ type: "error", message: result.message });
-      return;
-    }
-
-    router.push("/dashboard");
-  }
+  const { form, handleSubmit, isSubmitting, status, updateField } = useFormController({
+    initialValues: initialForm,
+    onSubmit: login,
+    onSuccess: () => {
+      const redirectPath = new URLSearchParams(window.location.search).get("redirect");
+      router.push(resolvePostLoginRedirect(redirectPath));
+    },
+    sensitiveFields: ["password"],
+    shouldClearSensitiveFields: (result) => result.type !== "validation",
+  });
 
   return (
     <main className="auth-layout">
       <section className="auth-panel">
         <p className="eyebrow">Acesso</p>
         <h1>Entrar no painel</h1>
-        <form className="form-stack" onSubmit={handleSubmit}>
+        <form aria-busy={isSubmitting} className="form-stack" noValidate onSubmit={handleSubmit}>
           <Input
             label="E-mail"
             name="email"
@@ -55,6 +40,8 @@ export default function LoginPage() {
             value={form.email}
             onChange={updateField}
             autoComplete="email"
+            disabled={isSubmitting}
+            error={status.fieldErrors.email}
             required
           />
           <Input
@@ -64,10 +51,12 @@ export default function LoginPage() {
             value={form.password}
             onChange={updateField}
             autoComplete="current-password"
+            disabled={isSubmitting}
+            error={status.fieldErrors.password}
             required
           />
           <Alert type={status.type}>{status.message}</Alert>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" isLoading={isSubmitting}>
             {isSubmitting ? "Entrando..." : "Entrar"}
           </Button>
         </form>

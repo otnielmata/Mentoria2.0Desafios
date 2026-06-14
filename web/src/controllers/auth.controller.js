@@ -1,4 +1,5 @@
 import { validateLoginPayload, validateRegisterPayload } from "@/models/auth.model";
+import { withApiFieldErrors } from "@/models/validation.model";
 import { loginUser, registerUser } from "@/services/auth.service";
 
 export async function login(payload) {
@@ -7,7 +8,7 @@ export async function login(payload) {
     return validation;
   }
 
-  return loginUser(validation.data);
+  return withApiFieldErrors(await loginUser(validation.data));
 }
 
 export async function register(payload) {
@@ -16,5 +17,5 @@ export async function register(payload) {
     return validation;
   }
 
-  return registerUser(validation.data);
+  return withApiFieldErrors(await registerUser(validation.data));
 }

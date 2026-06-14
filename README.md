@@ -37,6 +37,8 @@ docs/
 
 ```text
 web/
+  docs/             # Documentação técnica do front-end
+  scripts/          # Validações locais de qualidade, ambiente e formatação
   src/
     app/             # Views e rotas do Next.js
     components/      # Componentes visuais reutilizaveis
@@ -44,6 +46,8 @@ web/
     models/          # Validacoes e contratos de entrada
     services/        # Integracao com API REST e sessao local
 ```
+
+Detalhes de arquitetura e padrões do front-end ficam em `web/docs/frontend-architecture.md`.
 
 ## Configuração de ambiente
 
@@ -76,6 +80,8 @@ cp web/.env.example web/.env.local
 
 - `NEXT_PUBLIC_API_BASE_URL`
 
+Para publicação, use `web/.env.production.example` como referência e configure as variáveis diretamente no provedor de deploy. Arquivos reais de ambiente da web ficam ignorados no Git.
+
 ## Instalação da API
 
 ```bash
@@ -101,6 +107,13 @@ Execute dentro da pasta `web/`:
 - `npm run dev`: inicia a aplicação web em desenvolvimento e reinicia a cada alteração
 - `npm start`: inicia a aplicação web em modo estático/producao depois do build
 - `npm run build`: gera a versão de produção
+- `npm run env:check`: valida variáveis públicas da web
+- `npm run deploy:check`: valida ambiente de produção e executa o pipeline de qualidade
+- `npm run lint`: executa validação estática local do front-end
+- `npm run format:check`: verifica formatação consistente
+- `npm run format`: corrige quebras de linha, nova linha final e espaços finais
+- `npm run quality`: executa lint, formatação, testes unitários e build
+- `npm test`: executa testes unitários da aplicação web
 
 ## Endpoints iniciais
 
@@ -116,11 +129,64 @@ Execute dentro da pasta `web/`:
 - Login
 - Registrar usuario
 - Dashboard
-- Heuristicas
+- Registrar desafio
+- Meus desafios
+- Minha pontuação
+- Ranking
+- Meu perfil
+- Menus administrativos de alunos, turmas, pilares, desafios, aprovações, grupos, relatórios e configurações
 
 ## Integração Web + API
 
 A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação JWT e as regras de negócio continuam centralizados na API REST. A web consome os endpoints por meio da variável `NEXT_PUBLIC_API_BASE_URL` e armazena o token JWT localmente para chamadas autenticadas.
+
+## Rotas E Guardas Da Web
+
+A aplicação web separa rotas públicas e protegidas em `web/src/config/access-control.js`. Login e registro ficam públicos; rotas de desafios, pontuação, ranking, perfil e áreas administrativas exigem sessão JWT local. Quando uma rota protegida é acessada sem sessão, o front redireciona para login preservando a rota desejada em `redirect`. A navegação também filtra links por perfil (`aluno`, `professor`, `admin`), sem substituir a autorização final feita pela API.
+
+## Cliente HTTP Da Web
+
+A integração da web com a API REST fica centralizada em `web/src/services/api/client.js`. A URL base vem da configuração pública em `web/src/config/env.js`, usando `NEXT_PUBLIC_API_BASE_URL`; headers e token JWT são tratados no cliente, erros de API/rede/validação são normalizados para controllers e views, e os endpoints ficam reunidos em `web/src/services/api/endpoints.js`.
+
+## Sessão Autenticada Da Web
+
+A sessão autenticada fica centralizada em `web/src/services/session.service.js`. O front salva apenas token e dados mínimos do usuário, remove campos sensíveis, restaura sessão persistida ao recarregar, limpa dados no logout e descarta sessão expirada ou inválida. Respostas `401` em chamadas protegidas limpam a sessão e orientam novo login.
+
+## Models E DTOs Da Web
+
+Os contratos de request/response e validações do front ficam em `web/src/models/`. Autenticação possui DTOs separados para login, registro e resposta autenticada. Novos fluxos de desafios, envios, pilares, turmas, rankings e pontuações devem seguir DTOs por caso de uso. Controllers usam esses contracts antes de chamar services e também mapeiam erros de validação da API para `fieldErrors`, permitindo mensagens específicas por campo nas views.
+
+## Formulários Da Web
+
+Login, registro e novos formulários de desafios compartilham um controlador de formulário para estados `idle`, `loading`, `success` e `error`. Esse padrão bloqueia reenvio durante carregamento, mantém dados não sensíveis após erro, exibe falhas gerais em alerta acessível e associa erros de validação aos campos quando a API ou o front retornam detalhes por campo.
+
+## Componentes Base Da Web
+
+A biblioteca inicial de UI fica em `web/src/components/ui/`. Ela reúne botão com estado loading/disabled, inputs e textarea com label/ajuda/erro acessíveis, alertas, painel de lista e estados reutilizáveis de loading, erro e vazio. Os componentes usam tokens globais de tema e mantêm textos de negócio nas views.
+
+## Estados Assíncronos Da Web
+
+Consultas da web usam estados padronizados em `web/src/models/async-state.model.js`: `idle`, `loading`, `success`, `empty` e `error`. As telas de domínio devem renderizar carregamento, vazio, erro de API/rede e ação de tentar novamente pelo mesmo componente reutilizável. A aplicação também possui fallback de erro inesperado em `web/src/app/error.js` e `web/src/app/global-error.js`, sem expor detalhes técnicos ao usuário final.
+
+## Observabilidade Da Web
+
+A web possui logger mínimo em `web/src/services/logger.service.js`, habilitado para console em desenvolvimento. Falhas de API registram endpoint, método, status, tipo e mensagem sanitizada; erros de renderização passam pelos error boundaries. Senhas, tokens, authorization, JWT e segredos são mascarados antes do log, e a interface mantém mensagens simples para o usuário.
+
+## Acessibilidade E Responsividade Da Web
+
+A aplicação web possui link de pular para conteúdo, foco visível em controles interativos, campos com associação explícita entre label/erro/descrição e estilos responsivos para login, registro, dashboard e páginas de desafios. Os estados de erro usam texto e borda além da cor, e os tokens de foco/contraste foram definidos para tema claro e escuro.
+
+## Qualidade De Código Da Web
+
+A aplicação web possui scripts locais de qualidade em `web/scripts/`: lint crítico, verificação/correção simples de formatação, testes unitários e comando agregado `npm run quality`. Os testes evitam dependência de API real e cobrem validações, services/adapters, estados de carregamento/erro e contratos dos componentes base.
+
+## Build E Deploy Da Web
+
+A web possui validação de ambiente em `web/scripts/validate-env.mjs`, exemplo de produção em `web/.env.production.example` e configuração mínima de Vercel em `web/vercel.json`. O pipeline recomendado para publicação é `npm run deploy:check`, que valida variáveis públicas, executa qualidade, testes e build. Segredos não devem usar `NEXT_PUBLIC_`, pois variáveis com esse prefixo entram no bundle do cliente.
+
+## Documentação Técnica Da Web
+
+O guia `web/docs/frontend-architecture.md` documenta estrutura de pastas, responsabilidades das camadas Next.js/MVC, fluxo de dados, comandos principais, variáveis de ambiente, endpoints iniciais consumidos e padrões de tema/UI.
 
 ## Próximos passos planejados
 

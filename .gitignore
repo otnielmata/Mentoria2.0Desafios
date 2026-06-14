@@ -9,4 +9,8 @@ coverage
 .next
 web/.next
 web/out
+web/.env
+web/.env.development
 web/.env.local
+web/.env.production
+web/.env.test
