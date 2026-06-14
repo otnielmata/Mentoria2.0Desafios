@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   initialChallengeSubmissionForm,
-  methodPillars,
   parseParticipantIds,
   submissionTypes,
   toChallengeSubmissionRequestDto,
@@ -27,18 +26,6 @@ describe("models/challenge-submission", () => {
       participants: "",
       type: submissionTypes.individual,
     });
-  });
-
-  it("mantem os sete pilares do Metodo do Alavanque", () => {
-    expect(methodPillars.map((pillar) => pillar.label)).toEqual([
-      "Conhecimento Tecnico Alinhado ao Mercado",
-      "Posicionamento e Softskills",
-      "Pratica",
-      "Exposicao a Problemas",
-      "Compartilhamento",
-      "Networking",
-      "Visibilidade",
-    ]);
   });
 
   it("cria DTO compativel com a API para envio individual", () => {

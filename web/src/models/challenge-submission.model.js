@@ -9,16 +9,6 @@ export const submissionTypes = Object.freeze({
   individual: "individual",
 });
 
-export const methodPillars = [
-  { id: "conhecimento-tecnico", label: "Conhecimento Tecnico Alinhado ao Mercado" },
-  { id: "posicionamento-softskills", label: "Posicionamento e Softskills" },
-  { id: "pratica", label: "Pratica" },
-  { id: "exposicao-problemas", label: "Exposicao a Problemas" },
-  { id: "compartilhamento", label: "Compartilhamento" },
-  { id: "networking", label: "Networking" },
-  { id: "visibilidade", label: "Visibilidade" },
-];
-
 export const initialChallengeSubmissionForm = {
   desafioId: "",
   description: "",

@@ -41,6 +41,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("POST /api/envios-desafios");
     expect(source).toContain("GET  /api/envios-desafios/meus");
     expect(source).toContain("GET  /api/pontuacoes/minha");
+    expect(source).toContain("GET  /api/pilares");
     expect(source).toContain("GET  /api/ranking");
     expect(source).toContain("GET  /api/turmas");
     expect(source).toContain("POST /api/turmas");
@@ -70,6 +71,16 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("front-end nao calcula indicadores");
   });
 
+  it("documenta o fluxo de gestao de pilares", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/pilares/page.js");
+    expect(source).toContain("getPillars");
+    expect(source).toContain("toPillarsDto");
+    expect(source).toContain("listPillarsRequest");
+    expect(source).toContain("nao recria seed dos sete pilares");
+  });
+
   it("documenta o fluxo de gestao de alunos", () => {
     const source = readArchitectureDoc();
 
@@ -97,6 +108,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("submitChallengeSubmission");
     expect(source).toContain("validateChallengeSubmissionPayload");
     expect(source).toContain("submitChallengeSubmissionRequest");
+    expect(source).toContain("GET /api/pilares");
   });
 
   it("documenta o fluxo de meus desafios", () => {

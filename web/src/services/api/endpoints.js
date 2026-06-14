@@ -20,6 +20,9 @@ export const apiEndpoints = {
   classes: {
     collection: "/api/turmas",
   },
+  pillars: {
+    collection: "/api/pilares",
+  },
   users: {
     collection: "/api/users",
     me: "/api/users/me",

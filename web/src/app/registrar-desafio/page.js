@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { submitChallengeSubmission } from "@/controllers/challenge-submission.controller";
 import { useFormController } from "@/controllers/form.controller";
+import { getPillars } from "@/controllers/pillars.controller";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
-import {
-  initialChallengeSubmissionForm,
-  methodPillars,
-  submissionTypes,
-} from "@/models/challenge-submission.model";
+import { createAsyncStateFromResult, createLoadingAsyncState } from "@/models/async-state.model";
+import { initialChallengeSubmissionForm, submissionTypes } from "@/models/challenge-submission.model";
+import { toPillarSelectOptions } from "@/models/pillars.model";
 import { getCurrentUser } from "@/services/session.service";
 
 export default function RegistrarDesafioPage() {
+  const [pillarsStatus, setPillarsStatus] = useState(createLoadingAsyncState("Carregando pilares..."));
   const [user, setUser] = useState(null);
   const { form, handleSubmit, isSubmitting, status, updateField } = useFormController({
     initialValues: initialChallengeSubmissionForm,
@@ -23,10 +23,42 @@ export default function RegistrarDesafioPage() {
     successMessage: "Desafio enviado com status pendente.",
   });
   const isGroupSubmission = form.type === submissionTypes.group;
+  const pillarOptions = toPillarSelectOptions(pillarsStatus.data || []);
+  const isPillarSelectDisabled = isSubmitting || pillarsStatus.isLoading || pillarsStatus.isError || pillarsStatus.isEmpty;
+
+  const loadPillars = useCallback(async () => {
+    setPillarsStatus(createLoadingAsyncState("Carregando pilares..."));
+
+    const result = await getPillars();
+
+    setPillarsStatus(
+      createAsyncStateFromResult(result, {
+        emptyMessage: "Nenhum pilar cadastrado na API.",
+        fallbackMessage: "Nao foi possivel carregar os pilares.",
+      })
+    );
+  }, []);
+
+  function getPillarHelpText() {
+    if (pillarsStatus.isLoading) {
+      return "Carregando pilares cadastrados na API.";
+    }
+
+    if (pillarsStatus.isError) {
+      return "Nao foi possivel carregar os pilares da API.";
+    }
+
+    if (pillarsStatus.isEmpty) {
+      return "Configure pilares na API antes de registrar desafios.";
+    }
+
+    return "Lista carregada dos pilares cadastrados na API.";
+  }
 
   useEffect(() => {
     setUser(getCurrentUser());
-  }, []);
+    loadPillars();
+  }, [loadPillars]);
 
   return (
     <main className="content-layout">
@@ -44,13 +76,14 @@ export default function RegistrarDesafioPage() {
               name="pilarId"
               value={form.pilarId}
               onChange={updateField}
-              disabled={isSubmitting}
+              disabled={isPillarSelectDisabled}
               error={status.fieldErrors.pilarId}
+              helpText={getPillarHelpText()}
               required
             >
               <option value="">Selecione</option>
-              {methodPillars.map((pillar) => (
-                <option key={pillar.id} value={pillar.id}>
+              {pillarOptions.map((pillar) => (
+                <option key={pillar.value} value={pillar.value}>
                   {pillar.label}
                 </option>
               ))}
@@ -131,6 +164,12 @@ export default function RegistrarDesafioPage() {
           />
 
           <Alert type={status.type}>{status.message}</Alert>
+
+          {pillarsStatus.isError ? (
+            <Button onClick={loadPillars} type="button" variant="secondary">
+              Tentar carregar pilares
+            </Button>
+          ) : null}
 
           <Button type="submit" isLoading={isSubmitting}>
             {isSubmitting ? "Enviando..." : "Enviar para aprovacao"}

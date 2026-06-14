@@ -80,6 +80,7 @@ GET  /api/dashboard/admin
 POST /api/envios-desafios
 GET  /api/envios-desafios/meus
 GET  /api/pontuacoes/minha
+GET  /api/pilares
 GET  /api/ranking
 GET  /api/turmas
 POST /api/turmas
@@ -139,6 +140,20 @@ src/app/dashboard/page.js
 
 A rota `/dashboard` escolhe o fluxo pela `role` salva na sessao. Alunos continuam no dashboard do aluno; professor e admin veem indicadores gerais, alunos ativos, total de envios, envios pendentes, alunos mais engajados e baixa participacao. O front-end nao calcula indicadores e nao exibe dados sensiveis em cards resumidos.
 
+## Pilares
+
+A gestao de pilares segue o fluxo:
+
+```text
+src/app/pilares/page.js
+  -> getPillars em src/controllers/pillars.controller.js
+  -> toPillarsDto em src/models/pillars.model.js
+  -> listPillarsRequest em src/services/pillars.service.js
+  -> GET /api/pilares
+```
+
+A rota `/pilares` e restrita a professor/admin pelo `AuthGuard`. A tela lista nome, descricao e status dos pilares retornados pela API, mostra detalhes expansivos e apenas orienta configuracao inicial quando a API nao retorna registros. O front-end nao recria seed dos sete pilares.
+
 ## Alunos
 
 A gestao de alunos segue o fluxo:
@@ -179,7 +194,9 @@ src/app/registrar-desafio/page.js
   -> POST /api/envios-desafios
 ```
 
-A tela nao busca listas auxiliares nesta historia para manter o limite de um endpoint. Ela envia pilar, desafio, turma, tipo individual/grupo, descricao, evidencias e participantes. A API REST continua responsavel por validar o aluno autenticado, desafio ativo, turma, participantes e status inicial pendente.
+A tela envia pilar, desafio, turma, tipo individual/grupo, descricao, evidencias e participantes. A API REST continua responsavel por validar o aluno autenticado, desafio ativo, turma, participantes e status inicial pendente.
+
+O seletor de pilar usa `getPillars` e `GET /api/pilares`, garantindo que a lista exibida venha dos pilares cadastrados na API em vez de uma seed local.
 
 ## Meus desafios
 

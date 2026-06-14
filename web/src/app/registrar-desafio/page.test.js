@@ -14,6 +14,7 @@ describe("app/registrar-desafio/page", () => {
     const source = readPage();
 
     expect(source).toContain("submitChallengeSubmission");
+    expect(source).toContain("getPillars");
     expect(source).toContain("useFormController");
     expect(source).toContain("Alert");
     expect(source).not.toContain("fetch(");
@@ -30,6 +31,14 @@ describe("app/registrar-desafio/page", () => {
     expect(source).toContain("Descricao do que foi feito");
     expect(source).toContain("Evidencia, link ou comprovante");
     expect(source).toContain("Enviar para aprovacao");
+  });
+
+  it("carrega a lista de pilares a partir da API", () => {
+    const source = readPage();
+
+    expect(source).toContain("toPillarSelectOptions");
+    expect(source).toContain("Lista carregada dos pilares cadastrados na API.");
+    expect(source).not.toContain("methodPillars");
   });
 
   it("exibe responsavel e status pendente sem pontuacao concedida", () => {

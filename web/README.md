@@ -104,6 +104,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - Views continuam sem montar requisicoes HTTP diretamente
 - O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
 - O dashboard de professor/admin consome apenas `GET /api/dashboard/admin` para exibir alunos ativos, envios, aprovacoes pendentes e engajamento
+- A tela Pilares consome apenas `GET /api/pilares` para listar os topicos cadastrados do Metodo do Alavanque
 - A tela Alunos consome apenas `/api/users`, com `GET` para listar e `POST` para cadastrar participantes da mentoria
 - A tela Turmas consome apenas `/api/turmas`, com `GET` para listar e `POST` para cadastrar ciclos da mentoria
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
@@ -131,6 +132,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Auth possui DTOs de login, registro e resposta autenticada
 - Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
 - Dashboard admin possui DTO de leitura para indicadores gerais, alunos mais engajados e baixa participacao
+- Pilares possui DTO de leitura para nome, descricao e status dos topicos cadastrados na API
 - Alunos possui DTOs de listagem e cadastro para nome, e-mail, papel, status e turma sem expor senha
 - Turmas possui DTOs de listagem e cadastro para nome, data de inicio, data de fim e status
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
@@ -198,6 +200,18 @@ A mesma rota protegida `/dashboard` carrega o dashboard geral quando a sessao po
 - Alunos mais engajados e baixa participacao aparecem em listas resumidas sem dados sensiveis
 - O front-end nao calcula indicadores; apenas exibe dados consolidados pela API REST
 
+## Pilares
+
+A rota protegida `/pilares` permite que professor/admin consulte os topicos do Metodo do Alavanque cadastrados na API.
+
+- Endpoint unico da funcionalidade: `GET /api/pilares`
+- A view chama `src/controllers/pillars.controller.js`
+- O model `src/models/pillars.model.js` normaliza nome, descricao e status
+- O service `src/services/pillars.service.js` concentra a chamada ao endpoint
+- A tela exibe cobertura dos 7 pilares principais sem recriar seed no front-end
+- Estado vazio orienta a configuracao inicial pela API/admin
+- A lista de pilares usada em `/registrar-desafio` tambem vem desse mesmo fluxo de API
+
 ## Alunos
 
 A rota protegida `/alunos` permite que professor/admin liste e cadastre participantes da mentoria.
@@ -234,6 +248,7 @@ A rota protegida `/registrar-desafio` permite que o aluno envie um desafio reali
 - A view chama `src/controllers/challenge-submission.controller.js`
 - O model `src/models/challenge-submission.model.js` valida pilar, desafio, turma, tipo, descricao, evidencia e participantes
 - O service `src/services/challenge-submission.service.js` concentra a chamada ao endpoint
+- O seletor de pilar carrega as opcoes cadastradas na API por `GET /api/pilares`
 - Envios em grupo aceitam ate 5 participantes informados no formulario
 - O aluno autenticado permanece como responsavel pelo envio pela sessao JWT
 - A confirmacao exibida apos sucesso indica status `pendente`

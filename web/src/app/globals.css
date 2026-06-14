@@ -858,13 +858,15 @@ h3 {
 }
 
 .student-list,
-.class-list {
+.class-list,
+.pillar-list {
   display: grid;
   gap: 0.85rem;
 }
 
 .student-item,
-.class-item {
+.class-item,
+.pillar-item {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -874,7 +876,8 @@ h3 {
 }
 
 .student-item header,
-.class-item header {
+.class-item header,
+.pillar-item header {
   align-items: start;
   display: flex;
   gap: 1rem;
@@ -884,15 +887,32 @@ h3 {
 .student-item h3,
 .student-item p,
 .class-item h3,
-.class-item p {
+.class-item p,
+.pillar-item h3,
+.pillar-item p {
   margin: 0;
 }
 
 .student-item p,
 .student-meta dt,
 .class-item p,
-.class-meta dt {
+.class-meta dt,
+.pillar-item p {
   color: var(--muted);
+}
+
+.pillar-details {
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+}
+
+.pillar-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.pillar-details p {
+  margin-top: 0.7rem;
 }
 
 .student-meta,

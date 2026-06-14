@@ -152,6 +152,8 @@ O dashboard do aluno consome `GET /api/dashboard/aluno` pela camada `web/src/ser
 
 O dashboard administrativo consome `GET /api/dashboard/admin` pela mesma camada e exibe alunos ativos, envios, aprovacoes pendentes e destaques de engajamento para professor/admin.
 
+A tela Pilares consome `GET /api/pilares` pela camada `web/src/services/pillars.service.js` e exibe os topicos cadastrados do Metodo do Alavanque sem recriar seed no front-end.
+
 A tela Alunos consome `/api/users` pela camada `web/src/services/users.service.js`, usando `GET` para listar e `POST` para cadastrar participantes com nome, e-mail, papel e status, sem exibir senha na listagem.
 
 A tela Turmas consome `/api/turmas` pela camada `web/src/services/classes.service.js`, usando `GET` para listar e `POST` para cadastrar turmas com nome, data de início, data de fim e status.
