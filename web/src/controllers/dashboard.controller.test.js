@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getStudentDashboard } from "@/controllers/dashboard.controller";
+import { getAdminDashboard, getStudentDashboard } from "@/controllers/dashboard.controller";
 
 describe("controllers/dashboard", () => {
   it("normaliza resposta de sucesso para a view", async () => {
@@ -37,5 +37,28 @@ describe("controllers/dashboard", () => {
       message: "Falha controlada.",
       type: "network",
     });
+  });
+
+  it("normaliza resposta de sucesso do dashboard admin para a view", async () => {
+    const requestDashboard = vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        indicadores: {
+          alunosAtivos: 12,
+          aprovacoesPendentes: 4,
+          totalEnvios: 32,
+        },
+      },
+    });
+
+    await expect(getAdminDashboard({ requestDashboard })).resolves.toMatchObject({
+      ok: true,
+      data: {
+        activeStudents: 12,
+        pendingApprovals: 4,
+        totalSubmissions: 32,
+      },
+    });
+    expect(requestDashboard).toHaveBeenCalledTimes(1);
   });
 });

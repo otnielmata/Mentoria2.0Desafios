@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasAdminDashboardData,
+  toAdminDashboardDto,
+  toAdminEngagementDto,
+  toAdminHighlightStudentDto,
   toPillarScoreDto,
   toStudentDashboardDto,
   toSubmissionSummaryDto,
@@ -67,5 +71,78 @@ describe("models/dashboard", () => {
       recentSubmissions: [],
       totalPoints: 0,
     });
+  });
+
+  it("normaliza indicadores do dashboard admin sem recalcular dados no front-end", () => {
+    expect(
+      toAdminDashboardDto({
+        engajamento: {
+          alunosComEnvio: 8,
+          mediaEnviosPorAluno: 1.5,
+          taxaAprovacao: 0.75,
+          taxaParticipacao: 0.8,
+        },
+        indicadores: {
+          alunosAtivos: "10",
+          aprovacoesPendentes: 3,
+          totalEnvios: "25",
+        },
+        topRanking: [
+          {
+            aluno: { email: "maria@email.com", id: "aluno-1", name: "Maria Silva" },
+            desafiosAprovados: 7,
+            totalPontos: 540,
+          },
+        ],
+      })
+    ).toEqual({
+      activeStudents: 10,
+      engagement: {
+        approvalRate: 0.75,
+        averageSubmissionsPerStudent: 1.5,
+        participationRate: 0.8,
+        studentsWithSubmissions: 8,
+      },
+      lowParticipationStudents: [],
+      pendingApprovals: 3,
+      topEngagedStudents: [
+        {
+          approvedChallenges: 7,
+          id: "aluno-1",
+          name: "Maria Silva",
+          points: 540,
+          submissions: 0,
+        },
+      ],
+      totalSubmissions: 25,
+    });
+  });
+
+  it("normaliza destaques do admin sem expor e-mail em cards resumidos", () => {
+    const highlight = toAdminHighlightStudentDto({
+      aluno: { email: "aluno@email.com", name: "Aluno Seguro" },
+      envios: 2,
+      pontos: 20,
+    });
+
+    expect(highlight).toEqual({
+      approvedChallenges: 0,
+      id: "",
+      name: "Aluno Seguro",
+      points: 20,
+      submissions: 2,
+    });
+    expect(JSON.stringify(highlight)).not.toContain("aluno@email.com");
+  });
+
+  it("mantem DTOs admin seguros quando campos opcionais nao vierem da API", () => {
+    expect(toAdminEngagementDto()).toEqual({
+      approvalRate: 0,
+      averageSubmissionsPerStudent: 0,
+      participationRate: 0,
+      studentsWithSubmissions: 0,
+    });
+    expect(hasAdminDashboardData(toAdminDashboardDto())).toBe(false);
+    expect(hasAdminDashboardData({ activeStudents: 1 })).toBe(true);
   });
 });

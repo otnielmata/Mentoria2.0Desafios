@@ -22,6 +22,36 @@ function getDashboardPayload(payload = {}) {
   return payload.dashboard || payload.data || payload;
 }
 
+function getNestedObject(source = {}, key) {
+  const nested = source?.[key];
+
+  return nested && typeof nested === "object" ? nested : {};
+}
+
+function pickNestedObject(source = {}, keys = []) {
+  const foundKey = keys.find((key) => {
+    const value = source?.[key];
+
+    return value && typeof value === "object";
+  });
+
+  return foundKey ? source[foundKey] : {};
+}
+
+function getEntityName(entity, fallback = "Aluno") {
+  if (!entity || typeof entity !== "object") {
+    return String(entity || fallback);
+  }
+
+  return String(entity.name || entity.nome || entity.fullName || entity.nomeCompleto || fallback);
+}
+
+function getListPayload(source = {}, keys = []) {
+  const foundKey = keys.find((key) => Array.isArray(source[key]));
+
+  return foundKey ? source[foundKey] : [];
+}
+
 export function toPillarScoreDto(item = {}) {
   return {
     id: String(pickFirst(item, ["id", "_id", "pilar_id", "pilarId", "nome", "name"], "")),
@@ -70,4 +100,77 @@ export function toStudentDashboardDto(payload = {}) {
       pickFirst(data, ["pontos_totais", "pontosTotais", "totalPoints", "total_points", "pontuacaoTotal"], 0)
     ),
   };
+}
+
+export function toAdminHighlightStudentDto(item = {}) {
+  const aluno = pickNestedObject(item, ["aluno", "student"]);
+
+  return {
+    approvedChallenges: toNumber(
+      pickFirst(item, ["desafiosAprovados", "approvedChallenges", "approved_challenges"], 0)
+    ),
+    id: String(pickFirst(item, ["id", "_id", "alunoId", "aluno_id", "studentId"], "") || aluno.id || aluno._id || ""),
+    name: String(
+      pickFirst(item, ["nome", "name", "studentName", "alunoNome"], "") ||
+        getEntityName(aluno, "Aluno")
+    ),
+    points: toNumber(pickFirst(item, ["totalPontos", "pontos", "points", "total_points"], 0)),
+    submissions: toNumber(pickFirst(item, ["envios", "submissions", "totalEnvios"], 0)),
+  };
+}
+
+export function toAdminEngagementDto(payload = {}) {
+  return {
+    approvalRate: toNumber(pickFirst(payload, ["taxaAprovacao", "approvalRate", "approval_rate"], 0)),
+    averageSubmissionsPerStudent: toNumber(
+      pickFirst(payload, ["mediaEnviosPorAluno", "averageSubmissionsPerStudent"], 0)
+    ),
+    studentsWithSubmissions: toNumber(
+      pickFirst(payload, ["alunosComEnvio", "studentsWithSubmissions"], 0)
+    ),
+    participationRate: toNumber(pickFirst(payload, ["taxaParticipacao", "participationRate"], 0)),
+  };
+}
+
+export function toAdminDashboardDto(payload = {}) {
+  const data = getDashboardPayload(payload);
+  const indicators = pickNestedObject(data, ["indicadores", "indicators"]);
+  const topEngagedStudents = getListPayload(data, [
+    "alunosMaisEngajados",
+    "mostEngagedStudents",
+    "topRanking",
+    "topStudents",
+  ]);
+  const lowParticipationStudents = getListPayload(data, [
+    "baixaParticipacao",
+    "alunosBaixaParticipacao",
+    "lowParticipationStudents",
+  ]);
+
+  return {
+    activeStudents: toNumber(
+      pickFirst(indicators, ["alunosAtivos", "activeStudents", "totalActiveStudents"], 0)
+    ),
+    engagement: toAdminEngagementDto(
+      pickFirst(data, ["engajamento", "engagement"], {})
+    ),
+    lowParticipationStudents: lowParticipationStudents.map(toAdminHighlightStudentDto),
+    pendingApprovals: toNumber(
+      pickFirst(indicators, ["aprovacoesPendentes", "enviosPendentes", "pendingApprovals"], 0)
+    ),
+    topEngagedStudents: topEngagedStudents.map(toAdminHighlightStudentDto),
+    totalSubmissions: toNumber(
+      pickFirst(indicators, ["totalEnvios", "totalSubmissions", "submissions"], 0)
+    ),
+  };
+}
+
+export function hasAdminDashboardData(dashboard = {}) {
+  return Boolean(
+    dashboard.activeStudents ||
+      dashboard.totalSubmissions ||
+      dashboard.pendingApprovals ||
+      dashboard.topEngagedStudents?.length ||
+      dashboard.lowParticipationStudents?.length
+  );
 }

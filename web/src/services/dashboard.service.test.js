@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { apiEndpoints } from "@/services/api/endpoints";
-import { getStudentDashboardRequest } from "@/services/dashboard.service";
+import {
+  getAdminDashboardRequest,
+  getStudentDashboardRequest,
+} from "@/services/dashboard.service";
 
 describe("services/dashboard", () => {
   it("consulta apenas o endpoint do dashboard do aluno", async () => {
@@ -11,5 +14,15 @@ describe("services/dashboard", () => {
     expect(requester).toHaveBeenCalledTimes(1);
     expect(requester).toHaveBeenCalledWith(apiEndpoints.dashboard.student);
     expect(apiEndpoints.dashboard.student).toBe("/api/dashboard/aluno");
+  });
+
+  it("consulta apenas o endpoint do dashboard admin", async () => {
+    const requester = vi.fn().mockResolvedValue({ ok: true, data: {} });
+
+    await getAdminDashboardRequest(requester);
+
+    expect(requester).toHaveBeenCalledTimes(1);
+    expect(requester).toHaveBeenCalledWith(apiEndpoints.dashboard.admin);
+    expect(apiEndpoints.dashboard.admin).toBe("/api/dashboard/admin");
   });
 });

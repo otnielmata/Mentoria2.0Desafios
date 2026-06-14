@@ -569,6 +569,17 @@ h3 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.admin-dashboard-grid,
+.admin-engagement-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-engagement-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .score-summary-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -599,7 +610,8 @@ h3 {
 .challenge-summary-list,
 .my-score-pillar-list,
 .my-score-history-list,
-.ranking-list {
+.ranking-list,
+.admin-highlight-list {
   display: grid;
   gap: 0.75rem;
   list-style: none;
@@ -611,7 +623,8 @@ h3 {
 .challenge-summary-item,
 .my-score-pillar-item,
 .my-score-history-item,
-.ranking-item {
+.ranking-item,
+.admin-highlight-item {
   align-items: center;
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -626,7 +639,8 @@ h3 {
 .challenge-summary-item span,
 .my-score-pillar-item span,
 .my-score-history-item span,
-.my-score-history-item dd {
+.my-score-history-item dd,
+.admin-highlight-item span {
   color: var(--muted);
 }
 
@@ -721,7 +735,8 @@ h3 {
 
 .challenge-summary-item div,
 .my-score-pillar-item div,
-.my-score-history-item div {
+.my-score-history-item div,
+.admin-highlight-item div {
   display: grid;
   gap: 0.25rem;
 }
@@ -994,6 +1009,7 @@ h3 {
   .submission-meta,
   .dashboard-sections,
   .dashboard-grid,
+  .admin-engagement-grid,
   .score-summary-grid,
   .my-score-history-item,
   .my-score-history-item dl,

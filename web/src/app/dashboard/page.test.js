@@ -14,6 +14,7 @@ describe("app/dashboard/page", () => {
     const source = readDashboardPage();
 
     expect(source).toContain("getStudentDashboard");
+    expect(source).toContain("getAdminDashboard");
     expect(source).toContain("AsyncStateView");
     expect(source).toContain("createAsyncStateFromResult");
     expect(source).toContain("Tentar novamente");
@@ -29,5 +30,25 @@ describe("app/dashboard/page", () => {
     expect(source).toContain("Desafios aprovados");
     expect(source).toContain("Desafios pendentes");
     expect(source).toContain("Pontuacao por pilar");
+  });
+
+  it("renderiza os indicadores exigidos pela MR-78 para professor e admin", () => {
+    const source = readDashboardPage();
+
+    expect(source).toContain("Dashboard geral");
+    expect(source).toContain("Alunos ativos");
+    expect(source).toContain("Total de envios");
+    expect(source).toContain("Envios pendentes");
+    expect(source).toContain("Alunos mais engajados");
+    expect(source).toContain("Baixa participacao");
+  });
+
+  it("bloqueia dashboard admin para aluno ao escolher endpoint por role", () => {
+    const source = readDashboardPage();
+
+    expect(source).toContain("isAdminDashboardRole");
+    expect(source).toContain("roles.teacher");
+    expect(source).toContain("roles.admin");
+    expect(source).toContain("isAdminDashboard ? await getAdminDashboard() : await getStudentDashboard()");
   });
 });

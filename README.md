@@ -150,6 +150,8 @@ A integração da web com a API REST fica centralizada em `web/src/services/api/
 
 O dashboard do aluno consome `GET /api/dashboard/aluno` pela camada `web/src/services/dashboard.service.js` e exibe os indicadores consolidados pela API REST.
 
+O dashboard administrativo consome `GET /api/dashboard/admin` pela mesma camada e exibe alunos ativos, envios, aprovacoes pendentes e destaques de engajamento para professor/admin.
+
 O registro de desafio do aluno consome `POST /api/envios-desafios` pela camada `web/src/services/challenge-submission.service.js`, preservando a API REST como responsavel por validar o aluno autenticado, turma, desafio, participantes e status pendente.
 
 A tela Meus Desafios consome `GET /api/envios-desafios/meus` pela camada `web/src/services/my-challenge-submissions.service.js` e exibe status, detalhes, evidencias e feedback do professor sem permitir alteracao de status.

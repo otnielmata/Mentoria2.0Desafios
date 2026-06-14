@@ -37,6 +37,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("POST /api/auth/login");
     expect(source).toContain("POST /api/auth/register");
     expect(source).toContain("GET  /api/dashboard/aluno");
+    expect(source).toContain("GET  /api/dashboard/admin");
     expect(source).toContain("POST /api/envios-desafios");
     expect(source).toContain("GET  /api/envios-desafios/meus");
     expect(source).toContain("GET  /api/pontuacoes/minha");
@@ -53,6 +54,16 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("getStudentDashboard");
     expect(source).toContain("toStudentDashboardDto");
     expect(source).toContain("getStudentDashboardRequest");
+  });
+
+  it("documenta o fluxo do dashboard admin", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("Dashboard admin");
+    expect(source).toContain("getAdminDashboard");
+    expect(source).toContain("toAdminDashboardDto");
+    expect(source).toContain("getAdminDashboardRequest");
+    expect(source).toContain("front-end nao calcula indicadores");
   });
 
   it("documenta o fluxo de registro de desafio", () => {

@@ -4,6 +4,7 @@ export const apiEndpoints = {
     register: "/api/auth/register",
   },
   dashboard: {
+    admin: "/api/dashboard/admin",
     student: "/api/dashboard/aluno",
   },
   challengeSubmissions: {

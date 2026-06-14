@@ -76,6 +76,7 @@ Nenhum endpoint novo e necessario para navegacao por perfil. Os menus sao deriva
 POST /api/auth/login
 POST /api/auth/register
 GET  /api/dashboard/aluno
+GET  /api/dashboard/admin
 POST /api/envios-desafios
 GET  /api/envios-desafios/meus
 GET  /api/pontuacoes/minha
@@ -119,6 +120,20 @@ src/app/dashboard/page.js
 ```
 
 Essa tela nao calcula ranking no navegador. Ela exibe pontos totais, posicao no ranking, desafios aprovados, desafios pendentes, pontuacao por pilar e ultimos envios conforme dados consolidados pela API REST.
+
+## Dashboard admin
+
+O dashboard geral de professor/admin segue o fluxo:
+
+```text
+src/app/dashboard/page.js
+  -> getAdminDashboard em src/controllers/dashboard.controller.js
+  -> toAdminDashboardDto em src/models/dashboard.model.js
+  -> getAdminDashboardRequest em src/services/dashboard.service.js
+  -> GET /api/dashboard/admin
+```
+
+A rota `/dashboard` escolhe o fluxo pela `role` salva na sessao. Alunos continuam no dashboard do aluno; professor e admin veem indicadores gerais, alunos ativos, total de envios, envios pendentes, alunos mais engajados e baixa participacao. O front-end nao calcula indicadores e nao exibe dados sensiveis em cards resumidos.
 
 ## Registro de desafio
 
