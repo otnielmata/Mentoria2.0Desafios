@@ -79,6 +79,7 @@ GET  /api/dashboard/aluno
 GET  /api/dashboard/admin
 GET  /api/desafios
 POST /api/desafios
+GET  /api/grupos
 GET  /api/envios-desafios/aprovacoes
 PATCH /api/envios-desafios/aprovacoes
 POST /api/envios-desafios
@@ -213,6 +214,20 @@ src/app/aprovacoes/page.js
 ```
 
 A rota `/aprovacoes` e restrita a professor/admin pelo `AuthGuard`. A tela lista apenas envios pendentes com aluno, desafio, descricao e evidencias. As acoes permitem aprovar, reprovar ou solicitar ajuste; a solicitacao de ajuste exige feedback, e a aprovacao delega a atribuicao automatica de pontos para a API REST. Evidencias sao exibidas como texto ou links acionados pelo usuario, sem download automatico no front-end.
+
+## Grupos
+
+A consulta de grupos formados nos envios segue o fluxo:
+
+```text
+src/app/grupos/page.js
+  -> getGroups em src/controllers/groups.controller.js
+  -> toGroupsDto em src/models/groups.model.js
+  -> listGroupsRequest em src/services/groups.service.js
+  -> GET /api/grupos
+```
+
+A rota `/grupos` e restrita a professor/admin pelo `AuthGuard`. A tela lista envio, lider/responsavel, participantes e status, permite abrir detalhes para ver ate 5 participantes e apresenta estado vazio claro quando nao existem envios em grupo. O front-end nao cria, edita ou altera grupos nesta primeira versao e nao exibe dados sensiveis dos alunos.
 
 ## Registro de desafio
 

@@ -7,6 +7,9 @@ export const apiEndpoints = {
     admin: "/api/dashboard/admin",
     student: "/api/dashboard/aluno",
   },
+  groups: {
+    collection: "/api/grupos",
+  },
   challengeSubmissions: {
     approvals: "/api/envios-desafios/aprovacoes",
     create: "/api/envios-desafios",

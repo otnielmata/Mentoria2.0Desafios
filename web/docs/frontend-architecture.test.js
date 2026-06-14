@@ -40,6 +40,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("GET  /api/dashboard/admin");
     expect(source).toContain("GET  /api/desafios");
     expect(source).toContain("POST /api/desafios");
+    expect(source).toContain("GET  /api/grupos");
     expect(source).toContain("GET  /api/envios-desafios/aprovacoes");
     expect(source).toContain("PATCH /api/envios-desafios/aprovacoes");
     expect(source).toContain("POST /api/envios-desafios");
@@ -124,6 +125,17 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("listChallengeApprovalsRequest/reviewChallengeApprovalRequest");
     expect(source).toContain("GET/PATCH /api/envios-desafios/aprovacoes");
     expect(source).toContain("sem download automatico");
+  });
+
+  it("documenta o fluxo de consulta de grupos", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/grupos/page.js");
+    expect(source).toContain("getGroups");
+    expect(source).toContain("toGroupsDto");
+    expect(source).toContain("listGroupsRequest");
+    expect(source).toContain("GET /api/grupos");
+    expect(source).toContain("nao exibe dados sensiveis dos alunos");
   });
 
   it("documenta o fluxo de registro de desafio", () => {

@@ -861,7 +861,8 @@ h3 {
 .class-list,
 .pillar-list,
 .admin-challenge-list,
-.approval-list {
+.approval-list,
+.group-list {
   display: grid;
   gap: 0.85rem;
 }
@@ -870,7 +871,8 @@ h3 {
 .class-item,
 .pillar-item,
 .admin-challenge-item,
-.approval-item {
+.approval-item,
+.group-item {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -883,7 +885,8 @@ h3 {
 .class-item header,
 .pillar-item header,
 .admin-challenge-item header,
-.approval-item-header {
+.approval-item-header,
+.group-item-header {
   align-items: start;
   display: flex;
   gap: 1rem;
@@ -900,7 +903,10 @@ h3 {
 .admin-challenge-item p,
 .approval-item h3,
 .approval-item h4,
-.approval-item p {
+.approval-item p,
+.group-item h3,
+.group-item h4,
+.group-item p {
   margin: 0;
 }
 
@@ -914,34 +920,42 @@ h3 {
 .approval-item p,
 .approval-meta dt,
 .approval-details-content p,
-.approval-evidence-list {
+.approval-evidence-list,
+.group-item p,
+.group-meta dt,
+.group-details-content p,
+.group-participant-list {
   color: var(--muted);
 }
 
 .pillar-details,
 .admin-challenge-details,
-.approval-details {
+.approval-details,
+.group-details {
   border-top: 1px solid var(--line);
   padding-top: 0.8rem;
 }
 
 .pillar-details summary,
 .admin-challenge-details summary,
-.approval-details summary {
+.approval-details summary,
+.group-details summary {
   cursor: pointer;
   font-weight: 800;
 }
 
 .pillar-details p,
 .admin-challenge-details p,
-.approval-details p {
+.approval-details p,
+.group-details p {
   margin-top: 0.7rem;
 }
 
 .student-meta,
 .class-meta,
 .admin-challenge-meta,
-.approval-meta {
+.approval-meta,
+.group-meta {
   display: grid;
   gap: 0.65rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -951,7 +965,8 @@ h3 {
 .student-meta div,
 .class-meta div,
 .admin-challenge-meta div,
-.approval-meta div {
+.approval-meta div,
+.group-meta div {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -961,7 +976,8 @@ h3 {
 .student-meta dt,
 .class-meta dt,
 .admin-challenge-meta dt,
-.approval-meta dt {
+.approval-meta dt,
+.group-meta dt {
   font-size: 0.74rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -970,7 +986,8 @@ h3 {
 .student-meta dd,
 .class-meta dd,
 .admin-challenge-meta dd,
-.approval-meta dd {
+.approval-meta dd,
+.group-meta dd {
   font-weight: 800;
   margin: 0.25rem 0 0;
   overflow-wrap: anywhere;
@@ -1157,6 +1174,28 @@ h3 {
   gap: 0.65rem;
 }
 
+.group-details-content {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+
+.group-participant-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.group-participant-list li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-weight: 800;
+  padding: 0.65rem;
+}
+
 .feature-panel {
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -1206,6 +1245,7 @@ h3 {
   .class-meta,
   .admin-challenge-meta,
   .approval-meta,
+  .group-meta,
   .dashboard-sections,
   .dashboard-grid,
   .admin-engagement-grid,
