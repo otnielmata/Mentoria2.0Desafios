@@ -860,7 +860,8 @@ h3 {
 .student-list,
 .class-list,
 .pillar-list,
-.admin-challenge-list {
+.admin-challenge-list,
+.approval-list {
   display: grid;
   gap: 0.85rem;
 }
@@ -868,7 +869,8 @@ h3 {
 .student-item,
 .class-item,
 .pillar-item,
-.admin-challenge-item {
+.admin-challenge-item,
+.approval-item {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -880,7 +882,8 @@ h3 {
 .student-item header,
 .class-item header,
 .pillar-item header,
-.admin-challenge-item header {
+.admin-challenge-item header,
+.approval-item-header {
   align-items: start;
   display: flex;
   gap: 1rem;
@@ -894,7 +897,10 @@ h3 {
 .pillar-item h3,
 .pillar-item p,
 .admin-challenge-item h3,
-.admin-challenge-item p {
+.admin-challenge-item p,
+.approval-item h3,
+.approval-item h4,
+.approval-item p {
   margin: 0;
 }
 
@@ -904,30 +910,38 @@ h3 {
 .class-meta dt,
 .pillar-item p,
 .admin-challenge-item p,
-.admin-challenge-meta dt {
+.admin-challenge-meta dt,
+.approval-item p,
+.approval-meta dt,
+.approval-details-content p,
+.approval-evidence-list {
   color: var(--muted);
 }
 
 .pillar-details,
-.admin-challenge-details {
+.admin-challenge-details,
+.approval-details {
   border-top: 1px solid var(--line);
   padding-top: 0.8rem;
 }
 
 .pillar-details summary,
-.admin-challenge-details summary {
+.admin-challenge-details summary,
+.approval-details summary {
   cursor: pointer;
   font-weight: 800;
 }
 
 .pillar-details p,
-.admin-challenge-details p {
+.admin-challenge-details p,
+.approval-details p {
   margin-top: 0.7rem;
 }
 
 .student-meta,
 .class-meta,
-.admin-challenge-meta {
+.admin-challenge-meta,
+.approval-meta {
   display: grid;
   gap: 0.65rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -936,7 +950,8 @@ h3 {
 
 .student-meta div,
 .class-meta div,
-.admin-challenge-meta div {
+.admin-challenge-meta div,
+.approval-meta div {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -945,7 +960,8 @@ h3 {
 
 .student-meta dt,
 .class-meta dt,
-.admin-challenge-meta dt {
+.admin-challenge-meta dt,
+.approval-meta dt {
   font-size: 0.74rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -953,7 +969,8 @@ h3 {
 
 .student-meta dd,
 .class-meta dd,
-.admin-challenge-meta dd {
+.admin-challenge-meta dd,
+.approval-meta dd {
   font-weight: 800;
   margin: 0.25rem 0 0;
   overflow-wrap: anywhere;
@@ -1105,6 +1122,41 @@ h3 {
   padding: 0.85rem;
 }
 
+.approval-details-content {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.approval-details-content section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.approval-evidence-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.approval-evidence-list a {
+  font-weight: 800;
+}
+
+.approval-review-panel {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1rem;
+}
+
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .feature-panel {
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -1153,6 +1205,7 @@ h3 {
   .student-meta,
   .class-meta,
   .admin-challenge-meta,
+  .approval-meta,
   .dashboard-sections,
   .dashboard-grid,
   .admin-engagement-grid,

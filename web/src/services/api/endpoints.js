@@ -8,6 +8,7 @@ export const apiEndpoints = {
     student: "/api/dashboard/aluno",
   },
   challengeSubmissions: {
+    approvals: "/api/envios-desafios/aprovacoes",
     create: "/api/envios-desafios",
     mine: "/api/envios-desafios/meus",
   },

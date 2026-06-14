@@ -164,6 +164,8 @@ O registro de desafio do aluno consome `POST /api/envios-desafios` pela camada `
 
 A tela Meus Desafios consome `GET /api/envios-desafios/meus` pela camada `web/src/services/my-challenge-submissions.service.js` e exibe status, detalhes, evidencias e feedback do professor sem permitir alteracao de status.
 
+A tela Aprovacoes consome `/api/envios-desafios/aprovacoes` pela camada `web/src/services/challenge-approvals.service.js`, usando `GET` para listar pendencias e `PATCH` para aprovar, reprovar ou solicitar ajuste. A atribuicao de pontos permanece sob responsabilidade da API REST.
+
 A tela Minha Pontuação consome `GET /api/pontuacoes/minha` pela camada `web/src/services/my-score.service.js` e exibe total, pontuacao por pilar e historico de pontos concedidos sem recalcular pontuacao no front-end.
 
 A tela Ranking consome `GET /api/ranking` pela camada `web/src/services/ranking.service.js` e exibe posicao, aluno e pontos sem recalcular classificacao no front-end.

@@ -79,6 +79,8 @@ GET  /api/dashboard/aluno
 GET  /api/dashboard/admin
 GET  /api/desafios
 POST /api/desafios
+GET  /api/envios-desafios/aprovacoes
+PATCH /api/envios-desafios/aprovacoes
 POST /api/envios-desafios
 GET  /api/envios-desafios/meus
 GET  /api/pontuacoes/minha
@@ -197,6 +199,20 @@ src/app/desafios/page.js
 ```
 
 A rota `/desafios` e restrita a professor/admin pelo `AuthGuard`. A tela lista titulo, pilar, pontos, tipo, maximo de participantes e status, carrega pilares pela API para o cadastro e valida pontuacao fixa maior que zero. O modelo inicial usa pontos fixos por desafio e nao calcula pontuacao por dificuldade no front-end.
+
+## Aprovacoes
+
+A avaliacao de envios pendentes segue o fluxo:
+
+```text
+src/app/aprovacoes/page.js
+  -> getChallengeApprovals/reviewChallengeApproval em src/controllers/challenge-approvals.controller.js
+  -> toChallengeApprovalsDto/validateApprovalReviewPayload em src/models/challenge-approvals.model.js
+  -> listChallengeApprovalsRequest/reviewChallengeApprovalRequest em src/services/challenge-approvals.service.js
+  -> GET/PATCH /api/envios-desafios/aprovacoes
+```
+
+A rota `/aprovacoes` e restrita a professor/admin pelo `AuthGuard`. A tela lista apenas envios pendentes com aluno, desafio, descricao e evidencias. As acoes permitem aprovar, reprovar ou solicitar ajuste; a solicitacao de ajuste exige feedback, e a aprovacao delega a atribuicao automatica de pontos para a API REST. Evidencias sao exibidas como texto ou links acionados pelo usuario, sem download automatico no front-end.
 
 ## Registro de desafio
 

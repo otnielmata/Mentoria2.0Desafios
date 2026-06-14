@@ -40,6 +40,8 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("GET  /api/dashboard/admin");
     expect(source).toContain("GET  /api/desafios");
     expect(source).toContain("POST /api/desafios");
+    expect(source).toContain("GET  /api/envios-desafios/aprovacoes");
+    expect(source).toContain("PATCH /api/envios-desafios/aprovacoes");
     expect(source).toContain("POST /api/envios-desafios");
     expect(source).toContain("GET  /api/envios-desafios/meus");
     expect(source).toContain("GET  /api/pontuacoes/minha");
@@ -111,6 +113,17 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("toChallengesDto/validateChallengePayload");
     expect(source).toContain("listChallengesRequest/createChallengeRequest");
     expect(source).toContain("pontos fixos por desafio");
+  });
+
+  it("documenta o fluxo de aprovacoes de envios", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/aprovacoes/page.js");
+    expect(source).toContain("getChallengeApprovals/reviewChallengeApproval");
+    expect(source).toContain("toChallengeApprovalsDto/validateApprovalReviewPayload");
+    expect(source).toContain("listChallengeApprovalsRequest/reviewChallengeApprovalRequest");
+    expect(source).toContain("GET/PATCH /api/envios-desafios/aprovacoes");
+    expect(source).toContain("sem download automatico");
   });
 
   it("documenta o fluxo de registro de desafio", () => {
