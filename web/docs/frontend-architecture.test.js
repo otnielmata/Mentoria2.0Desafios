@@ -37,6 +37,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("POST /api/auth/login");
     expect(source).toContain("POST /api/auth/register");
     expect(source).toContain("GET  /api/dashboard/aluno");
+    expect(source).toContain("POST /api/envios-desafios");
     expect(source).toContain("Tema e UI");
     expect(source).toContain("Componentes base atuais");
   });
@@ -48,6 +49,15 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("getStudentDashboard");
     expect(source).toContain("toStudentDashboardDto");
     expect(source).toContain("getStudentDashboardRequest");
+  });
+
+  it("documenta o fluxo de registro de desafio", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/registrar-desafio/page.js");
+    expect(source).toContain("submitChallengeSubmission");
+    expect(source).toContain("validateChallengeSubmissionPayload");
+    expect(source).toContain("submitChallengeSubmissionRequest");
   });
 
   it("documenta observabilidade sem expor dados sensiveis", () => {

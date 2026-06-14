@@ -5,9 +5,13 @@ import { collectQualityFiles, toRelativePath, webRoot } from "./project-files.mj
 const requiredTestFiles = [
   "src/models/auth.model.test.js",
   "src/models/dashboard.model.test.js",
+  "src/models/challenge-submission.model.test.js",
   "src/controllers/dashboard.controller.test.js",
+  "src/controllers/challenge-submission.controller.test.js",
   "src/services/dashboard.service.test.js",
+  "src/services/challenge-submission.service.test.js",
   "src/app/dashboard/page.test.js",
+  "src/app/registrar-desafio/page.test.js",
   "src/config/access-control.test.js",
   "src/config/domain-pages.test.js",
   "src/models/form.model.test.js",

@@ -101,6 +101,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - Endpoints ficam centralizados em `src/services/api/endpoints.js`
 - Views continuam sem montar requisicoes HTTP diretamente
 - O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
+- O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
 
 ## Sessao autenticada
 
@@ -120,6 +121,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 
 - Auth possui DTOs de login, registro e resposta autenticada
 - Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
+- Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
 - As proximas entidades de dominio devem seguir DTOs por caso de uso: desafios, envios, pilares, turmas, rankings e pontuacoes
 - Formularios validam obrigatoriedade e formato antes da chamada HTTP
 - Controllers convertem erros de validacao da API em `fieldErrors`
@@ -141,7 +143,7 @@ Login, registro e novos formularios de desafios usam o mesmo ciclo de formulario
 A biblioteca inicial fica em `src/components/ui/`.
 
 - `Button`: variantes visuais, loading e disabled
-- `Input` e `Textarea`: label, texto de ajuda, erro por campo e acessibilidade
+- `Input`, `Select` e `Textarea`: label, texto de ajuda, erro por campo e acessibilidade
 - `Alert`: mensagens de erro e sucesso definidas pela view
 - `DataList`: painel reutilizavel para listagens
 - `LoadingState`, `ErrorState`, `EmptyState` e `AsyncStateView`: padrao de feedback para carregamento, falha e lista vazia
@@ -168,6 +170,19 @@ A rota protegida `/dashboard` carrega os indicadores do aluno autenticado pela A
 - O service `src/services/dashboard.service.js` concentra a chamada ao endpoint
 - Estados de carregamento, erro, vazio e retry usam `AsyncStateView`
 - O front-end apenas exibe ranking e pontuacao consolidados pela API
+
+## Registro de desafio
+
+A rota protegida `/registrar-desafio` permite que o aluno envie um desafio realizado para avaliacao.
+
+- Endpoint unico da funcionalidade: `POST /api/envios-desafios`
+- A view chama `src/controllers/challenge-submission.controller.js`
+- O model `src/models/challenge-submission.model.js` valida pilar, desafio, turma, tipo, descricao, evidencia e participantes
+- O service `src/services/challenge-submission.service.js` concentra a chamada ao endpoint
+- Envios em grupo aceitam ate 5 participantes informados no formulario
+- O aluno autenticado permanece como responsavel pelo envio pela sessao JWT
+- A confirmacao exibida apos sucesso indica status `pendente`
+- Pontuacao concedida nao e exibida antes da aprovacao
 
 ## Observabilidade mínima
 

@@ -6,4 +6,7 @@ export const apiEndpoints = {
   dashboard: {
     student: "/api/dashboard/aluno",
   },
+  challengeSubmissions: {
+    create: "/api/envios-desafios",
+  },
 };

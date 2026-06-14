@@ -67,6 +67,7 @@ Views nao devem montar `fetch` direto nem conhecer detalhes de endpoint. Endpoin
 POST /api/auth/login
 POST /api/auth/register
 GET  /api/dashboard/aluno
+POST /api/envios-desafios
 ```
 
 A web nao acessa MongoDB diretamente. Todo dado de negocio passa pela API REST.
@@ -106,6 +107,20 @@ src/app/dashboard/page.js
 
 Essa tela nao calcula ranking no navegador. Ela exibe pontos totais, posicao no ranking, desafios aprovados, desafios pendentes, pontuacao por pilar e ultimos envios conforme dados consolidados pela API REST.
 
+## Registro de desafio
+
+O registro de desafio realizado segue o fluxo padrao:
+
+```text
+src/app/registrar-desafio/page.js
+  -> submitChallengeSubmission em src/controllers/challenge-submission.controller.js
+  -> validateChallengeSubmissionPayload em src/models/challenge-submission.model.js
+  -> submitChallengeSubmissionRequest em src/services/challenge-submission.service.js
+  -> POST /api/envios-desafios
+```
+
+A tela nao busca listas auxiliares nesta historia para manter o limite de um endpoint. Ela envia pilar, desafio, turma, tipo individual/grupo, descricao, evidencias e participantes. A API REST continua responsavel por validar o aluno autenticado, desafio ativo, turma, participantes e status inicial pendente.
+
 ## Observabilidade mínima
 
 A observabilidade inicial fica em `src/services/logger.service.js`.
@@ -134,6 +149,7 @@ Componentes base atuais:
 
 - `Button`
 - `Input`
+- `Select`
 - `Textarea`
 - `Alert`
 - `DataList`

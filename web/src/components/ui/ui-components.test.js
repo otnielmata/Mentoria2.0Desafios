@@ -46,6 +46,19 @@ describe("components/ui", () => {
     expect(source).toContain("<textarea");
   });
 
+  it("mantem Select com label, ajuda e erro acessivel", () => {
+    const source = readComponent("Select.js");
+
+    expect(source).toContain("field-group");
+    expect(source).toContain("htmlFor");
+    expect(source).toContain("id={selectId}");
+    expect(source).toContain("field-help");
+    expect(source).toContain("field-error");
+    expect(source).toContain("aria-invalid");
+    expect(source).toContain("aria-errormessage");
+    expect(source).toContain("<select");
+  });
+
   it("mantem componentes de feedback sem textos de negocio fixos", () => {
     const source = readComponent("Feedback.js");
 

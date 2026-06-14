@@ -150,6 +150,8 @@ A integração da web com a API REST fica centralizada em `web/src/services/api/
 
 O dashboard do aluno consome `GET /api/dashboard/aluno` pela camada `web/src/services/dashboard.service.js` e exibe os indicadores consolidados pela API REST.
 
+O registro de desafio do aluno consome `POST /api/envios-desafios` pela camada `web/src/services/challenge-submission.service.js`, preservando a API REST como responsavel por validar o aluno autenticado, turma, desafio, participantes e status pendente.
+
 ## Sessão Autenticada Da Web
 
 A sessão autenticada fica centralizada em `web/src/services/session.service.js`. O front salva apenas token e dados mínimos do usuário, remove campos sensíveis, restaura sessão persistida ao recarregar, limpa dados no logout e descarta sessão expirada ou inválida. Respostas `401` em chamadas protegidas limpam a sessão e orientam novo login.

@@ -438,6 +438,7 @@ h3 {
 }
 
 .field-group input,
+.field-group select,
 .field-group textarea {
   background: var(--background);
   border: 1px solid var(--line);
@@ -449,11 +450,13 @@ h3 {
 }
 
 .field-group input:focus-visible,
+.field-group select:focus-visible,
 .field-group textarea:focus-visible {
   border-color: var(--primary);
 }
 
 .field-group input[aria-invalid="true"],
+.field-group select[aria-invalid="true"],
 .field-group textarea[aria-invalid="true"] {
   border-color: var(--danger);
   border-left-width: 4px;
@@ -634,6 +637,63 @@ h3 {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 }
 
+.field-grid,
+.submission-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.field-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.submission-layout {
+  align-items: start;
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+}
+
+.submission-summary {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.submission-summary h2,
+.submission-summary p,
+.submission-summary dl {
+  margin: 0;
+}
+
+.submission-summary p,
+.submission-summary dd {
+  color: var(--muted);
+}
+
+.submission-summary dl {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.submission-summary div {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.2rem;
+  padding-top: 0.85rem;
+}
+
+.submission-summary dt {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.submission-summary dd {
+  margin: 0;
+}
+
 .feature-panel {
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -674,6 +734,8 @@ h3 {
   .topbar,
   .page-grid,
   .two-column,
+  .field-grid,
+  .submission-layout,
   .dashboard-sections,
   .dashboard-grid {
     grid-template-columns: 1fr;
