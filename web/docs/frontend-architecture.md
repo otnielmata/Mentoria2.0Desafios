@@ -81,6 +81,8 @@ POST /api/envios-desafios
 GET  /api/envios-desafios/meus
 GET  /api/pontuacoes/minha
 GET  /api/ranking
+GET  /api/turmas
+POST /api/turmas
 GET  /api/users
 POST /api/users
 GET  /api/users/me
@@ -150,6 +152,20 @@ src/app/alunos/page.js
 ```
 
 A rota `/alunos` e restrita a professor/admin pelo `AuthGuard`. A tela lista nome, e-mail, papel, status e turma quando disponivel, sem exibir senha, e valida nome/e-mail antes de cadastrar. O front-end usa o mesmo endpoint de usuarios com metodos HTTP diferentes e deixa a API REST como autoridade final de autorizacao e persistencia.
+
+## Turmas
+
+A gestao de turmas segue o fluxo:
+
+```text
+src/app/turmas/page.js
+  -> getClasses/createClass em src/controllers/classes.controller.js
+  -> toClassesDto/validateClassPayload em src/models/classes.model.js
+  -> listClassesRequest/createClassRequest em src/services/classes.service.js
+  -> GET/POST /api/turmas
+```
+
+A rota `/turmas` e restrita a professor/admin pelo `AuthGuard`. A tela lista nome, data de inicio, data de fim e status, valida periodo antes do cadastro e nao contem logica de pontuacao. Relacionamentos entre aluno e turma permanecem sob responsabilidade da API REST.
 
 ## Registro de desafio
 

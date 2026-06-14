@@ -42,6 +42,8 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("GET  /api/envios-desafios/meus");
     expect(source).toContain("GET  /api/pontuacoes/minha");
     expect(source).toContain("GET  /api/ranking");
+    expect(source).toContain("GET  /api/turmas");
+    expect(source).toContain("POST /api/turmas");
     expect(source).toContain("GET  /api/users");
     expect(source).toContain("POST /api/users");
     expect(source).toContain("GET  /api/users/me");
@@ -76,6 +78,16 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("toUsersDto/validateUserPayload");
     expect(source).toContain("listUsersRequest/createUserRequest");
     expect(source).toContain("sem exibir senha");
+  });
+
+  it("documenta o fluxo de gestao de turmas", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/turmas/page.js");
+    expect(source).toContain("getClasses/createClass");
+    expect(source).toContain("toClassesDto/validateClassPayload");
+    expect(source).toContain("listClassesRequest/createClassRequest");
+    expect(source).toContain("nao contem logica de pontuacao");
   });
 
   it("documenta o fluxo de registro de desafio", () => {

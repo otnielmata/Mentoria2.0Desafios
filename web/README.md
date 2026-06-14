@@ -105,6 +105,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
 - O dashboard de professor/admin consome apenas `GET /api/dashboard/admin` para exibir alunos ativos, envios, aprovacoes pendentes e engajamento
 - A tela Alunos consome apenas `/api/users`, com `GET` para listar e `POST` para cadastrar participantes da mentoria
+- A tela Turmas consome apenas `/api/turmas`, com `GET` para listar e `POST` para cadastrar ciclos da mentoria
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
 - A tela Meus Desafios consome apenas `GET /api/envios-desafios/meus` para listar envios, status e feedback do professor
 - A tela Minha Pontuacao consome apenas `GET /api/pontuacoes/minha` para exibir total, pontos por pilar e historico concedido
@@ -131,6 +132,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
 - Dashboard admin possui DTO de leitura para indicadores gerais, alunos mais engajados e baixa participacao
 - Alunos possui DTOs de listagem e cadastro para nome, e-mail, papel, status e turma sem expor senha
+- Turmas possui DTOs de listagem e cadastro para nome, data de inicio, data de fim e status
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
 - Meus desafios possui DTO de leitura para desafio, pilar, data, tipo, status, evidencias e feedback do professor
 - Minha pontuacao possui DTO de leitura para total, pontuacao por pilar e historico de pontos concedidos
@@ -209,6 +211,20 @@ A rota protegida `/alunos` permite que professor/admin liste e cadastre particip
 - O formulario valida nome e e-mail antes do envio para a API
 - A lista exibe nome, e-mail, papel, status e turma quando disponivel, sem exibir senha
 - A rota fica disponivel apenas para `professor` e `admin`
+
+## Turmas
+
+A rota protegida `/turmas` permite que professor/admin liste e cadastre ciclos da mentoria.
+
+- Endpoint unico da funcionalidade: `/api/turmas`
+- A listagem usa `GET /api/turmas`
+- O cadastro usa `POST /api/turmas`
+- A view chama `src/controllers/classes.controller.js`
+- O model `src/models/classes.model.js` normaliza nome, data de inicio, data de fim e status
+- O service `src/services/classes.service.js` concentra a chamada ao endpoint
+- O formulario valida nome, datas obrigatorias e impede data final anterior a inicial
+- A lista exibe nome, periodo e status
+- Nao existe logica de pontuacao nesta funcionalidade
 
 ## Registro de desafio
 

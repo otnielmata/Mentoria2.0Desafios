@@ -857,12 +857,14 @@ h3 {
   gap: 1rem;
 }
 
-.student-list {
+.student-list,
+.class-list {
   display: grid;
   gap: 0.85rem;
 }
 
-.student-item {
+.student-item,
+.class-item {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -871,7 +873,8 @@ h3 {
   padding: 1rem;
 }
 
-.student-item header {
+.student-item header,
+.class-item header {
   align-items: start;
   display: flex;
   gap: 1rem;
@@ -879,42 +882,51 @@ h3 {
 }
 
 .student-item h3,
-.student-item p {
+.student-item p,
+.class-item h3,
+.class-item p {
   margin: 0;
 }
 
 .student-item p,
-.student-meta dt {
+.student-meta dt,
+.class-item p,
+.class-meta dt {
   color: var(--muted);
 }
 
-.student-meta {
+.student-meta,
+.class-meta {
   display: grid;
   gap: 0.65rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
 }
 
-.student-meta div {
+.student-meta div,
+.class-meta div {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.7rem;
 }
 
-.student-meta dt {
+.student-meta dt,
+.class-meta dt {
   font-size: 0.74rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.student-meta dd {
+.student-meta dd,
+.class-meta dd {
   font-weight: 800;
   margin: 0.25rem 0 0;
   overflow-wrap: anywhere;
 }
 
-.student-status {
+.student-status,
+.class-status {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -925,15 +937,22 @@ h3 {
   white-space: nowrap;
 }
 
-.student-status-ativo {
+.student-status-ativo,
+.class-status-ativa {
   border-color: var(--success);
   color: var(--success);
 }
 
 .student-status-bloqueado,
-.student-status-inativo {
+.student-status-inativo,
+.class-status-inativa {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+.class-status-planejada {
+  border-color: var(--primary);
+  color: var(--primary-strong);
 }
 
 .submission-item {
@@ -1095,6 +1114,7 @@ h3 {
   .submission-item-header,
   .submission-meta,
   .student-meta,
+  .class-meta,
   .dashboard-sections,
   .dashboard-grid,
   .admin-engagement-grid,

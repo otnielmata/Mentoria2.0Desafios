@@ -17,6 +17,9 @@ export const apiEndpoints = {
   ranking: {
     general: "/api/ranking",
   },
+  classes: {
+    collection: "/api/turmas",
+  },
   users: {
     collection: "/api/users",
     me: "/api/users/me",
