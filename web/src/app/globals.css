@@ -562,7 +562,7 @@ h3 {
 }
 
 .dashboard-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .metric-card span {
@@ -579,6 +579,53 @@ h3 {
   gap: 1rem;
   justify-content: space-between;
   padding: 1.4rem;
+}
+
+.dashboard-sections {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.pillar-score-list,
+.challenge-summary-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pillar-score-item,
+.challenge-summary-item {
+  align-items: center;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+  padding: 0.85rem;
+}
+
+.pillar-score-item span,
+.challenge-summary-item span {
+  color: var(--muted);
+}
+
+.challenge-summary-item div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.challenge-status {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.32rem 0.62rem;
+  text-transform: capitalize;
 }
 
 .two-column {
@@ -627,6 +674,7 @@ h3 {
   .topbar,
   .page-grid,
   .two-column,
+  .dashboard-sections,
   .dashboard-grid {
     grid-template-columns: 1fr;
   }

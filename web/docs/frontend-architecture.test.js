@@ -36,8 +36,18 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("npm run deploy:check");
     expect(source).toContain("POST /api/auth/login");
     expect(source).toContain("POST /api/auth/register");
+    expect(source).toContain("GET  /api/dashboard/aluno");
     expect(source).toContain("Tema e UI");
     expect(source).toContain("Componentes base atuais");
+  });
+
+  it("documenta o fluxo do dashboard do aluno", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/dashboard/page.js");
+    expect(source).toContain("getStudentDashboard");
+    expect(source).toContain("toStudentDashboardDto");
+    expect(source).toContain("getStudentDashboardRequest");
   });
 
   it("documenta observabilidade sem expor dados sensiveis", () => {

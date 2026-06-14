@@ -148,6 +148,8 @@ A aplicação web separa rotas públicas e protegidas em `web/src/config/access-
 
 A integração da web com a API REST fica centralizada em `web/src/services/api/client.js`. A URL base vem da configuração pública em `web/src/config/env.js`, usando `NEXT_PUBLIC_API_BASE_URL`; headers e token JWT são tratados no cliente, erros de API/rede/validação são normalizados para controllers e views, e os endpoints ficam reunidos em `web/src/services/api/endpoints.js`.
 
+O dashboard do aluno consome `GET /api/dashboard/aluno` pela camada `web/src/services/dashboard.service.js` e exibe os indicadores consolidados pela API REST.
+
 ## Sessão Autenticada Da Web
 
 A sessão autenticada fica centralizada em `web/src/services/session.service.js`. O front salva apenas token e dados mínimos do usuário, remove campos sensíveis, restaura sessão persistida ao recarregar, limpa dados no logout e descarta sessão expirada ou inválida. Respostas `401` em chamadas protegidas limpam a sessão e orientam novo login.

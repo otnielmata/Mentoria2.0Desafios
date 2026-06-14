@@ -66,6 +66,7 @@ Views nao devem montar `fetch` direto nem conhecer detalhes de endpoint. Endpoin
 ```text
 POST /api/auth/login
 POST /api/auth/register
+GET  /api/dashboard/aluno
 ```
 
 A web nao acessa MongoDB diretamente. Todo dado de negocio passa pela API REST.
@@ -90,6 +91,20 @@ Consultas usam `src/models/async-state.model.js` e `AsyncStateView`.
 - `success`: renderiza o conteudo da view
 
 Erros inesperados de renderizacao usam `src/app/error.js` e `src/app/global-error.js`, sem expor stack ou detalhes sensiveis para o usuario final.
+
+## Dashboard do aluno
+
+O dashboard do aluno segue o fluxo padrao da arquitetura:
+
+```text
+src/app/dashboard/page.js
+  -> getStudentDashboard em src/controllers/dashboard.controller.js
+  -> toStudentDashboardDto em src/models/dashboard.model.js
+  -> getStudentDashboardRequest em src/services/dashboard.service.js
+  -> GET /api/dashboard/aluno
+```
+
+Essa tela nao calcula ranking no navegador. Ela exibe pontos totais, posicao no ranking, desafios aprovados, desafios pendentes, pontuacao por pilar e ultimos envios conforme dados consolidados pela API REST.
 
 ## Observabilidade mínima
 

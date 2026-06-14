@@ -100,6 +100,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - Erros de rede, API e validacao sao normalizados para controllers e views
 - Endpoints ficam centralizados em `src/services/api/endpoints.js`
 - Views continuam sem montar requisicoes HTTP diretamente
+- O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
 
 ## Sessao autenticada
 
@@ -118,6 +119,7 @@ O gerenciamento de sessao usa `src/services/session.service.js`.
 Os contratos reutilizaveis ficam em `src/models/`.
 
 - Auth possui DTOs de login, registro e resposta autenticada
+- Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
 - As proximas entidades de dominio devem seguir DTOs por caso de uso: desafios, envios, pilares, turmas, rankings e pontuacoes
 - Formularios validam obrigatoriedade e formato antes da chamada HTTP
 - Controllers convertem erros de validacao da API em `fieldErrors`
@@ -155,6 +157,17 @@ Estados de consulta ficam padronizados em `src/models/async-state.model.js`.
 - Quando fizer sentido, o estado de erro oferece acao de tentar novamente
 - `src/app/loading.js`, `src/app/error.js` e `src/app/global-error.js` cobrem carregamento e falhas inesperadas de renderizacao
 - Logs tecnicos ficam restritos ao desenvolvimento e nao aparecem no texto final da interface
+
+## Dashboard do aluno
+
+A rota protegida `/dashboard` carrega os indicadores do aluno autenticado pela API REST.
+
+- Endpoint unico da funcionalidade: `GET /api/dashboard/aluno`
+- A view chama `src/controllers/dashboard.controller.js`
+- O controller normaliza a resposta com `src/models/dashboard.model.js`
+- O service `src/services/dashboard.service.js` concentra a chamada ao endpoint
+- Estados de carregamento, erro, vazio e retry usam `AsyncStateView`
+- O front-end apenas exibe ranking e pontuacao consolidados pela API
 
 ## Observabilidade mínima
 

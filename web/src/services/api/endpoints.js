@@ -3,4 +3,7 @@ export const apiEndpoints = {
     login: "/api/auth/login",
     register: "/api/auth/register",
   },
+  dashboard: {
+    student: "/api/dashboard/aluno",
+  },
 };
