@@ -23,7 +23,12 @@ export const authenticatedNavigationItems = [
   {
     href: "/dashboard",
     label: "Inicio",
-    roles: [roles.student, roles.teacher, roles.admin],
+    roles: [roles.student],
+  },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    roles: [roles.teacher, roles.admin],
   },
   {
     href: "/registrar-desafio",
@@ -38,11 +43,6 @@ export const authenticatedNavigationItems = [
   {
     href: "/minha-pontuacao",
     label: "Minha Pontuacao",
-    roles: [roles.student],
-  },
-  {
-    href: "/meus-grupos",
-    label: "Meus Grupos",
     roles: [roles.student],
   },
   {
@@ -134,7 +134,7 @@ export const routeRules = [
   {
     access: "protected",
     path: "/perfil",
-    roles: [roles.student],
+    roles: [roles.student, roles.teacher, roles.admin],
   },
   {
     access: "protected",

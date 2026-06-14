@@ -329,7 +329,8 @@ h3 {
 }
 
 .summary-grid,
-.dashboard-grid {
+.dashboard-grid,
+.score-summary-grid {
   display: grid;
   gap: 1rem;
 }
@@ -568,6 +569,10 @@ h3 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.score-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .metric-card span {
   color: var(--primary-strong);
   display: block;
@@ -591,7 +596,10 @@ h3 {
 }
 
 .pillar-score-list,
-.challenge-summary-list {
+.challenge-summary-list,
+.my-score-pillar-list,
+.my-score-history-list,
+.ranking-list {
   display: grid;
   gap: 0.75rem;
   list-style: none;
@@ -600,7 +608,10 @@ h3 {
 }
 
 .pillar-score-item,
-.challenge-summary-item {
+.challenge-summary-item,
+.my-score-pillar-item,
+.my-score-history-item,
+.ranking-item {
   align-items: center;
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -612,13 +623,138 @@ h3 {
 }
 
 .pillar-score-item span,
-.challenge-summary-item span {
+.challenge-summary-item span,
+.my-score-pillar-item span,
+.my-score-history-item span,
+.my-score-history-item dd {
   color: var(--muted);
 }
 
-.challenge-summary-item div {
+.ranking-list {
+  counter-reset: none;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) auto;
+}
+
+.ranking-item-current {
+  background: var(--surface);
+  border-color: var(--primary);
+  border-left-width: 4px;
+}
+
+.ranking-position {
+  color: var(--primary-strong);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.ranking-student {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ranking-current-label {
+  background: var(--primary);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  justify-self: start;
+  padding: 0.3rem 0.6rem;
+}
+
+.ranking-points {
+  white-space: nowrap;
+}
+
+.profile-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.profile-field {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   display: grid;
   gap: 0.25rem;
+  padding: 0.9rem;
+}
+
+.profile-field dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.profile-field dd {
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.profile-tag-list li {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+}
+
+.challenge-summary-item div,
+.my-score-pillar-item div,
+.my-score-history-item div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.my-score-history-item {
+  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.7fr);
+}
+
+.my-score-history-item dl {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.my-score-history-item dl div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.my-score-history-item dt {
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.my-score-history-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .challenge-status {
@@ -857,7 +993,12 @@ h3 {
   .submission-item-header,
   .submission-meta,
   .dashboard-sections,
-  .dashboard-grid {
+  .dashboard-grid,
+  .score-summary-grid,
+  .my-score-history-item,
+  .my-score-history-item dl,
+  .ranking-item,
+  .profile-grid {
     grid-template-columns: 1fr;
   }
 

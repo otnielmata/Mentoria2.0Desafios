@@ -39,6 +39,9 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("GET  /api/dashboard/aluno");
     expect(source).toContain("POST /api/envios-desafios");
     expect(source).toContain("GET  /api/envios-desafios/meus");
+    expect(source).toContain("GET  /api/pontuacoes/minha");
+    expect(source).toContain("GET  /api/ranking");
+    expect(source).toContain("GET  /api/users/me");
     expect(source).toContain("Tema e UI");
     expect(source).toContain("Componentes base atuais");
   });
@@ -68,6 +71,48 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("getMyChallengeSubmissions");
     expect(source).toContain("toMyChallengeSubmissionsDto");
     expect(source).toContain("getMyChallengeSubmissionsRequest");
+  });
+
+  it("documenta o fluxo de minha pontuacao", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/minha-pontuacao/page.js");
+    expect(source).toContain("getMyScore");
+    expect(source).toContain("toMyScoreDto");
+    expect(source).toContain("getMyScoreRequest");
+    expect(source).toContain("front-end nao soma pontuacoes");
+  });
+
+  it("documenta o fluxo de ranking geral", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/ranking/page.js");
+    expect(source).toContain("getGeneralRanking");
+    expect(source).toContain("toRankingDto");
+    expect(source).toContain("getGeneralRankingRequest");
+    expect(source).toContain("front-end nao recalcula classificacao");
+  });
+
+  it("documenta o fluxo de meu perfil", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/perfil/page.js");
+    expect(source).toContain("getProfile");
+    expect(source).toContain("toProfileDto");
+    expect(source).toContain("getProfileRequest");
+    expect(source).toContain("descarta campos sensiveis");
+  });
+
+  it("documenta menus por perfil sem endpoint novo", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("Menus por perfil");
+    expect(source).toContain("Nenhum endpoint novo");
+    expect(source).toContain("Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Ranking e Meu Perfil");
+    expect(source).toContain(
+      "Professor/Admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes"
+    );
+    expect(source).toContain("AuthGuard");
   });
 
   it("documenta observabilidade sem expor dados sensiveis", () => {

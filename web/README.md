@@ -87,6 +87,8 @@ As regras de acesso ficam centralizadas em `src/config/access-control.js`.
 - Acesso sem sessao em rota protegida redireciona para `/login?redirect=...`
 - O login usa o parametro `redirect` seguro para retornar a rota desejada
 - Menus autenticados sao filtrados por perfil: `aluno`, `professor` e `admin`
+- Menu do aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Ranking e Meu Perfil
+- Menu de professor/admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes
 - A autorizacao visual da web nao substitui a autorizacao da API REST
 
 ## Cliente HTTP da API REST
@@ -103,6 +105,9 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
 - A tela Meus Desafios consome apenas `GET /api/envios-desafios/meus` para listar envios, status e feedback do professor
+- A tela Minha Pontuacao consome apenas `GET /api/pontuacoes/minha` para exibir total, pontos por pilar e historico concedido
+- A tela Ranking consome apenas `GET /api/ranking` para exibir classificacao geral com posicao, aluno e pontos
+- A tela Meu Perfil consome apenas `GET /api/users/me` para exibir dados cadastrais seguros do usuario autenticado
 
 ## Sessao autenticada
 
@@ -124,6 +129,9 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
 - Meus desafios possui DTO de leitura para desafio, pilar, data, tipo, status, evidencias e feedback do professor
+- Minha pontuacao possui DTO de leitura para total, pontuacao por pilar e historico de pontos concedidos
+- Ranking possui DTO de leitura para posicao, aluno, pontos e identificacao do usuario atual sem expor dados sensiveis
+- Perfil possui DTO de leitura para nome, e-mail, perfil, status e turmas sem expor senha, token ou segredos
 - As proximas entidades de dominio devem seguir DTOs por caso de uso: desafios, envios, pilares, turmas, rankings e pontuacoes
 - Formularios validam obrigatoriedade e formato antes da chamada HTTP
 - Controllers convertem erros de validacao da API em `fieldErrors`
@@ -197,6 +205,42 @@ A rota protegida `/meus-desafios` lista o historico de envios do aluno autentica
 - Status validos aparecem com texto claro: `Pendente`, `Aprovado`, `Reprovado` e `Ajuste solicitado`
 - Detalhes do envio exibem descricao, evidencias e feedback do professor quando existir
 - A tela nao permite alterar status
+
+## Minha pontuacao
+
+A rota protegida `/minha-pontuacao` lista a pontuacao do aluno autenticado.
+
+- Endpoint unico da funcionalidade: `GET /api/pontuacoes/minha`
+- A view chama `src/controllers/my-score.controller.js`
+- O model `src/models/my-score.model.js` normaliza total, pontos por pilar e historico sem recalcular pontuacao no front-end
+- O service `src/services/my-score.service.js` concentra a chamada ao endpoint
+- Pontos por pilar usam os 7 topicos do Metodo do Alavanque como agrupamento visual
+- Historico exibe motivo, pontos, data e envio relacionado quando disponivel
+- Estado vazio orienta o aluno a registrar desafios para gerar novas avaliacoes
+
+## Ranking
+
+A rota protegida `/ranking` lista o ranking geral da mentoria.
+
+- Endpoint unico da funcionalidade: `GET /api/ranking`
+- A view chama `src/controllers/ranking.controller.js`
+- O model `src/models/ranking.model.js` normaliza posicao, aluno, pontos e dados minimos para identificar o usuario atual
+- O service `src/services/ranking.service.js` concentra a chamada ao endpoint
+- A posicao do usuario autenticado recebe destaque visual e texto acessivel
+- O front-end nao recalcula posicoes nem pontos; apenas exibe os dados consolidados pela API
+- Quando a API indicar indisponibilidade, a tela exibe mensagem simples sem detalhes tecnicos
+
+## Meu perfil
+
+A rota protegida `/perfil` exibe dados cadastrais do usuario autenticado.
+
+- Endpoint unico da funcionalidade: `GET /api/users/me`
+- A view chama `src/controllers/profile.controller.js`
+- O model `src/models/profile.model.js` normaliza nome, e-mail, perfil, status e turmas
+- O service `src/services/profile.service.js` concentra a chamada ao endpoint
+- Dados sensiveis como senha, token e segredos nao entram no DTO nem na view
+- A rota fica disponivel para `aluno`, `professor` e `admin`
+- Sessao invalida e tratada pelo cliente HTTP e pelo guard de rotas, redirecionando para login
 
 ## Observabilidade mínima
 

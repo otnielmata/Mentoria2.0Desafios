@@ -10,4 +10,13 @@ export const apiEndpoints = {
     create: "/api/envios-desafios",
     mine: "/api/envios-desafios/meus",
   },
+  scores: {
+    mine: "/api/pontuacoes/minha",
+  },
+  ranking: {
+    general: "/api/ranking",
+  },
+  users: {
+    me: "/api/users/me",
+  },
 };

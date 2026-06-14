@@ -22,6 +22,11 @@ const adminSession = {
   user: { role: roles.admin },
 };
 
+const teacherSession = {
+  token: "token-professor",
+  user: { role: roles.teacher },
+};
+
 describe("config/access-control", () => {
   it("permite rotas publicas sem sessao", () => {
     expect(isPublicRoute("/login")).toBe(true);
@@ -64,8 +69,15 @@ describe("config/access-control", () => {
     expect(getRouteAccessDecision({ pathname: "/alunos", session: adminSession }).allowed).toBe(true);
   });
 
+  it("mantem perfil acessivel para aluno, professor e admin", () => {
+    expect(getRouteAccessDecision({ pathname: "/perfil", session: studentSession }).allowed).toBe(true);
+    expect(getRouteAccessDecision({ pathname: "/perfil", session: teacherSession }).allowed).toBe(true);
+    expect(getRouteAccessDecision({ pathname: "/perfil", session: adminSession }).allowed).toBe(true);
+  });
+
   it("filtra navegacao conforme perfil", () => {
     const studentLabels = getAuthorizedNavigationItems(roles.student).map((item) => item.label);
+    const teacherLabels = getAuthorizedNavigationItems(roles.teacher).map((item) => item.label);
     const adminLabels = getAuthorizedNavigationItems(roles.admin).map((item) => item.label);
 
     expect(studentLabels).toEqual([
@@ -73,12 +85,11 @@ describe("config/access-control", () => {
       "Registrar Desafio",
       "Meus Desafios",
       "Minha Pontuacao",
-      "Meus Grupos",
       "Ranking",
       "Meu Perfil",
     ]);
-    expect(adminLabels).toEqual([
-      "Inicio",
+    const adminMenu = [
+      "Dashboard",
       "Ranking",
       "Alunos",
       "Turmas",
@@ -88,7 +99,10 @@ describe("config/access-control", () => {
       "Grupos",
       "Relatorios",
       "Configuracoes",
-    ]);
+    ];
+
+    expect(teacherLabels).toEqual(adminMenu);
+    expect(adminLabels).toEqual(adminMenu);
   });
 
   it("evita redirecionamento externo apos login", () => {

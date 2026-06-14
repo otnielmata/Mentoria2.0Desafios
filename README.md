@@ -142,7 +142,7 @@ A aplicação web não acessa o MongoDB diretamente. O MongoDB, a autenticação
 
 ## Rotas E Guardas Da Web
 
-A aplicação web separa rotas públicas e protegidas em `web/src/config/access-control.js`. Login e registro ficam públicos; rotas de desafios, pontuação, ranking, perfil e áreas administrativas exigem sessão JWT local. Quando uma rota protegida é acessada sem sessão, o front redireciona para login preservando a rota desejada em `redirect`. A navegação também filtra links por perfil (`aluno`, `professor`, `admin`), sem substituir a autorização final feita pela API.
+A aplicação web separa rotas públicas e protegidas em `web/src/config/access-control.js`. Login e registro ficam públicos; rotas de desafios, pontuação, ranking, perfil e áreas administrativas exigem sessão JWT local. Quando uma rota protegida é acessada sem sessão, o front redireciona para login preservando a rota desejada em `redirect`. A navegação filtra links por perfil: aluno vê Inicio, Registrar Desafio, Meus Desafios, Minha Pontuação, Ranking e Meu Perfil; professor/admin vê Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovações, Grupos, Ranking, Relatórios e Configurações. Essa autorização visual não substitui a autorização final feita pela API.
 
 ## Cliente HTTP Da Web
 
@@ -153,6 +153,12 @@ O dashboard do aluno consome `GET /api/dashboard/aluno` pela camada `web/src/ser
 O registro de desafio do aluno consome `POST /api/envios-desafios` pela camada `web/src/services/challenge-submission.service.js`, preservando a API REST como responsavel por validar o aluno autenticado, turma, desafio, participantes e status pendente.
 
 A tela Meus Desafios consome `GET /api/envios-desafios/meus` pela camada `web/src/services/my-challenge-submissions.service.js` e exibe status, detalhes, evidencias e feedback do professor sem permitir alteracao de status.
+
+A tela Minha Pontuação consome `GET /api/pontuacoes/minha` pela camada `web/src/services/my-score.service.js` e exibe total, pontuacao por pilar e historico de pontos concedidos sem recalcular pontuacao no front-end.
+
+A tela Ranking consome `GET /api/ranking` pela camada `web/src/services/ranking.service.js` e exibe posicao, aluno e pontos sem recalcular classificacao no front-end.
+
+A tela Meu Perfil consome `GET /api/users/me` pela camada `web/src/services/profile.service.js` e exibe nome, e-mail, perfil e status sem expor senha, token ou segredos.
 
 ## Sessão Autenticada Da Web
 

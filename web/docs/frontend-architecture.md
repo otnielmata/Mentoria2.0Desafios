@@ -55,11 +55,20 @@ Views nao devem montar `fetch` direto nem conhecer detalhes de endpoint. Endpoin
 
 - Rotas publicas: `/`, `/login`, `/registro`
 - Rotas protegidas do aluno: `/dashboard`, `/registrar-desafio`, `/meus-desafios`, `/minha-pontuacao`, `/meus-grupos`, `/ranking`, `/perfil`
-- Rotas protegidas do admin/professor: `/dashboard`, `/alunos`, `/turmas`, `/pilares`, `/desafios`, `/aprovacoes`, `/grupos`, `/ranking`, `/relatorios`, `/configuracoes`
+- Rotas protegidas do admin/professor: `/dashboard`, `/perfil`, `/alunos`, `/turmas`, `/pilares`, `/desafios`, `/aprovacoes`, `/grupos`, `/ranking`, `/relatorios`, `/configuracoes`
 - Regras de acesso ficam em `src/config/access-control.js`
 - Sessao JWT fica em `src/services/session.service.js`
 - Respostas `401` em chamadas protegidas limpam a sessao local
 - O front-end oculta e protege navegacao visual, mas a autorizacao final continua na API REST
+
+## Menus por perfil
+
+Nenhum endpoint novo e necessario para navegacao por perfil. Os menus sao derivados da `role` salva na sessao autenticada.
+
+- Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Ranking e Meu Perfil
+- Professor/Admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes
+- Rota fora do perfil mostra bloqueio visual pelo `AuthGuard`
+- A API REST continua responsavel pela autorizacao definitiva de cada endpoint
 
 ## Endpoints iniciais consumidos
 
@@ -69,6 +78,9 @@ POST /api/auth/register
 GET  /api/dashboard/aluno
 POST /api/envios-desafios
 GET  /api/envios-desafios/meus
+GET  /api/pontuacoes/minha
+GET  /api/ranking
+GET  /api/users/me
 ```
 
 A web nao acessa MongoDB diretamente. Todo dado de negocio passa pela API REST.
@@ -135,6 +147,48 @@ src/app/meus-desafios/page.js
 ```
 
 A tela lista desafio, pilar, data, tipo e status. Status sempre possui texto visivel alem de estilo visual, e detalhes expansivos exibem descricao, evidencias e feedback do professor para envios reprovados ou com ajuste solicitado.
+
+## Minha pontuacao
+
+A consulta de pontuacao do aluno segue o fluxo:
+
+```text
+src/app/minha-pontuacao/page.js
+  -> getMyScore em src/controllers/my-score.controller.js
+  -> toMyScoreDto em src/models/my-score.model.js
+  -> getMyScoreRequest em src/services/my-score.service.js
+  -> GET /api/pontuacoes/minha
+```
+
+A tela exibe pontuacao total, pontos por pilar e historico conforme dados consolidados pela API REST. O front-end nao soma pontuacoes no navegador; ele apenas normaliza nomes de campos, mostra os 7 topicos do Metodo do Alavanque e orienta o aluno quando ainda nao existem pontos aprovados.
+
+## Ranking
+
+O ranking geral segue o fluxo:
+
+```text
+src/app/ranking/page.js
+  -> getGeneralRanking em src/controllers/ranking.controller.js
+  -> toRankingDto em src/models/ranking.model.js
+  -> getGeneralRankingRequest em src/services/ranking.service.js
+  -> GET /api/ranking
+```
+
+A tela exibe posicao, nome do aluno e pontos retornados pela API REST. O front-end nao recalcula classificacao, nao mostra dados sensiveis dos alunos e identifica o usuario atual por destaque visual e texto acessivel quando ele aparece no ranking.
+
+## Meu perfil
+
+O perfil do usuario autenticado segue o fluxo:
+
+```text
+src/app/perfil/page.js
+  -> getProfile em src/controllers/profile.controller.js
+  -> toProfileDto em src/models/profile.model.js
+  -> getProfileRequest em src/services/profile.service.js
+  -> GET /api/users/me
+```
+
+A tela exibe nome, e-mail, perfil e status do usuario autenticado. O DTO descarta campos sensiveis, como senha, token e segredos, e a sessao invalida continua sendo tratada pelo cliente HTTP e pelo `AuthGuard`, que redireciona para login quando necessario.
 
 ## Observabilidade mínima
 
