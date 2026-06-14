@@ -107,6 +107,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - A tela Pilares consome apenas `GET /api/pilares` para listar os topicos cadastrados do Metodo do Alavanque
 - A tela Alunos consome apenas `/api/users`, com `GET` para listar e `POST` para cadastrar participantes da mentoria
 - A tela Turmas consome apenas `/api/turmas`, com `GET` para listar e `POST` para cadastrar ciclos da mentoria
+- A tela Desafios consome apenas `/api/desafios`, com `GET` para listar e `POST` para cadastrar desafios com pontuacao fixa
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
 - A tela Meus Desafios consome apenas `GET /api/envios-desafios/meus` para listar envios, status e feedback do professor
 - A tela Minha Pontuacao consome apenas `GET /api/pontuacoes/minha` para exibir total, pontos por pilar e historico concedido
@@ -135,6 +136,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Pilares possui DTO de leitura para nome, descricao e status dos topicos cadastrados na API
 - Alunos possui DTOs de listagem e cadastro para nome, e-mail, papel, status e turma sem expor senha
 - Turmas possui DTOs de listagem e cadastro para nome, data de inicio, data de fim e status
+- Desafios possui DTOs de listagem e cadastro para pilar, titulo, descricao, pontos fixos, tipo, maximo de participantes e status
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
 - Meus desafios possui DTO de leitura para desafio, pilar, data, tipo, status, evidencias e feedback do professor
 - Minha pontuacao possui DTO de leitura para total, pontuacao por pilar e historico de pontos concedidos
@@ -239,6 +241,21 @@ A rota protegida `/turmas` permite que professor/admin liste e cadastre ciclos d
 - O formulario valida nome, datas obrigatorias e impede data final anterior a inicial
 - A lista exibe nome, periodo e status
 - Nao existe logica de pontuacao nesta funcionalidade
+
+## Desafios
+
+A rota protegida `/desafios` permite que professor/admin liste e cadastre desafios disponiveis aos alunos.
+
+- Endpoint unico da funcionalidade: `/api/desafios`
+- A listagem usa `GET /api/desafios`
+- O cadastro usa `POST /api/desafios`
+- A view chama `src/controllers/challenges.controller.js`
+- O model `src/models/challenges.model.js` normaliza pilar, titulo, descricao, pontos, tipo, maximo de participantes e status
+- O service `src/services/challenges.service.js` concentra a chamada ao endpoint
+- O formulario carrega pilares pela API para vincular o desafio ao topico correto
+- O formulario valida pontuacao fixa maior que zero
+- Desafios em grupo ou ambos aceitam no maximo 5 participantes
+- A tela nao calcula pontuacao por dificuldade
 
 ## Registro de desafio
 

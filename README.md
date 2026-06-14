@@ -158,6 +158,8 @@ A tela Alunos consome `/api/users` pela camada `web/src/services/users.service.j
 
 A tela Turmas consome `/api/turmas` pela camada `web/src/services/classes.service.js`, usando `GET` para listar e `POST` para cadastrar turmas com nome, data de início, data de fim e status.
 
+A tela Desafios consome `/api/desafios` pela camada `web/src/services/challenges.service.js`, usando `GET` para listar e `POST` para cadastrar desafios com pilar, tipo, pontuação fixa e limite de participantes.
+
 O registro de desafio do aluno consome `POST /api/envios-desafios` pela camada `web/src/services/challenge-submission.service.js`, preservando a API REST como responsavel por validar o aluno autenticado, turma, desafio, participantes e status pendente.
 
 A tela Meus Desafios consome `GET /api/envios-desafios/meus` pela camada `web/src/services/my-challenge-submissions.service.js` e exibe status, detalhes, evidencias e feedback do professor sem permitir alteracao de status.

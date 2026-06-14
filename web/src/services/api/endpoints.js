@@ -11,6 +11,9 @@ export const apiEndpoints = {
     create: "/api/envios-desafios",
     mine: "/api/envios-desafios/meus",
   },
+  challenges: {
+    collection: "/api/desafios",
+  },
   scores: {
     mine: "/api/pontuacoes/minha",
   },

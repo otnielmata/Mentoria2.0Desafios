@@ -859,14 +859,16 @@ h3 {
 
 .student-list,
 .class-list,
-.pillar-list {
+.pillar-list,
+.admin-challenge-list {
   display: grid;
   gap: 0.85rem;
 }
 
 .student-item,
 .class-item,
-.pillar-item {
+.pillar-item,
+.admin-challenge-item {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -877,7 +879,8 @@ h3 {
 
 .student-item header,
 .class-item header,
-.pillar-item header {
+.pillar-item header,
+.admin-challenge-item header {
   align-items: start;
   display: flex;
   gap: 1rem;
@@ -889,7 +892,9 @@ h3 {
 .class-item h3,
 .class-item p,
 .pillar-item h3,
-.pillar-item p {
+.pillar-item p,
+.admin-challenge-item h3,
+.admin-challenge-item p {
   margin: 0;
 }
 
@@ -897,26 +902,32 @@ h3 {
 .student-meta dt,
 .class-item p,
 .class-meta dt,
-.pillar-item p {
+.pillar-item p,
+.admin-challenge-item p,
+.admin-challenge-meta dt {
   color: var(--muted);
 }
 
-.pillar-details {
+.pillar-details,
+.admin-challenge-details {
   border-top: 1px solid var(--line);
   padding-top: 0.8rem;
 }
 
-.pillar-details summary {
+.pillar-details summary,
+.admin-challenge-details summary {
   cursor: pointer;
   font-weight: 800;
 }
 
-.pillar-details p {
+.pillar-details p,
+.admin-challenge-details p {
   margin-top: 0.7rem;
 }
 
 .student-meta,
-.class-meta {
+.class-meta,
+.admin-challenge-meta {
   display: grid;
   gap: 0.65rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -924,7 +935,8 @@ h3 {
 }
 
 .student-meta div,
-.class-meta div {
+.class-meta div,
+.admin-challenge-meta div {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -932,21 +944,24 @@ h3 {
 }
 
 .student-meta dt,
-.class-meta dt {
+.class-meta dt,
+.admin-challenge-meta dt {
   font-size: 0.74rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .student-meta dd,
-.class-meta dd {
+.class-meta dd,
+.admin-challenge-meta dd {
   font-weight: 800;
   margin: 0.25rem 0 0;
   overflow-wrap: anywhere;
 }
 
 .student-status,
-.class-status {
+.class-status,
+.admin-challenge-status {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -958,14 +973,16 @@ h3 {
 }
 
 .student-status-ativo,
-.class-status-ativa {
+.class-status-ativa,
+.admin-challenge-status-ativo {
   border-color: var(--success);
   color: var(--success);
 }
 
 .student-status-bloqueado,
 .student-status-inativo,
-.class-status-inativa {
+.class-status-inativa,
+.admin-challenge-status-inativo {
   border-color: var(--danger);
   color: var(--danger);
 }
@@ -1135,6 +1152,7 @@ h3 {
   .submission-meta,
   .student-meta,
   .class-meta,
+  .admin-challenge-meta,
   .dashboard-sections,
   .dashboard-grid,
   .admin-engagement-grid,

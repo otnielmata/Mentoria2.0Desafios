@@ -77,6 +77,8 @@ POST /api/auth/login
 POST /api/auth/register
 GET  /api/dashboard/aluno
 GET  /api/dashboard/admin
+GET  /api/desafios
+POST /api/desafios
 POST /api/envios-desafios
 GET  /api/envios-desafios/meus
 GET  /api/pontuacoes/minha
@@ -181,6 +183,20 @@ src/app/turmas/page.js
 ```
 
 A rota `/turmas` e restrita a professor/admin pelo `AuthGuard`. A tela lista nome, data de inicio, data de fim e status, valida periodo antes do cadastro e nao contem logica de pontuacao. Relacionamentos entre aluno e turma permanecem sob responsabilidade da API REST.
+
+## Desafios
+
+A gestao de desafios segue o fluxo:
+
+```text
+src/app/desafios/page.js
+  -> getChallenges/createChallenge em src/controllers/challenges.controller.js
+  -> toChallengesDto/validateChallengePayload em src/models/challenges.model.js
+  -> listChallengesRequest/createChallengeRequest em src/services/challenges.service.js
+  -> GET/POST /api/desafios
+```
+
+A rota `/desafios` e restrita a professor/admin pelo `AuthGuard`. A tela lista titulo, pilar, pontos, tipo, maximo de participantes e status, carrega pilares pela API para o cadastro e valida pontuacao fixa maior que zero. O modelo inicial usa pontos fixos por desafio e nao calcula pontuacao por dificuldade no front-end.
 
 ## Registro de desafio
 
