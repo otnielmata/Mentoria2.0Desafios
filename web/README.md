@@ -104,6 +104,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - Views continuam sem montar requisicoes HTTP diretamente
 - O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
 - O dashboard de professor/admin consome apenas `GET /api/dashboard/admin` para exibir alunos ativos, envios, aprovacoes pendentes e engajamento
+- A tela Alunos consome apenas `/api/users`, com `GET` para listar e `POST` para cadastrar participantes da mentoria
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
 - A tela Meus Desafios consome apenas `GET /api/envios-desafios/meus` para listar envios, status e feedback do professor
 - A tela Minha Pontuacao consome apenas `GET /api/pontuacoes/minha` para exibir total, pontos por pilar e historico concedido
@@ -129,6 +130,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Auth possui DTOs de login, registro e resposta autenticada
 - Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
 - Dashboard admin possui DTO de leitura para indicadores gerais, alunos mais engajados e baixa participacao
+- Alunos possui DTOs de listagem e cadastro para nome, e-mail, papel, status e turma sem expor senha
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
 - Meus desafios possui DTO de leitura para desafio, pilar, data, tipo, status, evidencias e feedback do professor
 - Minha pontuacao possui DTO de leitura para total, pontuacao por pilar e historico de pontos concedidos
@@ -193,6 +195,20 @@ A mesma rota protegida `/dashboard` carrega o dashboard geral quando a sessao po
 - O service `src/services/dashboard.service.js` concentra a chamada ao endpoint
 - Alunos mais engajados e baixa participacao aparecem em listas resumidas sem dados sensiveis
 - O front-end nao calcula indicadores; apenas exibe dados consolidados pela API REST
+
+## Alunos
+
+A rota protegida `/alunos` permite que professor/admin liste e cadastre participantes da mentoria.
+
+- Endpoint unico da funcionalidade: `/api/users`
+- A listagem usa `GET /api/users`
+- O cadastro usa `POST /api/users`
+- A view chama `src/controllers/users.controller.js`
+- O model `src/models/users.model.js` normaliza nome, e-mail, papel, status e turma
+- O service `src/services/users.service.js` concentra a chamada ao endpoint
+- O formulario valida nome e e-mail antes do envio para a API
+- A lista exibe nome, e-mail, papel, status e turma quando disponivel, sem exibir senha
+- A rota fica disponivel apenas para `professor` e `admin`
 
 ## Registro de desafio
 

@@ -788,6 +788,13 @@ h3 {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 }
 
+.management-layout {
+  align-items: start;
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: minmax(20rem, 0.8fr) minmax(0, 1.2fr);
+}
+
 .field-grid,
 .submission-layout {
   display: grid;
@@ -848,6 +855,85 @@ h3 {
 .submission-list {
   display: grid;
   gap: 1rem;
+}
+
+.student-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.student-item {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.student-item header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.student-item h3,
+.student-item p {
+  margin: 0;
+}
+
+.student-item p,
+.student-meta dt {
+  color: var(--muted);
+}
+
+.student-meta {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.student-meta div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.7rem;
+}
+
+.student-meta dt {
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.student-meta dd {
+  font-weight: 800;
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.student-status {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.32rem 0.62rem;
+  white-space: nowrap;
+}
+
+.student-status-ativo {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.student-status-bloqueado,
+.student-status-inativo {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .submission-item {
@@ -1003,10 +1089,12 @@ h3 {
   .topbar,
   .page-grid,
   .two-column,
+  .management-layout,
   .field-grid,
   .submission-layout,
   .submission-item-header,
   .submission-meta,
+  .student-meta,
   .dashboard-sections,
   .dashboard-grid,
   .admin-engagement-grid,

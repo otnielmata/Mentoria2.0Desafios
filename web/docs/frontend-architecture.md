@@ -81,6 +81,8 @@ POST /api/envios-desafios
 GET  /api/envios-desafios/meus
 GET  /api/pontuacoes/minha
 GET  /api/ranking
+GET  /api/users
+POST /api/users
 GET  /api/users/me
 ```
 
@@ -134,6 +136,20 @@ src/app/dashboard/page.js
 ```
 
 A rota `/dashboard` escolhe o fluxo pela `role` salva na sessao. Alunos continuam no dashboard do aluno; professor e admin veem indicadores gerais, alunos ativos, total de envios, envios pendentes, alunos mais engajados e baixa participacao. O front-end nao calcula indicadores e nao exibe dados sensiveis em cards resumidos.
+
+## Alunos
+
+A gestao de alunos segue o fluxo:
+
+```text
+src/app/alunos/page.js
+  -> getUsers/createUser em src/controllers/users.controller.js
+  -> toUsersDto/validateUserPayload em src/models/users.model.js
+  -> listUsersRequest/createUserRequest em src/services/users.service.js
+  -> GET/POST /api/users
+```
+
+A rota `/alunos` e restrita a professor/admin pelo `AuthGuard`. A tela lista nome, e-mail, papel, status e turma quando disponivel, sem exibir senha, e valida nome/e-mail antes de cadastrar. O front-end usa o mesmo endpoint de usuarios com metodos HTTP diferentes e deixa a API REST como autoridade final de autorizacao e persistencia.
 
 ## Registro de desafio
 
