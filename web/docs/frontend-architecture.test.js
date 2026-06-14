@@ -38,6 +38,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("POST /api/auth/register");
     expect(source).toContain("GET  /api/dashboard/aluno");
     expect(source).toContain("POST /api/envios-desafios");
+    expect(source).toContain("GET  /api/envios-desafios/meus");
     expect(source).toContain("Tema e UI");
     expect(source).toContain("Componentes base atuais");
   });
@@ -58,6 +59,15 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("submitChallengeSubmission");
     expect(source).toContain("validateChallengeSubmissionPayload");
     expect(source).toContain("submitChallengeSubmissionRequest");
+  });
+
+  it("documenta o fluxo de meus desafios", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/meus-desafios/page.js");
+    expect(source).toContain("getMyChallengeSubmissions");
+    expect(source).toContain("toMyChallengeSubmissionsDto");
+    expect(source).toContain("getMyChallengeSubmissionsRequest");
   });
 
   it("documenta observabilidade sem expor dados sensiveis", () => {

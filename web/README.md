@@ -102,6 +102,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - Views continuam sem montar requisicoes HTTP diretamente
 - O dashboard do aluno consome apenas `GET /api/dashboard/aluno` para exibir pontos totais, ranking, desafios aprovados, desafios pendentes e pontuacao por pilar
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
+- A tela Meus Desafios consome apenas `GET /api/envios-desafios/meus` para listar envios, status e feedback do professor
 
 ## Sessao autenticada
 
@@ -122,6 +123,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Auth possui DTOs de login, registro e resposta autenticada
 - Dashboard do aluno possui DTO de leitura para indicadores, pontuacao por pilar e ultimos desafios enviados
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
+- Meus desafios possui DTO de leitura para desafio, pilar, data, tipo, status, evidencias e feedback do professor
 - As proximas entidades de dominio devem seguir DTOs por caso de uso: desafios, envios, pilares, turmas, rankings e pontuacoes
 - Formularios validam obrigatoriedade e formato antes da chamada HTTP
 - Controllers convertem erros de validacao da API em `fieldErrors`
@@ -183,6 +185,18 @@ A rota protegida `/registrar-desafio` permite que o aluno envie um desafio reali
 - O aluno autenticado permanece como responsavel pelo envio pela sessao JWT
 - A confirmacao exibida apos sucesso indica status `pendente`
 - Pontuacao concedida nao e exibida antes da aprovacao
+
+## Meus desafios
+
+A rota protegida `/meus-desafios` lista o historico de envios do aluno autenticado.
+
+- Endpoint unico da funcionalidade: `GET /api/envios-desafios/meus`
+- A view chama `src/controllers/my-challenge-submissions.controller.js`
+- O model `src/models/my-challenge-submissions.model.js` normaliza desafio, pilar, data, tipo, status, evidencias e feedback
+- O service `src/services/my-challenge-submissions.service.js` concentra a chamada ao endpoint
+- Status validos aparecem com texto claro: `Pendente`, `Aprovado`, `Reprovado` e `Ajuste solicitado`
+- Detalhes do envio exibem descricao, evidencias e feedback do professor quando existir
+- A tela nao permite alterar status
 
 ## Observabilidade mínima
 

@@ -152,6 +152,8 @@ O dashboard do aluno consome `GET /api/dashboard/aluno` pela camada `web/src/ser
 
 O registro de desafio do aluno consome `POST /api/envios-desafios` pela camada `web/src/services/challenge-submission.service.js`, preservando a API REST como responsavel por validar o aluno autenticado, turma, desafio, participantes e status pendente.
 
+A tela Meus Desafios consome `GET /api/envios-desafios/meus` pela camada `web/src/services/my-challenge-submissions.service.js` e exibe status, detalhes, evidencias e feedback do professor sem permitir alteracao de status.
+
 ## Sessão Autenticada Da Web
 
 A sessão autenticada fica centralizada em `web/src/services/session.service.js`. O front salva apenas token e dados mínimos do usuário, remove campos sensíveis, restaura sessão persistida ao recarregar, limpa dados no logout e descarta sessão expirada ou inválida. Respostas `401` em chamadas protegidas limpam a sessão e orientam novo login.

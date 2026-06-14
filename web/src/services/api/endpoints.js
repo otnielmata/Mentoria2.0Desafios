@@ -8,5 +8,6 @@ export const apiEndpoints = {
   },
   challengeSubmissions: {
     create: "/api/envios-desafios",
+    mine: "/api/envios-desafios/meus",
   },
 };

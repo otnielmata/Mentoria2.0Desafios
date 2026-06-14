@@ -694,6 +694,124 @@ h3 {
   margin: 0;
 }
 
+.submission-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.submission-item {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.submission-item-header,
+.submission-meta {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.submission-item-header {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.submission-item h3,
+.submission-item p,
+.submission-item dl {
+  margin: 0;
+}
+
+.submission-item p,
+.submission-meta dd,
+.submission-details-content p,
+.submission-evidence-list {
+  color: var(--muted);
+}
+
+.submission-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.submission-meta div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.submission-meta dt {
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.submission-meta dd {
+  margin: 0;
+}
+
+.submission-status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  justify-self: end;
+  letter-spacing: 0;
+  padding: 0.35rem 0.65rem;
+  white-space: nowrap;
+}
+
+.submission-status-pendente,
+.submission-status-ajuste {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--focus-ring);
+}
+
+.submission-status-aprovado {
+  background: rgba(21, 115, 71, 0.14);
+  color: var(--success);
+}
+
+.submission-status-reprovado {
+  background: rgba(180, 35, 24, 0.12);
+  color: var(--danger);
+}
+
+.submission-details {
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+}
+
+.submission-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.submission-details-content {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.submission-evidence-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.submission-feedback {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--secondary);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem;
+}
+
 .feature-panel {
   background: var(--surface-strong);
   border: 1px solid var(--line);
@@ -736,6 +854,8 @@ h3 {
   .two-column,
   .field-grid,
   .submission-layout,
+  .submission-item-header,
+  .submission-meta,
   .dashboard-sections,
   .dashboard-grid {
     grid-template-columns: 1fr;

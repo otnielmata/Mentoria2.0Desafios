@@ -68,6 +68,7 @@ POST /api/auth/login
 POST /api/auth/register
 GET  /api/dashboard/aluno
 POST /api/envios-desafios
+GET  /api/envios-desafios/meus
 ```
 
 A web nao acessa MongoDB diretamente. Todo dado de negocio passa pela API REST.
@@ -120,6 +121,20 @@ src/app/registrar-desafio/page.js
 ```
 
 A tela nao busca listas auxiliares nesta historia para manter o limite de um endpoint. Ela envia pilar, desafio, turma, tipo individual/grupo, descricao, evidencias e participantes. A API REST continua responsavel por validar o aluno autenticado, desafio ativo, turma, participantes e status inicial pendente.
+
+## Meus desafios
+
+O historico de desafios do aluno segue o fluxo:
+
+```text
+src/app/meus-desafios/page.js
+  -> getMyChallengeSubmissions em src/controllers/my-challenge-submissions.controller.js
+  -> toMyChallengeSubmissionsDto em src/models/my-challenge-submissions.model.js
+  -> getMyChallengeSubmissionsRequest em src/services/my-challenge-submissions.service.js
+  -> GET /api/envios-desafios/meus
+```
+
+A tela lista desafio, pilar, data, tipo e status. Status sempre possui texto visivel alem de estilo visual, e detalhes expansivos exibem descricao, evidencias e feedback do professor para envios reprovados ou com ajuste solicitado.
 
 ## Observabilidade mínima
 
