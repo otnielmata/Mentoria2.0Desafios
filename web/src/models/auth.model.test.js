@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasCompleteAuthResponse,
+  hasCompleteAuthUser,
   toAuthResponseDto,
   toLoginRequestDto,
   toRegisterRequestDto,
@@ -64,5 +66,26 @@ describe("models/auth", () => {
         status: "ativo",
       },
     });
+  });
+
+  it("valida resposta autenticada completa com role e status", () => {
+    expect(hasCompleteAuthUser({ role: "aluno", status: "ativo" })).toBe(true);
+    expect(hasCompleteAuthUser({ role: "professor", status: "ativo" })).toBe(true);
+    expect(hasCompleteAuthUser({ role: "admin", status: "ativo" })).toBe(true);
+    expect(hasCompleteAuthUser({ role: "", status: "ativo" })).toBe(false);
+    expect(hasCompleteAuthUser({ role: "mentor", status: "ativo" })).toBe(false);
+
+    expect(
+      hasCompleteAuthResponse({
+        token: "token",
+        user: { email: "admin@example.com", role: "admin", status: "ativo" },
+      })
+    ).toBe(true);
+    expect(
+      hasCompleteAuthResponse({
+        token: "token",
+        user: { email: "sem-role@example.com", status: "ativo" },
+      })
+    ).toBe(false);
   });
 });

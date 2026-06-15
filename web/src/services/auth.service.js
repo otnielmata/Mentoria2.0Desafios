@@ -1,6 +1,6 @@
 import { apiRequest } from "@/services/api/client";
 import { apiEndpoints } from "@/services/api/endpoints";
-import { toAuthResponseDto } from "@/models/auth.model";
+import { hasCompleteAuthResponse, toAuthResponseDto } from "@/models/auth.model";
 import { saveSession } from "@/services/session.service";
 
 async function authenticate(path, payload) {
@@ -11,7 +11,28 @@ async function authenticate(path, payload) {
   });
 
   if (result.ok) {
-    const session = saveSession(toAuthResponseDto(result.data));
+    const authResponse = toAuthResponseDto(result.data);
+
+    if (!hasCompleteAuthResponse(authResponse)) {
+      return {
+        ok: false,
+        message: "Sessao invalida. Faca login novamente.",
+        status: result.status || 0,
+        type: "invalid_session",
+      };
+    }
+
+    const session = saveSession(authResponse);
+
+    if (!session) {
+      return {
+        ok: false,
+        message: "Sessao invalida. Faca login novamente.",
+        status: result.status || 0,
+        type: "invalid_session",
+      };
+    }
+
     return {
       ...result,
       data: session,

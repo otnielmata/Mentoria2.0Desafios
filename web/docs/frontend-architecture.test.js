@@ -216,6 +216,8 @@ describe("docs/frontend-architecture", () => {
 
     expect(source).toContain("Menus por perfil");
     expect(source).toContain("Nenhum endpoint novo");
+    expect(source).toContain("nao assume perfil `aluno` silenciosamente");
+    expect(source).toContain("Sessao sem perfil valido mostra necessidade de novo login");
     expect(source).toContain(
       "Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Meus Grupos, Ranking e Meu Perfil"
     );

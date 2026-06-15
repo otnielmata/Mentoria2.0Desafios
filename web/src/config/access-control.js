@@ -191,7 +191,7 @@ export function normalizePathname(pathname = "/") {
 }
 
 export function normalizeRole(role) {
-  return Object.values(roles).includes(role) ? role : roles.student;
+  return Object.values(roles).includes(role) ? role : "";
 }
 
 export function routeMatchesPath(routePath, pathname) {
@@ -221,12 +221,20 @@ export function hasAuthenticatedSession(session) {
   return Boolean(session?.token);
 }
 
+export function hasValidSessionProfile(session) {
+  return Boolean(normalizeRole(session?.user?.role));
+}
+
 export function getUserRole(session) {
   return normalizeRole(session?.user?.role);
 }
 
 export function getAuthorizedNavigationItems(role) {
   const normalizedRole = normalizeRole(role);
+
+  if (!normalizedRole) {
+    return [];
+  }
 
   return authenticatedNavigationItems.filter((item) => item.roles.includes(normalizedRole));
 }
@@ -278,6 +286,14 @@ export function getRouteAccessDecision({ pathname = "/", session = null } = {}) 
     return {
       allowed: false,
       reason: "missing-session",
+      redirectTo: getLoginRedirectPath(pathname),
+    };
+  }
+
+  if (!hasValidSessionProfile(session)) {
+    return {
+      allowed: false,
+      reason: "invalid-session",
       redirectTo: getLoginRedirectPath(pathname),
     };
   }

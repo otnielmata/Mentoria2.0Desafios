@@ -1,4 +1,6 @@
 export const SESSION_STORAGE_KEY = "mentoria-session";
+export const validSessionRoles = Object.freeze(["aluno", "professor", "admin"]);
+export const validSessionStatuses = Object.freeze(["ativo", "inativo"]);
 
 const SESSION_CHANGED_EVENT = "mentoria-session-changed";
 const sessionListeners = new Set();
@@ -63,16 +65,21 @@ export function sanitizeUser(user = {}) {
   );
 }
 
+export function hasCompleteSessionUser(user = {}) {
+  return validSessionRoles.includes(user.role) && validSessionStatuses.includes(user.status);
+}
+
 export function normalizeSession(session) {
   const token = typeof session?.token === "string" ? session.token : "";
+  const user = sanitizeUser(session?.user);
 
-  if (!token || isTokenExpired(token)) {
+  if (!token || isTokenExpired(token) || !hasCompleteSessionUser(user)) {
     return null;
   }
 
   return {
     token,
-    user: sanitizeUser(session.user),
+    user,
   };
 }
 

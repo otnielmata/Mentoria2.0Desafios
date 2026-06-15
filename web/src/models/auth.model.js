@@ -5,6 +5,9 @@ import {
   isEmail,
 } from "@/models/validation.model";
 
+export const authRoles = Object.freeze(["aluno", "professor", "admin"]);
+export const authStatuses = Object.freeze(["ativo", "inativo"]);
+
 export function toLoginRequestDto(payload = {}) {
   return {
     email: cleanText(payload.email).toLowerCase(),
@@ -39,6 +42,16 @@ export function toAuthResponseDto(response = {}) {
     token: response.token || response.accessToken || "",
     user: toAuthUserDto(response.user || response.usuario || response.aluno || {}),
   };
+}
+
+export function hasCompleteAuthUser(user = {}) {
+  return authRoles.includes(user.role) && authStatuses.includes(user.status);
+}
+
+export function hasCompleteAuthResponse(response = {}) {
+  const dto = toAuthResponseDto(response);
+
+  return Boolean(dto.token && hasCompleteAuthUser(dto.user));
 }
 
 export function validateLoginPayload(payload) {

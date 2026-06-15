@@ -5,6 +5,7 @@ import {
   getAuthorizedNavigationItems,
   getLoginRedirectPath,
   getRouteAccessDecision,
+  getUserRole,
   isProtectedRoute,
   isPublicRoute,
   routeRules,
@@ -104,6 +105,24 @@ describe("config/access-control", () => {
 
     expect(teacherLabels).toEqual(adminMenu);
     expect(adminLabels).toEqual(adminMenu);
+  });
+
+  it("nao assume perfil aluno quando a sessao nao possui role valido", () => {
+    const missingRoleSession = { token: "token-sem-role", user: { name: "Sessao incompleta" } };
+    const invalidRoleSession = { token: "token-role-invalido", user: { role: "mentor" } };
+
+    expect(getUserRole(missingRoleSession)).toBe("");
+    expect(getAuthorizedNavigationItems(undefined)).toEqual([]);
+    expect(getAuthorizedNavigationItems("mentor")).toEqual([]);
+
+    expect(getRouteAccessDecision({ pathname: "/dashboard", session: missingRoleSession })).toMatchObject({
+      allowed: false,
+      reason: "invalid-session",
+    });
+    expect(getRouteAccessDecision({ pathname: "/dashboard", session: invalidRoleSession })).toMatchObject({
+      allowed: false,
+      reason: "invalid-session",
+    });
   });
 
   it("evita redirecionamento externo apos login", () => {

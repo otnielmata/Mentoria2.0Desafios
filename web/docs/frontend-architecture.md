@@ -52,6 +52,7 @@ src/app/login/page.js
 Views nao devem montar `fetch` direto nem conhecer detalhes de endpoint. Endpoints ficam em `src/services/api/endpoints.js` e chamadas HTTP passam por `src/services/api/client.js`.
 
 As respostas de login, registro e `GET /api/users/me` devem trazer `role` e `status`. A Web usa esses campos para montar menus e aplicar guardas de rota, enquanto a API REST continua sendo a autoridade final de autorização.
+Sessao autenticada sem `role` ou `status` validos e tratada como invalida; a aplicacao nao assume perfil `aluno` silenciosamente.
 
 ## Rotas e autenticacao
 
@@ -70,6 +71,7 @@ Nenhum endpoint novo e necessario para navegacao por perfil. Os menus sao deriva
 - Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Meus Grupos, Ranking e Meu Perfil
 - Professor/Admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes
 - Rota fora do perfil mostra bloqueio visual pelo `AuthGuard`
+- Sessao sem perfil valido mostra necessidade de novo login e nao libera menus indevidos
 - A API REST continua responsavel pela autorizacao definitiva de cada endpoint
 
 ## Endpoints iniciais consumidos

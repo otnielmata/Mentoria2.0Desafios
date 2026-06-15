@@ -19,4 +19,11 @@ describe("components/layout/AppShell accessibility", () => {
     expect(source).toContain("aria-label=\"Navegacao principal\"");
     expect(source).toContain("aria-current");
   });
+
+  it("exibe estado de sessao invalida quando nao houver role real", () => {
+    const source = readLayout("AppShell.js");
+
+    expect(source).toContain("Sessao invalida");
+    expect(source).toContain("getAuthorizedNavigationItems(role)");
+  });
 });

@@ -4,6 +4,7 @@ import {
   getCurrentUser,
   getSession,
   getToken,
+  hasCompleteSessionUser,
   isTokenExpired,
   normalizeSession,
   saveSession,
@@ -89,7 +90,7 @@ describe("services/session.service", () => {
   });
 
   it("limpa sessao local ao encerrar acesso", () => {
-    saveSession({ token: "token-valido", user: { name: "Aluno" } });
+    saveSession({ token: "token-valido", user: { name: "Aluno", role: "aluno", status: "ativo" } });
 
     clearSession();
 
@@ -109,10 +110,13 @@ describe("services/session.service", () => {
     const listener = vi.fn();
     const unsubscribe = subscribeSession(listener);
 
-    const session = saveSession({ token: "token-valido", user: { name: "Aluno" } });
+    const session = saveSession({
+      token: "token-valido",
+      user: { name: "Aluno", role: "aluno", status: "ativo" },
+    });
     clearSession();
     unsubscribe();
-    saveSession({ token: "outro-token", user: { name: "Aluno" } });
+    saveSession({ token: "outro-token", user: { name: "Aluno", role: "aluno", status: "ativo" } });
 
     expect(listener).toHaveBeenNthCalledWith(1, session);
     expect(listener).toHaveBeenNthCalledWith(2, null);
@@ -121,6 +125,17 @@ describe("services/session.service", () => {
 
   it("normaliza sessao invalida como nula", () => {
     expect(normalizeSession({ user: { name: "Sem token" } })).toBeNull();
+    expect(normalizeSession({ token: "token-sem-role", user: { name: "Sem role" } })).toBeNull();
+    expect(normalizeSession({ token: "token-role-invalido", user: { role: "mentor", status: "ativo" } })).toBeNull();
+    expect(normalizeSession({ token: "token-status-invalido", user: { role: "aluno", status: "bloqueado" } })).toBeNull();
     expect(normalizeSession(null)).toBeNull();
+  });
+
+  it("valida usuario completo de sessao pelo role e status reais da API", () => {
+    expect(hasCompleteSessionUser({ role: "aluno", status: "ativo" })).toBe(true);
+    expect(hasCompleteSessionUser({ role: "professor", status: "ativo" })).toBe(true);
+    expect(hasCompleteSessionUser({ role: "admin", status: "ativo" })).toBe(true);
+    expect(hasCompleteSessionUser({ role: "", status: "ativo" })).toBe(false);
+    expect(hasCompleteSessionUser({ role: "mentor", status: "ativo" })).toBe(false);
   });
 });

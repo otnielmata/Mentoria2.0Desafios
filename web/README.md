@@ -87,8 +87,9 @@ As regras de acesso ficam centralizadas em `src/config/access-control.js`.
 - Acesso sem sessao em rota protegida redireciona para `/login?redirect=...`
 - O login usa o parametro `redirect` seguro para retornar a rota desejada
 - Menus autenticados sao filtrados por perfil: `aluno`, `professor` e `admin`
-- Menu do aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Ranking e Meu Perfil
+- Menu do aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Meus Grupos, Ranking e Meu Perfil
 - Menu de professor/admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes
+- Sessao autenticada sem `role` valido nao recebe fallback para aluno e exige novo login
 - A autorizacao visual da web nao substitui a autorizacao da API REST
 
 ## Cliente HTTP da API REST
@@ -100,6 +101,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - Token JWT aplicado no header `Authorization` em chamadas protegidas
 - Login e registro usam chamadas publicas com `auth: false`
 - Login e registro persistem `role` e `status` retornados pela API para menus e rotas por perfil
+- Respostas de autenticacao sem `role` ou `status` validos sao recusadas como sessao invalida
 - Erros de rede, API e validacao sao normalizados para controllers e views
 - Endpoints ficam centralizados em `src/services/api/endpoints.js`
 - Views continuam sem montar requisicoes HTTP diretamente
@@ -125,6 +127,7 @@ O gerenciamento de sessao usa `src/services/session.service.js`.
 
 - Login e registro salvam somente token e dados minimos do usuario
 - A sessao local preserva `role` e `status` para liberar menus de aluno, professor e admin
+- Sessao local sem `role` ou `status` validos e descartada e tratada como necessidade de novo login
 - Senhas e campos sensiveis nao sao persistidos
 - Sessao persistida e restaurada ao recarregar a aplicacao
 - Logout remove os dados locais de autenticacao

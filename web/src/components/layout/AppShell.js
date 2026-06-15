@@ -61,6 +61,7 @@ function AuthenticatedHeader({ pathname }) {
 
   const role = getUserRole(session);
   const navItems = getAuthorizedNavigationItems(role);
+  const roleLabel = role ? roleLabels[role] : "Sessao invalida";
 
   function logout() {
     clearSession();
@@ -74,7 +75,7 @@ function AuthenticatedHeader({ pathname }) {
         <NavigationLinks items={navItems} pathname={pathname} />
       </nav>
       <div className="toolbar">
-        <span className="role-badge">{roleLabels[role]}</span>
+        <span className="role-badge">{roleLabel}</span>
         <ThemeToggle />
         <Button onClick={logout} variant="ghost" type="button">
           Sair

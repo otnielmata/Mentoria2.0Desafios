@@ -9,7 +9,7 @@ import {
   isProtectedRoute,
 } from "@/config/access-control";
 import Button from "@/components/ui/Button";
-import { getSession, subscribeSession } from "@/services/session.service";
+import { clearSession, getSession, subscribeSession } from "@/services/session.service";
 
 const initialState = {
   decision: null,
@@ -41,6 +41,12 @@ export default function AuthGuard({ children }) {
         return;
       }
 
+      if (decision.reason === "invalid-session") {
+        clearSession();
+        setState({ decision, status: "invalid-session" });
+        return;
+      }
+
       if (decision.reason === "forbidden-role") {
         setState({ decision, status: "forbidden" });
         return;
@@ -65,6 +71,24 @@ export default function AuthGuard({ children }) {
     return (
       <main className="route-guard-screen" aria-busy="true">
         <p>Redirecionando para login...</p>
+      </main>
+    );
+  }
+
+  if (state.status === "invalid-session") {
+    return (
+      <main className="route-guard-screen">
+        <section className="access-denied-panel">
+          <p className="eyebrow">Sessao invalida</p>
+          <h1>Faca login novamente para carregar seu perfil.</h1>
+          <p>
+            A Web precisa do perfil retornado pela API para liberar os menus corretos de aluno,
+            professor ou administrador.
+          </p>
+          <Button as={Link} href={state.decision?.redirectTo || "/login"}>
+            Fazer login
+          </Button>
+        </section>
       </main>
     );
   }
