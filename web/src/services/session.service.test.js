@@ -50,6 +50,7 @@ describe("services/session.service", () => {
         name: "Aluno",
         password: "nao-pode-salvar",
         role: "aluno",
+        status: "ativo",
       },
     });
 
@@ -59,6 +60,7 @@ describe("services/session.service", () => {
         email: "aluno@example.com",
         name: "Aluno",
         role: "aluno",
+        status: "ativo",
       },
     });
     expect(JSON.parse(localStorage.setItem.mock.calls[0][1]).user.password).toBeUndefined();
@@ -69,16 +71,21 @@ describe("services/session.service", () => {
       SESSION_STORAGE_KEY,
       JSON.stringify({
         token: "token-salvo",
-        user: { email: "aluno@example.com", name: "Aluno", role: "aluno" },
+        user: { email: "aluno@example.com", name: "Aluno", role: "aluno", status: "ativo" },
       })
     );
 
     expect(getSession()).toEqual({
       token: "token-salvo",
-      user: { email: "aluno@example.com", name: "Aluno", role: "aluno" },
+      user: { email: "aluno@example.com", name: "Aluno", role: "aluno", status: "ativo" },
     });
     expect(getToken()).toBe("token-salvo");
-    expect(getCurrentUser()).toEqual({ email: "aluno@example.com", name: "Aluno", role: "aluno" });
+    expect(getCurrentUser()).toEqual({
+      email: "aluno@example.com",
+      name: "Aluno",
+      role: "aluno",
+      status: "ativo",
+    });
   });
 
   it("limpa sessao local ao encerrar acesso", () => {

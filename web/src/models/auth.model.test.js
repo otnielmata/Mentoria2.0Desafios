@@ -47,17 +47,21 @@ describe("models/auth", () => {
         token: "token",
         user: {
           email: "aluno@example.com",
+          id: "user-1",
           name: "Aluno",
           password: "segredo",
           role: "aluno",
+          status: "ativo",
         },
       })
     ).toEqual({
       token: "token",
       user: {
         email: "aluno@example.com",
+        id: "user-1",
         name: "Aluno",
         role: "aluno",
+        status: "ativo",
       },
     });
   });

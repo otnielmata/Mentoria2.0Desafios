@@ -79,6 +79,8 @@ async function loginUser({ email, password }) {
 
 module.exports = {
   getSafeUser,
+  ensureActiveUser,
+  generateUserToken,
   registerUser,
   loginUser,
 };
