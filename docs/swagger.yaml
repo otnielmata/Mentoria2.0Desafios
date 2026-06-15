@@ -51,6 +51,24 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Credenciais inválidas
+  /api/configuracoes:
+    get:
+      tags: [Configurações]
+      summary: Consulta configurações iniciais da aplicação
+      description: Retorna parâmetros funcionais seguros em modo somente leitura para professor/admin.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Configurações disponíveis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigurationsResponse"
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Perfil sem permissão
   /api/health/protected:
     get:
       tags: [Health]
@@ -109,6 +127,14 @@ components:
           type: string
           format: email
           example: otniel@email.com
+        role:
+          type: string
+          enum: [aluno, professor, admin]
+          example: professor
+        status:
+          type: string
+          enum: [ativo, inativo]
+          example: ativo
     AuthResponse:
       type: object
       properties:
@@ -117,3 +143,46 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    ConfigurationParameter:
+      type: object
+      properties:
+        id:
+          type: string
+          example: ranking-geral-alunos
+        name:
+          type: string
+          example: Ranking geral para alunos
+        description:
+          type: string
+          example: Define se alunos podem visualizar o ranking geral no MVP.
+        type:
+          type: string
+          example: boolean
+        value:
+          oneOf:
+            - type: string
+            - type: boolean
+            - type: number
+          example: true
+        editable:
+          type: boolean
+          example: false
+    ConfigurationsResponse:
+      type: object
+      properties:
+        readOnly:
+          type: boolean
+          example: true
+        editingEnabled:
+          type: boolean
+          example: false
+        ranking:
+          type: object
+          properties:
+            generalVisibleToStudents:
+              type: boolean
+              example: true
+        parameters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfigurationParameter"
