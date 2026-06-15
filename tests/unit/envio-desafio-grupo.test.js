@@ -12,6 +12,11 @@ jest.mock("../../src/models/envio-desafio.model", () => ({
   create: jest.fn(),
   find: jest.fn(),
   findById: jest.fn(),
+  findOne: jest.fn(),
+}));
+
+jest.mock("../../src/models/grupo-desafio.model", () => ({
+  findById: jest.fn(),
 }));
 
 jest.mock("../../src/models/participante-envio.model", () => ({
@@ -35,6 +40,7 @@ jest.mock("../../src/services/audit.service", () => ({
 const AlunoTurma = require("../../src/models/aluno-turma.model");
 const Desafio = require("../../src/models/desafio.model");
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
+const GrupoDesafio = require("../../src/models/grupo-desafio.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
@@ -46,11 +52,22 @@ const PARTICIPANT_ID = "6814f12ab3f34872f7558f41";
 const SECOND_PARTICIPANT_ID = "6814f12ab3f34872f7558f42";
 const DESAFIO_ID = "6814f12ab3f34872f7558f43";
 const TURMA_ID = "6814f12ab3f34872f7558f44";
+const GRUPO_ID = "6814f12ab3f34872f7558f4a";
+
+function mockGrupoFindById(grupo) {
+  const query = {
+    populate: jest.fn(() => query),
+    lean: jest.fn().mockResolvedValue(grupo),
+  };
+  GrupoDesafio.findById.mockReturnValue(query);
+  return query;
+}
 
 describe("envio-desafio.service grupos", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno", status: "ativo" });
+    EnvioDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue(null) });
   });
 
   it("cria envio individual pendente com aluno autenticado como responsável e líder", async () => {
@@ -200,6 +217,64 @@ describe("envio-desafio.service grupos", () => {
       }))
     );
     expect(result.status).toBe("pendente");
+  });
+
+  it("envia desafio a partir de grupo formado por inscrição automática", async () => {
+    mockGrupoFindById({
+      _id: GRUPO_ID,
+      desafio: {
+        _id: DESAFIO_ID,
+        status: "ativo",
+        type: "grupo",
+        maxParticipantes: 2,
+        deliveryDate: "2099-01-01T00:00:00.000Z",
+      },
+      turma: { _id: TURMA_ID, status: "ativa" },
+      participantes: [
+        { _id: STUDENT_ID, name: "Aluno", role: "aluno", status: "ativo" },
+        { _id: PARTICIPANT_ID, name: "Colega", role: "aluno", status: "ativo" },
+      ],
+      maxParticipantes: 2,
+      status: "completo",
+    });
+    EnvioDesafio.create.mockResolvedValue({
+      _id: "6814f12ab3f34872f7558f45",
+      desafio: DESAFIO_ID,
+      turma: TURMA_ID,
+      aluno: STUDENT_ID,
+      description: "Entrega do grupo",
+      type: "grupo",
+      evidencias: ["https://evidencia.com"],
+      anexos: [{ name: "print.png" }],
+      participantes: [PARTICIPANT_ID],
+      grupo: GRUPO_ID,
+      status: "pendente",
+    });
+
+    const result = await createEnvioDesafio(STUDENT_ID, {
+      grupoId: GRUPO_ID,
+      description: "Entrega do grupo",
+      evidencias: ["https://evidencia.com"],
+      anexos: [{ name: "print.png" }],
+    });
+
+    expect(EnvioDesafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        desafio: DESAFIO_ID,
+        turma: TURMA_ID,
+        aluno: STUDENT_ID,
+        type: "grupo",
+        participantes: [PARTICIPANT_ID],
+        grupo: GRUPO_ID,
+        anexos: [{ name: "print.png" }],
+      })
+    );
+    expect(ParticipanteEnvio.create).toHaveBeenCalledWith([{ envio: "6814f12ab3f34872f7558f45", aluno: PARTICIPANT_ID, status: "ativo" }]);
+    expect(result).toMatchObject({
+      grupoId: GRUPO_ID,
+      participantes: [PARTICIPANT_ID],
+      status: "pendente",
+    });
   });
 
   it("rejeita grupo com mais de 5 participantes", async () => {

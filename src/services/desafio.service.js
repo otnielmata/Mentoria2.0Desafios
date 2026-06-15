@@ -14,6 +14,7 @@ const {
   parsePagination,
   parseRequiredText,
   pointsForDifficulty,
+  toIsoDate,
 } = require("./domain-utils");
 
 const ADMIN_ROLES = ["professor", "admin"];
@@ -41,6 +42,8 @@ function serializeDesafio(desafio) {
     pilarId: getEntityId(desafio.pilar),
     title: desafio.title,
     description: desafio.description,
+    deliveryDate: toIsoDate(desafio.deliveryDate),
+    dataEntrega: toIsoDate(desafio.deliveryDate),
     difficulty: desafio.difficulty,
     points: desafio.points,
     type: desafio.type,
@@ -48,6 +51,18 @@ function serializeDesafio(desafio) {
     recorrencia: desafio.recorrencia,
     status: desafio.status,
   };
+}
+
+function parseOptionalDate(value, fieldName) {
+  if (value === undefined || value === null || value === "") return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw createHttpError(`${fieldName} deve ser uma data válida.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} deve ser uma data válida.` }],
+    });
+  }
+  return date;
 }
 
 async function assertAdmin(authenticatedUserId, message) {
@@ -229,6 +244,7 @@ async function createDesafio(authenticatedUserId, payload = {}) {
     pilar: pilarId,
     title: parseRequiredText(payload.title || payload.titulo, "Título"),
     description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
+    deliveryDate: parseOptionalDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega"),
     difficulty,
     points: parsePoints(payload, difficulty, { required: true }),
     type,
@@ -288,6 +304,13 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   }
   if (payload.title || payload.titulo) updates.title = parseRequiredText(payload.title || payload.titulo, "Título");
   if (payload.description || payload.descricao) updates.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
+  if (
+    payload.deliveryDate !== undefined ||
+    payload.dataEntrega !== undefined ||
+    payload.data_entrega !== undefined
+  ) {
+    updates.deliveryDate = parseOptionalDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega");
+  }
   if (payload.type || payload.tipo) updates.type = parseType(payload.type || payload.tipo);
   if (payload.difficulty || payload.dificuldade) updates.difficulty = parseDifficulty(payload.difficulty || payload.dificuldade);
 

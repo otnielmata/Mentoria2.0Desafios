@@ -86,19 +86,36 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString("pt-BR");
 }
 
+function formatDate(value) {
+  if (!value) return "Sem data";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(date);
+}
+
 function formatRankingPosition(value) {
   return value ? `${value}º lugar` : "Sem posição";
 }
 
-function joinIds(value) {
-  return String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 function todaySuffix() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function readFileAsAttachment(file) {
+  if (!file) return Promise.resolve(null);
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      resolve({
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        size: file.size,
+        content: reader.result,
+      });
+    reader.onerror = () => reject(reader.error || new Error("Não foi possível ler o anexo."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function Notice({ message, type = "neutral" }) {
@@ -959,6 +976,7 @@ function AdminDesafiosView({ apiClient }) {
   async function createDesafio(event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const maxParticipantes = Number(data.get("maxParticipantes"));
     setFeedback("");
     setError("");
     try {
@@ -969,9 +987,10 @@ function AdminDesafiosView({ apiClient }) {
             pilarId: data.get("pilarId"),
             title: data.get("title"),
             description: data.get("description"),
+            deliveryDate: data.get("deliveryDate") || undefined,
             points: Number(data.get("points")),
-            type: data.get("type"),
-            maxParticipantes: Number(data.get("maxParticipantes")),
+            type: maxParticipantes > 1 ? "grupo" : "individual",
+            maxParticipantes,
             status: data.get("status"),
           },
         }
@@ -1031,15 +1050,11 @@ function AdminDesafiosView({ apiClient }) {
             <input name="points" required type="number" min="1" defaultValue="10" />
           </label>
           <label className="field">
-            <span>Tipo</span>
-            <select name="type" defaultValue="ambos">
-              <option value="individual">individual</option>
-              <option value="grupo">grupo</option>
-              <option value="ambos">ambos</option>
-            </select>
+            <span>Data limite de entrega</span>
+            <input name="deliveryDate" type="date" />
           </label>
           <label className="field">
-            <span>Máx. participantes</span>
+            <span>Participantes por grupo</span>
             <input name="maxParticipantes" required type="number" min="1" max="5" defaultValue="5" />
           </label>
           <label className="field">
@@ -1067,7 +1082,8 @@ function AdminDesafiosView({ apiClient }) {
               <th>Título</th>
               <th>Pilar</th>
               <th>Pontos</th>
-              <th>Tipo</th>
+              <th>Entrega até</th>
+              <th>Participantes</th>
               <th>Status</th>
               <th>ID</th>
               <th>Ação</th>
@@ -1079,7 +1095,8 @@ function AdminDesafiosView({ apiClient }) {
                 <td>{desafio.title}</td>
                 <td>{desafio.pilar && desafio.pilar.name}</td>
                 <td>{desafio.points}</td>
-                <td>{desafio.type}</td>
+                <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
+                <td>{desafio.maxParticipantes}</td>
                 <td>{desafio.status}</td>
                 <td>
                   <code>{desafio.id}</code>
@@ -1099,23 +1116,26 @@ function AdminDesafiosView({ apiClient }) {
 }
 
 function StudentChallengesView({ apiClient }) {
-  const [profile, setProfile] = useState(null);
   const [desafios, setDesafios] = useState([]);
+  const [inscricoes, setInscricoes] = useState([]);
   const [envios, setEnvios] = useState([]);
+  const [selectedInscricaoId, setSelectedInscricaoId] = useState("");
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
   async function load() {
     setError("");
     try {
-      const [profileResult, desafiosResult, enviosResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: "/me" }),
+      const [desafiosResult, inscricoesResult, enviosResult] = await Promise.all([
         apiClient.request({ method: "GET", path: "/desafios?limit=100" }),
+        apiClient.request({ method: "GET", path: "/desafios/inscricoes/minhas" }),
         apiClient.request({ method: "GET", path: "/envios-desafios/meus?limit=100" }),
       ]);
-      setProfile(getProfileUser(profileResult));
+      const nextInscricoes = getArray(inscricoesResult, "inscricoes");
       setDesafios(getArray(desafiosResult, "desafios"));
+      setInscricoes(nextInscricoes);
       setEnvios(getArray(enviosResult, "envios"));
+      if (!selectedInscricaoId && nextInscricoes[0]) setSelectedInscricaoId(nextInscricoes[0].id);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     }
@@ -1125,23 +1145,40 @@ function StudentChallengesView({ apiClient }) {
     load();
   }, [apiClient]);
 
+  async function subscribe(desafioId) {
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request({ method: "POST", path: `/desafios/${desafioId}/inscricoes` });
+      setFeedback("Inscrição realizada. O grupo foi formado automaticamente.");
+      await load();
+    } catch (subscribeError) {
+      setError(getErrorMessage(subscribeError));
+    }
+  }
+
   async function submitEnvio(event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const type = data.get("type");
+    const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId);
+    const anexo = await readFileAsAttachment(data.get("anexo"));
     setFeedback("");
     setError("");
+
+    if (!selectedInscricao || !selectedInscricao.grupo) {
+      setError("Selecione um desafio inscrito com grupo formado.");
+      return;
+    }
+
     try {
       await apiClient.request(
         { method: "POST", path: "/envios-desafios" },
         {
           body: {
-            desafioId: data.get("desafioId"),
-            turmaId: data.get("turmaId"),
-            type,
+            grupoId: selectedInscricao.grupo.id,
             description: data.get("description"),
             evidencias: [data.get("evidencia")],
-            participantes: type === "grupo" ? joinIds(data.get("participantes")) : [],
+            anexos: anexo ? [anexo] : [],
           },
         }
       );
@@ -1153,7 +1190,9 @@ function StudentChallengesView({ apiClient }) {
     }
   }
 
-  const turmas = getArray(profile, "turmas");
+  const subscribedChallengeIds = new Set(inscricoes.map((inscricao) => getEntityId(inscricao.desafio)).filter(Boolean));
+  const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId) || inscricoes[0];
+  const selectedParticipants = getArray(selectedInscricao && selectedInscricao.grupo, "participantes");
 
   return (
     <div className="content">
@@ -1161,7 +1200,7 @@ function StudentChallengesView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Desafios</h2>
-            <p className="muted">Escolha um desafio ativo, informe evidência e envie para aprovação.</p>
+            <p className="muted">Inscreva-se primeiro. O sistema monta seu grupo automaticamente.</p>
           </div>
           <button className="button secondary" type="button" onClick={load}>
             Atualizar
@@ -1169,43 +1208,69 @@ function StudentChallengesView({ apiClient }) {
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Desafio</th>
+              <th>Pilar</th>
+              <th>Pontos</th>
+              <th>Entrega até</th>
+              <th>Grupo</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {desafios.map((desafio) => {
+              const isSubscribed = subscribedChallengeIds.has(desafio.id);
+              return (
+                <tr key={desafio.id}>
+                  <td>
+                    <strong>{desafio.title}</strong>
+                    <p className="muted">{desafio.description}</p>
+                  </td>
+                  <td>{desafio.pilar ? desafio.pilar.name : "-"}</td>
+                  <td>{formatNumber(desafio.points)}</td>
+                  <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
+                  <td>{formatNumber(desafio.maxParticipantes)} participantes</td>
+                  <td>
+                    <button className="button secondary" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id)}>
+                      {isSubscribed ? "Inscrito" : "Inscrever-se"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Enviar desafio feito</h2>
+            <p className="muted">Selecione uma inscrição. Os participantes vêm automaticamente do grupo.</p>
+          </div>
+        </div>
         <form className="form-grid" onSubmit={submitEnvio}>
-          <label className="field">
-            <span>Desafio</span>
-            <select name="desafioId" required defaultValue="">
+          <label className="field span-2">
+            <span>Desafio inscrito</span>
+            <select required value={selectedInscricaoId} onChange={(event) => setSelectedInscricaoId(event.target.value)}>
               <option value="">Selecione</option>
-              {desafios.map((desafio) => (
-                <option key={desafio.id} value={desafio.id}>
-                  {desafio.title} ({desafio.points} pts)
+              {inscricoes.map((inscricao) => (
+                <option key={inscricao.id} value={inscricao.id}>
+                  {inscricao.desafio ? inscricao.desafio.title : inscricao.id}
                 </option>
               ))}
             </select>
           </label>
-          <label className="field">
-            <span>Turma</span>
-            {turmas.length > 0 ? (
-              <select name="turmaId" required defaultValue={getEntityId(turmas[0])}>
-                {turmas.map((turma) => (
-                  <option key={getEntityId(turma)} value={getEntityId(turma)}>
-                    {formatTurmaName(turma)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input name="turmaId" required placeholder="ID da turma" />
-            )}
-          </label>
-          <label className="field">
-            <span>Tipo</span>
-            <select name="type" defaultValue="individual">
-              <option value="individual">individual</option>
-              <option value="grupo">grupo</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Participantes do grupo</span>
-            <input name="participantes" placeholder="IDs separados por vírgula" />
-          </label>
+          <div className="span-2 status-item">
+            <strong>Participantes do grupo</strong>
+            <span className="muted">
+              {selectedParticipants.length > 0
+                ? selectedParticipants.map((participante) => participante.name || participante.id).join(", ")
+                : "Nenhum grupo selecionado"}
+            </span>
+          </div>
           <label className="field span-2">
             <span>Descrição</span>
             <textarea name="description" required placeholder="Descreva o que foi feito." />
@@ -1214,10 +1279,15 @@ function StudentChallengesView({ apiClient }) {
             <span>Evidência/link/comprovante</span>
             <input name="evidencia" required placeholder="https://..." />
           </label>
+          <label className="field span-2">
+            <span>Anexo</span>
+            <input name="anexo" type="file" />
+          </label>
           <button className="button" type="submit">
-            Inscrever-se no desafio
+            Enviar para aprovação
           </button>
         </form>
+        {inscricoes.length === 0 ? <Notice message="Você ainda não está inscrito em nenhum desafio ativo." /> : null}
       </section>
 
       <section className="panel">
@@ -1336,6 +1406,7 @@ function StudentScoreView({ apiClient }) {
 
 function StudentGroupsView({ apiClient }) {
   const [grupos, setGrupos] = useState([]);
+  const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
   async function load() {
@@ -1352,39 +1423,88 @@ function StudentGroupsView({ apiClient }) {
     load();
   }, [apiClient]);
 
+  async function updateContact(event, grupoId) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: `/grupos/${grupoId}/contato` },
+        {
+          body: {
+            tipo: data.get("tipo"),
+            url: data.get("url"),
+          },
+        }
+      );
+      setFeedback("Contato do grupo atualizado.");
+      await load();
+    } catch (contactError) {
+      setError(getErrorMessage(contactError));
+    }
+  }
+
   return (
     <div className="content">
       <section className="panel">
         <div className="panel-header">
           <div>
             <h2>Meus Grupos</h2>
-            <p className="muted">Veja os grupos vinculados aos seus envios de desafio.</p>
+            <p className="muted">Veja com quem você caiu no desafio e combine o canal de contato.</p>
           </div>
           <button className="button secondary" type="button" onClick={load}>
             Atualizar
           </button>
         </div>
+        <Notice message={feedback} />
         <Notice message={error} type="error" />
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Desafio</th>
-              <th>Turma</th>
-              <th>Status</th>
-              <th>Participantes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {grupos.map((grupo) => (
-              <tr key={grupo.id}>
-                <td>{grupo.desafio ? grupo.desafio.title : grupo.id}</td>
-                <td>{grupo.turma ? grupo.turma.name : "-"}</td>
-                <td>{grupo.status}</td>
-                <td>{getArray(grupo, "participantes").map((participante) => participante.name || participante.id).join(", ")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="group-list">
+          {grupos.map((grupo) => (
+            <article className="status-item" key={grupo.id}>
+              <div className="panel-header">
+                <div>
+                  <strong>{grupo.desafio ? grupo.desafio.title : grupo.id}</strong>
+                  <p className="muted">
+                    {grupo.turma ? grupo.turma.name : "-"} | {formatNumber(grupo.totalParticipantes)} de {formatNumber(grupo.maxParticipantes)} participantes
+                  </p>
+                </div>
+                <span className={`badge ${grupo.status === "completo" ? "ok" : "warn"}`}>{grupo.status}</span>
+              </div>
+              <div className="participant-list">
+                {getArray(grupo, "participantes").map((participante) => (
+                  <span className="badge" key={participante.id || participante.name}>
+                    {participante.name || participante.id}
+                  </span>
+                ))}
+              </div>
+              {grupo.contato && grupo.contato.url ? (
+                <p className="muted">
+                  Contato atual: {grupo.contato.tipo} - {grupo.contato.url}
+                </p>
+              ) : (
+                <p className="muted">Contato do grupo ainda não informado.</p>
+              )}
+              <form className="form-grid" onSubmit={(event) => updateContact(event, grupo.id)}>
+                <label className="field">
+                  <span>Canal</span>
+                  <select name="tipo" defaultValue={(grupo.contato && grupo.contato.tipo) || "whatsapp"}>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="discord">Discord</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Link de contato</span>
+                  <input name="url" defaultValue={(grupo.contato && grupo.contato.url) || ""} placeholder="https://..." />
+                </label>
+                <button className="button secondary" type="submit">
+                  Salvar contato
+                </button>
+              </form>
+            </article>
+          ))}
+        </div>
         {grupos.length === 0 ? <Notice message="Nenhum grupo encontrado para este aluno." /> : null}
       </section>
     </div>

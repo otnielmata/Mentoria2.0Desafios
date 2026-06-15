@@ -1,4 +1,5 @@
 const desafioService = require("../services/desafio.service");
+const inscricaoDesafioService = require("../services/inscricao-desafio.service");
 
 async function create(req, res, next) {
   try {
@@ -45,10 +46,30 @@ async function disable(req, res, next) {
   }
 }
 
+async function subscribe(req, res, next) {
+  try {
+    const inscricao = await inscricaoDesafioService.subscribeToChallenge(req.user.id, req.params.id);
+    return res.status(201).json({ inscricao });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function listMySubscriptions(req, res, next) {
+  try {
+    const result = await inscricaoDesafioService.listMySubscriptions(req.user.id);
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   create,
   disable,
   list,
+  listMySubscriptions,
   show,
+  subscribe,
   update,
 };

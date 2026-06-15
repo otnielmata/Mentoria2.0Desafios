@@ -278,12 +278,36 @@ paths:
       tags: [Desafios]
       security:
         - bearerAuth: []
-      summary: Cadastra desafio com pilar, pontuação fixa, tipo, limite de participantes e status
+      summary: Cadastra desafio com pilar, pontuação fixa, data limite de entrega, participantes por grupo e status
       responses:
         "201":
           description: Desafio cadastrado
         "400":
           description: Pontuação fixa ausente ou limite de participantes inválido
+  /api/desafios/inscricoes/minhas:
+    get:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Lista inscrições do aluno em desafios ativos e seus grupos automáticos
+      responses:
+        "200":
+          description: Inscrições retornadas
+        "403":
+          description: Perfil sem permissão
+  /api/desafios/:id/inscricoes:
+    post:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Inscreve aluno em desafio ativo e forma grupo automaticamente
+      responses:
+        "201":
+          description: Inscrição criada e grupo atribuído
+        "400":
+          description: Aluno sem turma ativa ou desafio inativo
+        "409":
+          description: Aluno já inscrito no desafio
   /api/envios-desafios:
     post:
       tags: [Envios]
@@ -388,6 +412,19 @@ paths:
       responses:
         "200":
           description: Lista retornada
+  /api/grupos/:id/contato:
+    patch:
+      tags: [Grupos]
+      security:
+        - bearerAuth: []
+      summary: Atualiza link de contato do grupo automático do aluno
+      responses:
+        "200":
+          description: Contato atualizado
+        "400":
+          description: Tipo ou link inválido
+        "403":
+          description: Usuário não participa do grupo
         "403":
           description: Perfil sem permissão
   /api/pontuacoes/minha:

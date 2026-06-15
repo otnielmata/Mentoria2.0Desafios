@@ -9,6 +9,7 @@ const studentRoles = [User.userRoles.student];
 const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 
 router.get("/grupos/meus", authMiddleware, authorizeRoles(studentRoles), grupoController.list);
+router.patch("/grupos/:id/contato", authMiddleware, authorizeRoles(studentRoles), grupoController.updateContact);
 router.get("/grupos", authMiddleware, authorizeRoles(adminRoles), grupoController.list);
 
 module.exports = router;

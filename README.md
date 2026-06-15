@@ -80,11 +80,12 @@ npm install
 - `POST /api/turmas/:turmaId/alunos` e `DELETE /api/turmas/:turmaId/alunos/:alunoId`
 - `POST /api/pilares`, `GET /api/pilares`, `GET /api/pilares/:id`, `PATCH /api/pilares/:id`, `DELETE /api/pilares/:id`
 - `POST /api/desafios`, `GET /api/desafios`, `GET /api/desafios/:id`, `PATCH /api/desafios/:id`, `DELETE /api/desafios/:id`
+- `POST /api/desafios/:id/inscricoes` e `GET /api/desafios/inscricoes/minhas`
 - `POST /api/envios-desafios`, `GET /api/envios-desafios/meus`, `GET /api/me/envios-desafios`, `GET /api/envios-desafios/:id`
 - `PATCH /api/envios-desafios/:id`, `PUT /api/envios-desafios/:id/participantes`, `DELETE /api/envios-desafios/:id`
 - `GET /api/envios-desafios/aprovacoes`, `PATCH /api/envios-desafios/aprovacoes`, `GET /api/admin/envios-desafios/pendentes`
 - `PATCH /api/admin/envios-desafios/:id/avaliacao`
-- `GET /api/grupos` e `GET /api/grupos/meus`
+- `GET /api/grupos`, `GET /api/grupos/meus` e `PATCH /api/grupos/:id/contato`
 - `GET /api/pontuacoes/minha` e `GET /api/me/pontuacoes`
 - `GET /api/ranking`, `GET /api/ranking/admin`, `GET /api/rankings` e `GET /api/rankings/geral`
 - `GET /api/dashboard/aluno`, `GET /api/me/dashboard`, `GET /api/dashboard/admin` e `GET /api/admin/dashboard`
@@ -105,6 +106,10 @@ O menu do aluno exibe `Início`, `Calendário`, `Desafios`, `Meus Grupos`, `Minh
 No `Início`, a Web exibe nome do aluno, posição no ranking, pontuação total, quantidade de desafios enviados e gráfico de pizza com a distribuição percentual de desafios aprovados por pilar do Método do Alavanque, usando `GET /api/dashboard/aluno`.
 
 Em `Meu Perfil`, o aluno pode alterar nome completo e senha. Turma, status e perfil aparecem apenas como dados de leitura para o aluno e só devem ser alterados por administrador/professor em rotas administrativas.
+
+Em `Desafios`, o aluno primeiro se inscreve em um desafio ativo. A API cria ou completa automaticamente um grupo do mesmo desafio e turma até atingir `maxParticipantes`, quantidade definida pelo professor/admin no cadastro do desafio. Depois da inscrição, o aluno envia a entrega selecionando um desafio inscrito; turma, tipo e participantes são preenchidos pela API a partir do grupo. O envio aceita descrição, evidência/link e anexo.
+
+Em `Meus Grupos`, o aluno vê os integrantes do grupo automático e qualquer participante pode informar ou atualizar o link de contato do grupo (`whatsapp`, `telegram` ou `discord`) para combinar a execução do desafio.
 
 ## Contrato Web/API
 
@@ -174,6 +179,8 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - `alunos_turmas`: vínculo histórico entre alunos e turmas
 - `pilares`: tópicos do Método do Alavanque
 - `desafios`: desafios cadastrados com pilar, pontos fixos, tipo, limite de participantes e status
+- `inscricoes_desafios`: inscrição do aluno em desafio ativo e vínculo com grupo
+- `grupos_desafios`: grupos automáticos formados por desafio/turma com contato do grupo
 - `envios_desafios`: registros enviados pelos alunos
 - `participantes_envio`: participantes ativos/removidos de envios em grupo
 - `pontuacoes`: histórico de pontos concedidos após aprovação
@@ -181,8 +188,14 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 ## Regras consolidadas
 
 - Apenas alunos registram envios de desafios.
+- Antes de enviar uma entrega, o aluno deve estar inscrito no desafio e vinculado a um grupo automático.
+- O professor/admin cadastra descrição, pilar, pontos, data limite de entrega e quantidade de participantes por grupo.
+- Ao se inscrever, o aluno entra em um grupo aberto do mesmo desafio/turma ou inicia um novo grupo automaticamente.
+- O grupo é marcado como completo quando atinge a quantidade de participantes definida no desafio.
+- Participantes do grupo podem atualizar o link de contato do grupo para WhatsApp, Telegram ou Discord.
 - Envios começam com status `pendente`.
 - Evidência é obrigatória e pode ser URL, PDF, imagem ou texto.
+- Anexos podem ser enviados junto da entrega e ficam registrados no envio.
 - Envios em grupo usam participantes em coleção própria e mantêm array legado para compatibilidade.
 - Grupo registra o aluno responsável como líder do envio e aceita até 5 participantes, respeitando o limite definido no desafio.
 - Participantes de grupo não podem ser duplicados e devem estar ativos na mesma turma.

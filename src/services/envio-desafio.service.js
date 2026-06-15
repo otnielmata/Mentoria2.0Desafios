@@ -1,6 +1,7 @@
 const AlunoTurma = require("../models/aluno-turma.model");
 const Desafio = require("../models/desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
+const GrupoDesafio = require("../models/grupo-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
@@ -73,6 +74,7 @@ function serializeDesafio(desafio) {
     difficulty: desafio.difficulty,
     type: desafio.type,
     maxParticipantes: desafio.maxParticipantes,
+    deliveryDate: toIsoDate(desafio.deliveryDate),
     status: desafio.status,
   };
 }
@@ -100,6 +102,8 @@ function serializeEnvio(envio, participantes = []) {
     description: envio.description,
     type: envio.type,
     evidencias: envio.evidencias,
+    anexos: envio.anexos || [],
+    grupoId: envio.grupo ? getEntityId(envio.grupo) : null,
     participantes: participantesIds,
     participantesDetalhes,
     status: envio.status,
@@ -134,6 +138,18 @@ function parseEvidencias(payload) {
 
   if (typeof evidencias === "string" && evidencias.trim().length > 0) return [evidencias.trim()];
   throw createHttpError("Evidência é obrigatória.", 400);
+}
+
+function parseAnexos(payload) {
+  const anexos = getFirstValue(payload, ["anexos", "attachments", "attachment", "anexo"]);
+
+  if (Array.isArray(anexos)) {
+    return anexos.filter(Boolean);
+  }
+
+  if (typeof anexos === "string" && anexos.trim().length > 0) return [anexos.trim()];
+  if (anexos && typeof anexos === "object") return [anexos];
+  return [];
 }
 
 function parseParticipantes(payload, type) {
@@ -202,14 +218,106 @@ async function syncParticipantes(envioId, participanteIds) {
   }
 }
 
+async function getGroupForSubmission(grupoId, authenticatedUserId) {
+  const id = parseObjectId(grupoId, "Grupo deve ser um identificador válido.");
+  const grupo = await GrupoDesafio.findById(id)
+    .populate({
+      path: "desafio",
+      populate: { path: "pilar" },
+    })
+    .populate("turma")
+    .populate("participantes", "name email role status")
+    .lean();
+
+  if (!grupo) throw createHttpError("Grupo não encontrado.", 404);
+  const participanteIds = (grupo.participantes || []).map(getEntityId);
+  if (!participanteIds.includes(authenticatedUserId)) {
+    throw createHttpError("Apenas participantes do grupo podem enviar este desafio.", 403);
+  }
+
+  const existingEnvio = await EnvioDesafio.findOne({
+    grupo: id,
+    status: { $ne: CANCELED_STATUS },
+  }).lean();
+  if (existingEnvio) {
+    throw createHttpError("Este grupo já possui um envio registrado para o desafio.", 409, {
+      code: "GROUP_SUBMISSION_ALREADY_EXISTS",
+    });
+  }
+
+  const desafio = grupo.desafio;
+  if (!desafio) throw createHttpError("Desafio do grupo não encontrado.", 404);
+  if (normalizeText(desafio.status) !== ACTIVE_STATUS) throw createHttpError("Desafio deve estar ativo para receber envio.", 400);
+
+  const deliveryDate = desafio.deliveryDate ? new Date(desafio.deliveryDate) : null;
+  if (deliveryDate) deliveryDate.setUTCHours(23, 59, 59, 999);
+  if (deliveryDate && deliveryDate < new Date()) {
+    throw createHttpError("Prazo de entrega do desafio encerrado.", 400, { code: "CHALLENGE_DELIVERY_CLOSED" });
+  }
+
+  return grupo;
+}
+
+async function createEnvioFromGroup(authenticatedUserId, payload = {}, grupoId) {
+  const student = await getAuthenticatedStudent(authenticatedUserId);
+  const grupo = await getGroupForSubmission(grupoId, authenticatedUserId);
+  const participantes = (grupo.participantes || []).map(getEntityId).filter((participanteId) => participanteId !== authenticatedUserId);
+  const evidencias = parseEvidencias(payload);
+  const anexos = parseAnexos(payload);
+  const type = Number(grupo.maxParticipantes || 1) > 1 ? GROUP_TYPE : "individual";
+  const turmaId = getEntityId(grupo.turma);
+  const desafioId = getEntityId(grupo.desafio);
+  const responsibleId = getEntityId(student);
+
+  const envio = await EnvioDesafio.create({
+    desafio: desafioId,
+    turma: turmaId,
+    aluno: responsibleId,
+    description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
+    type,
+    evidencias,
+    anexos,
+    participantes,
+    grupo: getEntityId(grupo),
+    status: PENDING_STATUS,
+  });
+  await syncParticipantes(envio._id || envio.id, participantes);
+  await logDomainEvent({
+    eventType: "envio_criado",
+    actor: responsibleId,
+    aluno: responsibleId,
+    desafio: desafioId,
+    envio: getEntityId(envio),
+    turma: turmaId,
+    statusNovo: PENDING_STATUS,
+    metadata: {
+      type,
+      grupoId: getEntityId(grupo),
+      participantes,
+      anexos: anexos.map((anexo) => (anexo && anexo.name ? anexo.name : anexo)),
+      statusInicial: PENDING_STATUS,
+    },
+    occurredAt: envio.createdAt || new Date(),
+  });
+
+  const envioObject = typeof envio.toObject === "function" ? envio.toObject() : envio;
+  return serializeEnvio({ ...envioObject, grupo: getEntityId(grupo) }, participantes);
+}
+
 async function createEnvioDesafio(authenticatedUserId, payload = {}) {
   assertObjectPayload(payload);
+  const grupoId = getFirstValue(payload, ["grupoId", "grupo_id", "grupo"]);
+  if (grupoId) {
+    return createEnvioFromGroup(authenticatedUserId, payload, grupoId);
+  }
+
   const student = await getAuthenticatedStudent(authenticatedUserId);
   const type = parseSubmissionType(payload);
   const desafioId = parseObjectId(getFirstValue(payload, ["desafioId", "desafio_id", "desafio"]), "Desafio deve ser um identificador válido.");
   const turmaId = parseObjectId(getFirstValue(payload, ["turmaId", "turma_id", "turma"]), "Turma deve ser um identificador válido.");
   const participantes = parseParticipantes(payload, type);
   const evidencias = parseEvidencias(payload);
+  const anexos = parseAnexos(payload);
   const [desafio] = await Promise.all([getActiveDesafio(desafioId), assertTurmaExists(turmaId)]);
   const responsibleId = getEntityId(student);
 
@@ -224,6 +332,7 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
     description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
     type,
     evidencias,
+    anexos,
     participantes,
     status: PENDING_STATUS,
   });

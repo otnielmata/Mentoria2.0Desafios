@@ -5,6 +5,7 @@ const desafioSchema = new mongoose.Schema(
     pilar: { type: mongoose.Schema.Types.ObjectId, ref: "Pilar", required: true, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
+    deliveryDate: { type: Date, default: null, index: true },
     difficulty: {
       type: String,
       enum: ["facil", "medio", "dificil", "extra"],

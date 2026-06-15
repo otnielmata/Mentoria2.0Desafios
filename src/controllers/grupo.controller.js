@@ -9,6 +9,16 @@ async function list(req, res, next) {
   }
 }
 
+async function updateContact(req, res, next) {
+  try {
+    const grupo = await grupoService.updateGroupContact(req.user.id, req.params.id, req.body);
+    return res.status(200).json({ grupo });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   list,
+  updateContact,
 };
