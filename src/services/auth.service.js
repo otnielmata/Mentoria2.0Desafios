@@ -2,6 +2,37 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
 const { generateToken } = require("./token.service");
 
+function getSafeUser(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role || User.userRoles.student,
+    status: user.status || User.userStatuses.active,
+  };
+}
+
+function ensureActiveUser(user) {
+  const status = user.status || User.userStatuses.active;
+
+  if (status !== User.userStatuses.active) {
+    const error = new Error("Usuário inativo.");
+    error.statusCode = 403;
+    throw error;
+  }
+}
+
+function generateUserToken(user) {
+  const safeUser = getSafeUser(user);
+
+  return generateToken({
+    email: safeUser.email,
+    role: safeUser.role,
+    status: safeUser.status,
+    sub: safeUser.id,
+  });
+}
+
 async function registerUser({ name, email, password }) {
   const existingUser = await User.findOne({ email });
   if (existingUser) {
@@ -13,10 +44,10 @@ async function registerUser({ name, email, password }) {
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await User.create({ name, email, passwordHash });
 
-  const token = generateToken({ sub: user.id, email: user.email });
+  const token = generateUserToken(user);
 
   return {
-    user: { id: user.id, name: user.name, email: user.email },
+    user: getSafeUser(user),
     token,
   };
 }
@@ -36,15 +67,18 @@ async function loginUser({ email, password }) {
     throw error;
   }
 
-  const token = generateToken({ sub: user.id, email: user.email });
+  ensureActiveUser(user);
+
+  const token = generateUserToken(user);
 
   return {
-    user: { id: user.id, name: user.name, email: user.email },
+    user: getSafeUser(user),
     token,
   };
 }
 
 module.exports = {
+  getSafeUser,
   registerUser,
   loginUser,
 };
