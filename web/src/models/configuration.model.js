@@ -4,6 +4,24 @@ function toBooleanLabel(value) {
   return value ? "Ativo" : "Inativo";
 }
 
+function formatValue(value) {
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, item]) => `${key}: ${Array.isArray(item) ? item.join(", ") : item}`)
+      .join(" | ");
+  }
+
+  if (value === undefined || value === null || value === "") {
+    return "Não informado";
+  }
+
+  return String(value);
+}
+
 function normalizeParameter(parameter = {}) {
   return {
     id: parameter.id,
@@ -11,7 +29,7 @@ function normalizeParameter(parameter = {}) {
     description: parameter.description,
     category: parameter.category,
     status: parameter.status || (parameter.enabled ? "ativo" : "inativo"),
-    value: parameter.type === "boolean" ? toBooleanLabel(parameter.enabled) : parameter.value,
+    value: parameter.type === "boolean" ? toBooleanLabel(parameter.enabled) : formatValue(parameter.value),
     readOnly: parameter.editable !== true,
     planned: parameter.status === FUTURE_STATUS || parameter.enabled === false,
   };
@@ -33,6 +51,7 @@ function toConfigurationViewModel(configuration = {}) {
 }
 
 module.exports = {
+  formatValue,
   normalizeParameter,
   toConfigurationViewModel,
 };

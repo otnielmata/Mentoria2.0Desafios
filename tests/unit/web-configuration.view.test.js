@@ -4,7 +4,7 @@ const {
   getConfigurationEndpoint,
   loadConfigurationView,
 } = require("../../web/src/controllers/configuration.controller");
-const { toConfigurationViewModel } = require("../../web/src/models/configuration.model");
+const { formatValue, toConfigurationViewModel } = require("../../web/src/models/configuration.model");
 const { createConfigurationReadOnlyView } = require("../../web/src/views/configuration.view");
 
 const apiConfiguration = {
@@ -96,5 +96,11 @@ describe("web configuration view MR-98", () => {
         planned: true,
       }),
     ]);
+  });
+
+  it("formata valores compostos antes de renderizar parâmetros", () => {
+    expect(formatValue({ periodos: ["diario", "mensal"], limitePorPeriodo: true })).toBe(
+      "periodos: diario, mensal | limitePorPeriodo: true"
+    );
   });
 });
