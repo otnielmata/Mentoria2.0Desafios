@@ -88,6 +88,38 @@ paths:
       responses:
         "200":
           description: Perfil atualizado
+  /api/users/me:
+    get:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Consulta dados do usuário autenticado para a Web
+      responses:
+        "200":
+          description: Perfil encontrado
+        "401":
+          description: Token inválido ou ausente
+  /api/users:
+    get:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Lista usuários/alunos para professor ou admin
+      responses:
+        "200":
+          description: Lista retornada
+        "403":
+          description: Perfil sem permissão
+    post:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Cadastra aluno para professor ou admin
+      responses:
+        "201":
+          description: Aluno cadastrado
+        "403":
+          description: Perfil sem permissão
   /api/alunos:
     get:
       tags: [Alunos]
@@ -250,6 +282,40 @@ paths:
       responses:
         "201":
           description: Envio criado
+        "403":
+          description: Perfil sem permissão
+  /api/envios-desafios/meus:
+    get:
+      tags: [Envios]
+      security:
+        - bearerAuth: []
+      summary: Lista envios do aluno autenticado
+      responses:
+        "200":
+          description: Lista retornada
+        "403":
+          description: Perfil sem permissão
+  /api/envios-desafios/aprovacoes:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Lista envios pendentes para aprovação de professor ou admin
+      responses:
+        "200":
+          description: Lista retornada
+        "403":
+          description: Perfil sem permissão
+    patch:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Aprova, reprova ou solicita ajuste usando envio_desafio_id no corpo
+      responses:
+        "200":
+          description: Envio avaliado
+        "403":
+          description: Perfil sem permissão
   /api/envios-desafios/{id}/participantes:
     put:
       tags: [Envios]
@@ -281,6 +347,39 @@ paths:
       responses:
         "200":
           description: Envio avaliado e pontuação gerada quando aprovado
+  /api/grupos:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Lista grupos para professor ou admin
+      responses:
+        "200":
+          description: Lista retornada
+        "403":
+          description: Perfil sem permissão
+  /api/grupos/meus:
+    get:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Lista grupos do aluno autenticado
+      responses:
+        "200":
+          description: Lista retornada
+        "403":
+          description: Perfil sem permissão
+  /api/pontuacoes/minha:
+    get:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Consulta pontuação e histórico do aluno autenticado
+      responses:
+        "200":
+          description: Pontuação retornada
+        "403":
+          description: Perfil sem permissão
   /api/me/pontuacoes:
     get:
       tags: [Perfil]
@@ -290,6 +389,28 @@ paths:
       responses:
         "200":
           description: Pontuação retornada
+  /api/ranking:
+    get:
+      tags: [Ranking]
+      security:
+        - bearerAuth: []
+      summary: Ranking geral consumido pela Web
+      responses:
+        "200":
+          description: Ranking retornado
+        "401":
+          description: Token inválido ou ausente
+  /api/ranking/admin:
+    get:
+      tags: [Ranking]
+      security:
+        - bearerAuth: []
+      summary: Ranking administrativo com filtros para professor ou admin
+      responses:
+        "200":
+          description: Ranking retornado
+        "403":
+          description: Perfil sem permissão
   /api/rankings:
     get:
       tags: [Ranking]
@@ -299,6 +420,17 @@ paths:
       responses:
         "200":
           description: Ranking retornado
+  /api/dashboard/aluno:
+    get:
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      summary: Dashboard do aluno consumido pela Web
+      responses:
+        "200":
+          description: Dashboard retornado
+        "403":
+          description: Perfil sem permissão
   /api/me/dashboard:
     get:
       tags: [Perfil]
@@ -308,6 +440,17 @@ paths:
       responses:
         "200":
           description: Dashboard retornado
+  /api/dashboard/admin:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Dashboard administrativo consumido pela Web
+      responses:
+        "200":
+          description: Dashboard retornado
+        "403":
+          description: Perfil sem permissão
   /api/admin/dashboard:
     get:
       tags: [Admin]
@@ -317,6 +460,17 @@ paths:
       responses:
         "200":
           description: Dashboard retornado
+  /api/relatorios/participacao:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Relatório de participação para professor ou admin
+      responses:
+        "200":
+          description: Relatório retornado
+        "403":
+          description: Perfil sem permissão
   /api/admin/relatorios/participacao:
     get:
       tags: [Relatórios]
@@ -335,6 +489,17 @@ paths:
       responses:
         "200":
           description: Relatório retornado
+  /api/configuracoes:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Configurações iniciais somente leitura para professor ou admin
+      responses:
+        "200":
+          description: Configurações retornadas
+        "403":
+          description: Perfil sem permissão
 components:
   securitySchemes:
     bearerAuth:

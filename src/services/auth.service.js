@@ -58,13 +58,24 @@ function serializeAuthUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role,
-    status: user.status,
+    role: user.role || User.userRoles.student,
+    status: user.status || User.userStatuses.active,
   };
 }
 
 function isActiveUser(user) {
   return ACTIVE_STATUSES.includes(normalizeText(user && user.status));
+}
+
+function generateUserToken(user) {
+  const safeUser = serializeAuthUser(user);
+
+  return generateToken({
+    email: safeUser.email,
+    role: safeUser.role,
+    status: safeUser.status,
+    sub: safeUser.id,
+  });
 }
 
 async function registerUser({ name, email, password }) {
@@ -85,7 +96,7 @@ async function registerUser({ name, email, password }) {
     status: "ativo",
   });
 
-  const token = generateToken({ sub: user.id, email: user.email });
+  const token = generateUserToken(user);
 
   return {
     user: serializeAuthUser(user),
@@ -115,7 +126,7 @@ async function loginUser({ email, password, metadata = {} }) {
     throw invalidCredentialsError();
   }
 
-  const token = generateToken({ sub: user.id, email: user.email });
+  const token = generateUserToken(user);
 
   return {
     user: serializeAuthUser(user),
@@ -124,6 +135,8 @@ async function loginUser({ email, password, metadata = {} }) {
 }
 
 module.exports = {
+  generateUserToken,
   registerUser,
   loginUser,
+  serializeAuthUser,
 };

@@ -63,24 +63,28 @@ npm install
 - `POST /api/auth/login`
 - `POST /api/usuarios/registro` e `POST /api/usuarios/login` (aliases MR-1/MR-2)
 - `GET /api/me` e `PATCH /api/me`
+- `GET /api/users/me` (perfil autenticado consumido pela Web)
+- `POST /api/users` e `GET /api/users` (professor/admin)
 - `POST /api/heuristicas` e `GET /api/heuristicas`
 - `POST /api/alunos`, `GET /api/alunos`, `GET /api/alunos/:id`, `PATCH /api/alunos/:id`, `DELETE /api/alunos/:id`
 - `POST /api/turmas`, `GET /api/turmas`, `GET /api/turmas/:id`, `PATCH /api/turmas/:id`, `DELETE /api/turmas/:id`
 - `POST /api/turmas/:turmaId/alunos` e `DELETE /api/turmas/:turmaId/alunos/:alunoId`
 - `POST /api/pilares`, `GET /api/pilares`, `GET /api/pilares/:id`, `PATCH /api/pilares/:id`, `DELETE /api/pilares/:id`
 - `POST /api/desafios`, `GET /api/desafios`, `GET /api/desafios/:id`, `PATCH /api/desafios/:id`, `DELETE /api/desafios/:id`
-- `POST /api/envios-desafios`, `GET /api/me/envios-desafios`, `GET /api/envios-desafios/:id`
+- `POST /api/envios-desafios`, `GET /api/envios-desafios/meus`, `GET /api/me/envios-desafios`, `GET /api/envios-desafios/:id`
 - `PATCH /api/envios-desafios/:id`, `PUT /api/envios-desafios/:id/participantes`, `DELETE /api/envios-desafios/:id`
-- `GET /api/admin/envios-desafios/pendentes`
+- `GET /api/envios-desafios/aprovacoes`, `PATCH /api/envios-desafios/aprovacoes`, `GET /api/admin/envios-desafios/pendentes`
 - `PATCH /api/admin/envios-desafios/:id/avaliacao`
-- `GET /api/grupos`
-- `GET /api/me/pontuacoes`
-- `GET /api/rankings` e `GET /api/rankings/geral`
-- `GET /api/me/dashboard`
-- `GET /api/admin/dashboard`
-- `GET /api/admin/relatorios/participacao`
+- `GET /api/grupos` e `GET /api/grupos/meus`
+- `GET /api/pontuacoes/minha` e `GET /api/me/pontuacoes`
+- `GET /api/ranking`, `GET /api/ranking/admin`, `GET /api/rankings` e `GET /api/rankings/geral`
+- `GET /api/dashboard/aluno`, `GET /api/me/dashboard`, `GET /api/dashboard/admin` e `GET /api/admin/dashboard`
+- `GET /api/relatorios/participacao` e `GET /api/admin/relatorios/participacao`
 - `GET /api/admin/relatorios/baixa-participacao`
+- `GET /api/configuracoes`
 - `GET /api/docs` (Swagger UI)
+
+Rotas administrativas exigem JWT válido e perfil `professor` ou `admin`. Rotas do aluno exigem JWT válido e perfil `aluno`; a API continua sendo a autoridade final de autorização, mesmo quando a Web filtra menus visualmente.
 
 ## Pilares padrão
 

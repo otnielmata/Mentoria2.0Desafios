@@ -1,5 +1,5 @@
 const express = require("express");
-const adminBaixaParticipacaoController = require("../controllers/admin-baixa-participacao.controller");
+const configurationController = require("../controllers/configuration.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/authorization.middleware");
 const User = require("../models/user.model");
@@ -7,6 +7,6 @@ const User = require("../models/user.model");
 const router = express.Router();
 const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 
-router.get("/admin/relatorios/baixa-participacao", authMiddleware, authorizeRoles(adminRoles), adminBaixaParticipacaoController.list);
+router.get("/", authMiddleware, authorizeRoles(adminRoles), configurationController.listConfigurations);
 
 module.exports = router;

@@ -1,13 +1,17 @@
 const express = require("express");
 const desafioController = require("../controllers/desafio.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { authorizeRoles } = require("../middlewares/authorization.middleware");
+const User = require("../models/user.model");
 
 const router = express.Router();
+const authenticatedRoles = [User.userRoles.student, User.userRoles.teacher, User.userRoles.admin];
+const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 
-router.post("/desafios", authMiddleware, desafioController.create);
-router.get("/desafios", authMiddleware, desafioController.list);
-router.get("/desafios/:id", authMiddleware, desafioController.show);
-router.patch("/desafios/:id", authMiddleware, desafioController.update);
-router.delete("/desafios/:id", authMiddleware, desafioController.disable);
+router.post("/desafios", authMiddleware, authorizeRoles(adminRoles), desafioController.create);
+router.get("/desafios", authMiddleware, authorizeRoles(authenticatedRoles), desafioController.list);
+router.get("/desafios/:id", authMiddleware, authorizeRoles(authenticatedRoles), desafioController.show);
+router.patch("/desafios/:id", authMiddleware, authorizeRoles(adminRoles), desafioController.update);
+router.delete("/desafios/:id", authMiddleware, authorizeRoles(adminRoles), desafioController.disable);
 
 module.exports = router;

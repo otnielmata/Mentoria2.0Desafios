@@ -46,6 +46,12 @@ describe("auth.service", () => {
       role: "aluno",
       status: "ativo",
     });
+    expect(generateToken).toHaveBeenCalledWith({
+      email: "ana@email.com",
+      role: "aluno",
+      status: "ativo",
+      sub: "user-1",
+    });
   });
 
   it("retorna detalhes padronizados para payload inválido no registro", async () => {
