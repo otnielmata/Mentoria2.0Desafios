@@ -250,6 +250,32 @@ function buildPontosPorPilar(pontuacoes) {
   }));
 }
 
+function buildDesafiosEnviados(envios) {
+  const totaisPorStatus = {
+    aprovado: 0,
+    reprovado: 0,
+    pendente: 0,
+    ajuste: 0,
+    cancelado: 0,
+    outros: 0,
+  };
+
+  (envios || []).forEach((envio) => {
+    const status = normalizeText(envio.status);
+
+    if (Object.prototype.hasOwnProperty.call(totaisPorStatus, status)) {
+      totaisPorStatus[status] += 1;
+    } else {
+      totaisPorStatus.outros += 1;
+    }
+  });
+
+  return {
+    total: (envios || []).length,
+    totaisPorStatus,
+  };
+}
+
 function buildRankingRows(pontuacoes) {
   const groupedByAluno = new Map();
 
@@ -315,9 +341,16 @@ function emptyDashboard(scope) {
     totalPontos: 0,
     posicaoRanking: null,
     totalParticipantesRanking: 0,
+    ranking: {
+      posicao: null,
+      totalParticipantes: 0,
+      criterioDesempate: "posicao_compartilhada_id",
+    },
+    desafiosEnviados: buildDesafiosEnviados([]),
     desafiosAprovados: 0,
     pendencias: 0,
     pontosPorPilar: [],
+    evolucaoPorCategoria: [],
     ultimosEnvios: [],
     escopo: {
       turmaIds: scope.turmaIds,
@@ -347,14 +380,18 @@ async function getMyDashboard(authenticatedUserId) {
     .filter((pontuacao) => matchesScopeByEnvio(pontuacao, scope));
   const approvedEnvioIds = new Set(validStudentPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)));
   const ranking = getStudentRankingPosition(authenticatedUserId, validScopePontuacoes);
+  const pontosPorPilar = buildPontosPorPilar(validStudentPontuacoes);
 
   return {
     totalPontos: validStudentPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos), 0),
     posicaoRanking: ranking.posicao,
     totalParticipantesRanking: ranking.totalParticipantes,
+    ranking,
+    desafiosEnviados: buildDesafiosEnviados(studentEnvios || []),
     desafiosAprovados: approvedEnvioIds.size,
     pendencias: (studentEnvios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS).length,
-    pontosPorPilar: buildPontosPorPilar(validStudentPontuacoes),
+    pontosPorPilar,
+    evolucaoPorCategoria: pontosPorPilar,
     ultimosEnvios: (studentEnvios || []).slice(0, LAST_SUBMISSIONS_LIMIT).map(serializeEnvio),
     escopo: {
       turmaIds: scope.turmaIds,

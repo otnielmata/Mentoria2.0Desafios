@@ -1,3 +1,7 @@
+jest.mock("bcryptjs", () => ({
+  hash: jest.fn(),
+}));
+
 jest.mock("../../src/models/aluno-turma.model", () => ({
   find: jest.fn(),
 }));
@@ -13,6 +17,7 @@ jest.mock("../../src/models/turma.model", () => ({
 
 jest.mock("../../src/models/user.model", () => ({
   countDocuments: jest.fn(),
+  create: jest.fn(),
   find: jest.fn(),
   findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
@@ -21,9 +26,11 @@ jest.mock("../../src/models/user.model", () => ({
 }));
 
 const AlunoTurma = require("../../src/models/aluno-turma.model");
+const bcrypt = require("bcryptjs");
 const Pontuacao = require("../../src/models/pontuacao.model");
+const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { disableStudent, getStudent, listStudents } = require("../../src/services/student.service");
+const { createStudent, disableStudent, getStudent, listStudents } = require("../../src/services/student.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const STUDENT_ID = "6814f12ab3f34872f7558f42";
@@ -42,6 +49,49 @@ describe("student.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
+  });
+
+  it("cadastra aluno salvando role/status e ocultando senha/hash", async () => {
+    bcrypt.hash.mockResolvedValue("hash-seguro");
+    Turma.findById.mockResolvedValue(null);
+    User.findOne.mockResolvedValue(null);
+    User.create.mockResolvedValue({
+      _id: STUDENT_ID,
+      id: STUDENT_ID,
+      name: "Ana",
+      email: "ana@email.com",
+      passwordHash: "hash-seguro",
+      role: "aluno",
+      status: "inativo",
+      turmas: [],
+    });
+
+    const result = await createStudent(ADMIN_ID, {
+      email: "ANA@EMAIL.COM",
+      name: "Ana",
+      password: "123456",
+      role: "aluno",
+      status: "inativo",
+    });
+
+    expect(User.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "ana@email.com",
+        name: "Ana",
+        passwordHash: "hash-seguro",
+        role: "aluno",
+        status: "inativo",
+      })
+    );
+    expect(result).toEqual({
+      email: "ana@email.com",
+      id: STUDENT_ID,
+      name: "Ana",
+      role: "aluno",
+      status: "inativo",
+      turmas: [],
+    });
+    expect(result).not.toHaveProperty("passwordHash");
   });
 
   it("lista alunos com filtros, busca textual e paginação", async () => {

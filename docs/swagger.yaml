@@ -2,7 +2,11 @@ openapi: 3.0.3
 info:
   title: Mentoria API
   version: 1.0.0
-  description: API consolidada para desafios, pontuação, rankings, dashboards e relatórios do Método do Alavanque.
+  description: API consolidada para desafios, pontuação, rankings, dashboards e relatórios do Método do Alavanque. A Web deve consumir somente endpoints documentados aqui e declarados no contrato central em web/src/contracts/api-endpoints.js.
+x-web-contract:
+  document: docs/contrato-web-api.md
+  source: web/src/contracts/api-endpoints.js
+  validationScript: npm run test:contract
 servers:
   - url: http://localhost:3000
 tags:
@@ -15,6 +19,7 @@ tags:
   - name: Desafios
   - name: Envios
   - name: Admin
+  - name: Auditoria
   - name: Ranking
   - name: Relatórios
   - name: Health
@@ -269,10 +274,12 @@ paths:
       tags: [Desafios]
       security:
         - bearerAuth: []
-      summary: Cadastra desafio com dificuldade e pontuação
+      summary: Cadastra desafio com pilar, pontuação fixa, tipo, limite de participantes e status
       responses:
         "201":
           description: Desafio cadastrado
+        "400":
+          description: Pontuação fixa ausente ou limite de participantes inválido
   /api/envios-desafios:
     post:
       tags: [Envios]
@@ -281,7 +288,9 @@ paths:
       summary: Registra desafio executado pelo aluno
       responses:
         "201":
-          description: Envio criado
+          description: Envio criado com status pendente, responsável como líder e evidência obrigatória
+        "400":
+          description: Evidência ausente, tipo inválido ou limite de participantes excedido
         "403":
           description: Perfil sem permissão
   /api/envios-desafios/meus:
@@ -313,9 +322,13 @@ paths:
       summary: Aprova, reprova ou solicita ajuste usando envio_desafio_id no corpo
       responses:
         "200":
-          description: Envio avaliado
+          description: Envio avaliado; aprovação gera pontos quando não há duplicidade de evidência
+        "400":
+          description: Feedback obrigatório ausente ou envio inválido para avaliação
         "403":
           description: Perfil sem permissão
+        "409":
+          description: Pontuação duplicada para mesma evidência, desafio e aluno
   /api/envios-desafios/{id}/participantes:
     put:
       tags: [Envios]
@@ -346,7 +359,11 @@ paths:
         - $ref: "#/components/parameters/id"
       responses:
         "200":
-          description: Envio avaliado e pontuação gerada quando aprovado
+          description: Envio avaliado e pontuação gerada quando aprovado sem duplicidade de evidência
+        "400":
+          description: Feedback obrigatório ausente ou envio inválido para avaliação
+        "409":
+          description: Pontuação duplicada para mesma evidência, desafio e aluno
   /api/grupos:
     get:
       tags: [Admin]
@@ -374,10 +391,33 @@ paths:
       tags: [Perfil]
       security:
         - bearerAuth: []
-      summary: Consulta pontuação e histórico do aluno autenticado
+      summary: Consulta total, pontos por pilar e histórico aprovado do aluno autenticado
+      parameters:
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra pontos aprovados por turma
+        - in: query
+          name: pilarId
+          schema:
+            type: string
+          description: Filtra pontos aprovados por pilar/categoria
+        - in: query
+          name: dataInicio
+          schema:
+            type: string
+            format: date
+          description: Data inicial do período de pontuação
+        - in: query
+          name: dataFim
+          schema:
+            type: string
+            format: date
+          description: Data final do período de pontuação
       responses:
         "200":
-          description: Pontuação retornada
+          description: Pontuação aprovada retornada
         "403":
           description: Perfil sem permissão
   /api/me/pontuacoes:
@@ -385,19 +425,48 @@ paths:
       tags: [Perfil]
       security:
         - bearerAuth: []
-      summary: Consulta pontuação e histórico do aluno
+      summary: Alias para consultar pontuação aprovada e histórico do aluno
       responses:
         "200":
-          description: Pontuação retornada
+          description: Pontuação aprovada retornada
   /api/ranking:
     get:
       tags: [Ranking]
       security:
         - bearerAuth: []
-      summary: Ranking geral consumido pela Web
+      summary: Ranking geral consumido pela Web, ordenado por pontos aprovados
+      parameters:
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra ranking por turma quando informado
+        - in: query
+          name: pilarId
+          schema:
+            type: string
+          description: Filtra ranking por pilar/categoria
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Data inicial do período de pontuação
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: Data final do período de pontuação
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [individual, grupo]
+          description: Filtra por tipo do envio aprovado
       responses:
         "200":
-          description: Ranking retornado
+          description: Ranking retornado usando somente pontuações aprovadas
         "401":
           description: Token inválido ou ausente
   /api/ranking/admin:
@@ -405,10 +474,39 @@ paths:
       tags: [Ranking]
       security:
         - bearerAuth: []
-      summary: Ranking administrativo com filtros para professor ou admin
+      summary: Ranking administrativo com filtros por turma, pilar, período ou tipo
+      parameters:
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra ranking por turma
+        - in: query
+          name: pilarId
+          schema:
+            type: string
+          description: Filtra ranking por pilar/categoria
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Data inicial do período de pontuação
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: Data final do período de pontuação
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [individual, grupo]
+          description: Filtra por tipo do envio aprovado
       responses:
         "200":
-          description: Ranking retornado
+          description: Ranking filtrado retornado usando somente pontuações aprovadas
         "403":
           description: Perfil sem permissão
   /api/rankings:
@@ -425,10 +523,10 @@ paths:
       tags: [Perfil]
       security:
         - bearerAuth: []
-      summary: Dashboard do aluno consumido pela Web
+      summary: Dashboard consolidado do aluno consumido pela Web
       responses:
         "200":
-          description: Dashboard retornado
+          description: Retorna pontos totais, ranking, desafios enviados, evolução por categoria e últimos envios
         "403":
           description: Perfil sem permissão
   /api/me/dashboard:
@@ -436,19 +534,19 @@ paths:
       tags: [Perfil]
       security:
         - bearerAuth: []
-      summary: Dashboard do aluno
+      summary: Alias do dashboard consolidado do aluno
       responses:
         "200":
-          description: Dashboard retornado
+          description: Dashboard consolidado retornado
   /api/dashboard/admin:
     get:
       tags: [Admin]
       security:
         - bearerAuth: []
-      summary: Dashboard administrativo consumido pela Web
+      summary: Dashboard administrativo consolidado consumido pela Web
       responses:
         "200":
-          description: Dashboard retornado
+          description: Retorna pendências, alunos ativos, ranking, rankings por turma/pilar e métricas de participação
         "403":
           description: Perfil sem permissão
   /api/admin/dashboard:
@@ -456,19 +554,54 @@ paths:
       tags: [Admin]
       security:
         - bearerAuth: []
-      summary: Dashboard administrativo
+      summary: Alias do dashboard administrativo consolidado
       responses:
         "200":
-          description: Dashboard retornado
+          description: Dashboard consolidado retornado
   /api/relatorios/participacao:
     get:
       tags: [Relatórios]
       security:
         - bearerAuth: []
-      summary: Relatório de participação para professor ou admin
+      summary: Relatório consolidado de participação para professor ou admin
+      parameters:
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra participação por turma
+        - in: query
+          name: pilarId
+          schema:
+            type: string
+          description: Filtra participação por pilar/categoria
+        - in: query
+          name: dataInicio
+          schema:
+            type: string
+            format: date
+          description: Data inicial do período avaliado
+        - in: query
+          name: dataFim
+          schema:
+            type: string
+            format: date
+          description: Data final do período avaliado
+        - in: query
+          name: diasSemEnvio
+          schema:
+            type: integer
+            minimum: 0
+          description: Critério opcional para indicar baixa participação por ausência de envio
+        - in: query
+          name: pontuacaoMinima
+          schema:
+            type: number
+            minimum: 0
+          description: Critério opcional para indicar baixa participação por pontuação mínima
       responses:
         "200":
-          description: Relatório retornado
+          description: Retorna participação por aluno, turma, período, distribuição de pontos e baixa participação quando aplicável
         "403":
           description: Perfil sem permissão
   /api/admin/relatorios/participacao:
@@ -476,10 +609,10 @@ paths:
       tags: [Relatórios]
       security:
         - bearerAuth: []
-      summary: Relatório de participação
+      summary: Alias do relatório consolidado de participação
       responses:
         "200":
-          description: Relatório retornado
+          description: Relatório consolidado retornado
   /api/admin/relatorios/baixa-participacao:
     get:
       tags: [Relatórios]
@@ -489,15 +622,79 @@ paths:
       responses:
         "200":
           description: Relatório retornado
+  /api/auditorias:
+    get:
+      tags: [Auditoria]
+      security:
+        - bearerAuth: []
+      summary: Consulta histórico auditável de domínio para professor ou admin
+      parameters:
+        - in: query
+          name: eventType
+          schema:
+            type: string
+          description: Filtra por tipo de evento, como envio_criado, envio_avaliado ou pontuacao_gerada
+        - in: query
+          name: alunoId
+          schema:
+            type: string
+          description: Filtra por aluno relacionado
+        - in: query
+          name: actorId
+          schema:
+            type: string
+          description: Filtra por usuário que executou a ação
+        - in: query
+          name: desafioId
+          schema:
+            type: string
+          description: Filtra por desafio
+        - in: query
+          name: envioId
+          schema:
+            type: string
+          description: Filtra por envio de desafio
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra por turma
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Data inicial do histórico
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: Data final do histórico
+      responses:
+        "200":
+          description: Histórico retornado sem senha, token, hash ou segredos
+        "403":
+          description: Perfil sem permissão
+  /api/admin/auditorias:
+    get:
+      tags: [Auditoria]
+      security:
+        - bearerAuth: []
+      summary: Alias administrativo para consulta de auditoria
+      responses:
+        "200":
+          description: Histórico retornado
   /api/configuracoes:
     get:
       tags: [Admin]
       security:
         - bearerAuth: []
-      summary: Configurações iniciais somente leitura para professor ou admin
+      summary: Configurações funcionais somente leitura para professor ou admin
+      description: Retorna flags funcionais do MVP, incluindo ranking para alunos, bônus de liderança desligado, desafios recorrentes e conquistas futuras, sem segredos técnicos.
       responses:
         "200":
-          description: Configurações retornadas
+          description: Configurações retornadas em modo somente leitura
         "403":
           description: Perfil sem permissão
 components:

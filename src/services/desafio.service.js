@@ -20,6 +20,9 @@ const ADMIN_ROLES = ["professor", "admin"];
 const ALLOWED_TYPES = ["individual", "grupo", "ambos"];
 const GROUP_TYPES = ["grupo", "ambos"];
 const ACTIVE_STATUS = "ativo";
+const ALLOWED_STATUSES = ["ativo", "inativo"];
+const ALLOWED_RECURRENCE_PERIODS = ["diario", "semanal", "mensal"];
+const ALLOWED_RECURRENCE_ACTIONS = ["bloquear"];
 
 function serializePilar(pilar) {
   if (!pilar || typeof pilar !== "object") return pilar ? { id: getEntityId(pilar) } : null;
@@ -42,6 +45,7 @@ function serializeDesafio(desafio) {
     points: desafio.points,
     type: desafio.type,
     maxParticipantes: desafio.maxParticipantes,
+    recorrencia: desafio.recorrencia,
     status: desafio.status,
   };
 }
@@ -69,13 +73,35 @@ function parseType(value) {
   return type;
 }
 
-function parsePoints(payload, difficulty) {
+function parsePoints(payload, difficulty, { required = false } = {}) {
   const rawPoints = getFirstValue(payload, ["points", "pontos"]);
-  if (rawPoints === undefined || rawPoints === null || rawPoints === "") return pointsForDifficulty(difficulty);
+  if (rawPoints === undefined || rawPoints === null || rawPoints === "") {
+    if (required) {
+      throw createHttpError("pontos é obrigatório para cadastro de desafio.", 400, {
+        code: "VALIDATION_ERROR",
+        details: [{ field: "pontos", message: "Informe a pontuação fixa do desafio." }],
+      });
+    }
+
+    return pointsForDifficulty(difficulty);
+  }
 
   const points = Number(rawPoints);
   if (!Number.isFinite(points) || points <= 0) throw createHttpError("Pontuação deve ser maior que zero.", 400);
   return points;
+}
+
+function parseStatus(value) {
+  const status = normalizeText(value || ACTIVE_STATUS);
+
+  if (!ALLOWED_STATUSES.includes(status)) {
+    throw createHttpError("Status deve ser ativo ou inativo.", 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "status", message: "Status deve ser ativo ou inativo." }],
+    });
+  }
+
+  return status;
 }
 
 function parseMaxParticipantes(payload, type) {
@@ -86,6 +112,103 @@ function parseMaxParticipantes(payload, type) {
     throw createHttpError("max_participantes deve ser um número entre 1 e 5.", 400);
   }
   return maxParticipantes;
+}
+
+function parseBoolean(value, fieldName, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (["true", "1", "sim", "s"].includes(normalizeText(value))) return true;
+  if (["false", "0", "nao", "não", "n"].includes(normalizeText(value))) return false;
+  throw createHttpError(`${fieldName} deve ser verdadeiro ou falso.`, 400);
+}
+
+function hasRecorrenciaFields(payload = {}) {
+  return [
+    "recorrencia",
+    "recurrence",
+    "recorrente",
+    "isRecurring",
+    "periodoRecorrencia",
+    "recurrencePeriod",
+    "limitePontos",
+    "limite_pontos",
+    "limitePontosPeriodo",
+    "limite_pontos_periodo",
+    "limitePontuacaoPeriodo",
+    "limite_pontuacao_periodo",
+    "maxPointsPerPeriod",
+  ].some((field) => Object.prototype.hasOwnProperty.call(payload, field));
+}
+
+function getRecorrenciaValue(payload, fields) {
+  return getFirstValue(payload, fields);
+}
+
+function parseRecorrencia(payload = {}) {
+  if (!hasRecorrenciaFields(payload)) {
+    return undefined;
+  }
+
+  const raw = getFirstValue(payload, ["recorrencia", "recurrence"]);
+  if (raw !== undefined && (raw === null || typeof raw !== "object" || Array.isArray(raw))) {
+    throw createHttpError("recorrencia deve ser um objeto válido.", 400);
+  }
+
+  const source = raw || {};
+  const enabled = parseBoolean(
+    getRecorrenciaValue(source, ["enabled", "ativo", "recorrente"]) ?? getRecorrenciaValue(payload, ["recorrente", "isRecurring"]),
+    "recorrencia.enabled",
+    false
+  );
+  const periodo = normalizeText(
+    getRecorrenciaValue(source, ["periodo", "period", "periodoRecorrencia", "recurrencePeriod"]) ||
+      getRecorrenciaValue(payload, ["periodoRecorrencia", "recurrencePeriod"]) ||
+      "mensal"
+  );
+  if (!ALLOWED_RECURRENCE_PERIODS.includes(periodo)) {
+    throw createHttpError("Período de recorrência deve ser diario, semanal ou mensal.", 400);
+  }
+
+  const rawLimitePontos =
+    getRecorrenciaValue(source, [
+      "limitePontos",
+      "limite_pontos",
+      "limitePontosPeriodo",
+      "limite_pontos_periodo",
+      "limitePontuacaoPeriodo",
+      "limite_pontuacao_periodo",
+      "maxPointsPerPeriod",
+    ]) ??
+    getRecorrenciaValue(payload, [
+      "limitePontos",
+      "limite_pontos",
+      "limitePontosPeriodo",
+      "limite_pontos_periodo",
+      "limitePontuacaoPeriodo",
+      "limite_pontuacao_periodo",
+      "maxPointsPerPeriod",
+    ]);
+  const limitePontos = rawLimitePontos === undefined || rawLimitePontos === null || rawLimitePontos === "" ? null : Number(rawLimitePontos);
+
+  if (enabled && (!Number.isFinite(limitePontos) || limitePontos <= 0)) {
+    throw createHttpError("limitePontos deve ser maior que zero para desafio recorrente.", 400);
+  }
+
+  if (limitePontos !== null && (!Number.isFinite(limitePontos) || limitePontos <= 0)) {
+    throw createHttpError("limitePontos deve ser maior que zero.", 400);
+  }
+
+  const acaoAoExceder = normalizeText(getRecorrenciaValue(source, ["acaoAoExceder", "acao_ao_exceder", "action"]) || "bloquear");
+  if (!ALLOWED_RECURRENCE_ACTIONS.includes(acaoAoExceder)) {
+    throw createHttpError("Ação de recorrência deve ser bloquear.", 400);
+  }
+
+  return {
+    enabled,
+    periodo,
+    limitePontos,
+    acaoAoExceder,
+  };
 }
 
 async function assertActivePilar(pilarId) {
@@ -107,10 +230,11 @@ async function createDesafio(authenticatedUserId, payload = {}) {
     title: parseRequiredText(payload.title || payload.titulo, "Título"),
     description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
     difficulty,
-    points: parsePoints(payload, difficulty),
+    points: parsePoints(payload, difficulty, { required: true }),
     type,
     maxParticipantes: parseMaxParticipantes(payload, type),
-    status: ACTIVE_STATUS,
+    recorrencia: parseRecorrencia(payload),
+    status: parseStatus(payload.status || payload.situacao),
   });
 
   return serializeDesafio(desafio);
@@ -172,7 +296,8 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   if (payload.maxParticipantes !== undefined || payload.max_participantes !== undefined || payload.maxParticipants !== undefined) {
     updates.maxParticipantes = parseMaxParticipantes(payload, updates.type || "grupo");
   }
-  if (payload.status) updates.status = parseRequiredText(payload.status, "Status");
+  if (hasRecorrenciaFields(payload)) updates.recorrencia = parseRecorrencia(payload);
+  if (payload.status || payload.situacao) updates.status = parseStatus(payload.status || payload.situacao);
 
   const desafio = await Desafio.findByIdAndUpdate(id, updates, { new: true }).populate("pilar").lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);

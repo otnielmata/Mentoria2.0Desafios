@@ -175,12 +175,21 @@ async function buildScope(authenticatedUser, filters) {
 
   const turmas = await findStudentTurmas(getEntityId(authenticatedUser));
   const studentTurmaIds = (turmas || []).map(getEntityId).filter(Boolean);
-  const allowedTurmaIds = filters.turmaId ? studentTurmaIds.filter((turmaId) => turmaId === filters.turmaId) : studentTurmaIds;
+
+  if (!filters.turmaId) {
+    return {
+      role,
+      allowedTurmaIds: null,
+      requestedTurmaAllowed: true,
+    };
+  }
+
+  const allowedTurmaIds = studentTurmaIds.filter((turmaId) => turmaId === filters.turmaId);
 
   return {
     role,
     allowedTurmaIds,
-    requestedTurmaAllowed: !filters.turmaId || allowedTurmaIds.includes(filters.turmaId),
+    requestedTurmaAllowed: allowedTurmaIds.includes(filters.turmaId),
   };
 }
 

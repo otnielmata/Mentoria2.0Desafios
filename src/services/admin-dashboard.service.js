@@ -311,6 +311,7 @@ async function getAdminDashboard(authenticatedUserId) {
   const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)));
   const pendingApprovals = (envios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS);
   const ranking = assignPositions(buildStudentRanking(approvedPontuacoes));
+  const engajamento = buildEngajamento(activeStudents, envios || [], approvedEnvioIds);
 
   return {
     indicadores: {
@@ -319,9 +320,11 @@ async function getAdminDashboard(authenticatedUserId) {
       aprovacoesPendentes: pendingApprovals.length,
     },
     topRanking: ranking.slice(0, TOP_RANKING_LIMIT),
+    ranking: ranking.slice(0, TOP_RANKING_LIMIT),
     rankingPorTurma: buildRankingPorTurma(approvedPontuacoes),
     rankingPorPilar: buildRankingPorPilar(approvedPontuacoes),
-    engajamento: buildEngajamento(activeStudents, envios || [], approvedEnvioIds),
+    engajamento,
+    metricasParticipacao: engajamento,
   };
 }
 

@@ -1,4 +1,5 @@
 const AlunoTurma = require("../../src/models/aluno-turma.model");
+const AuditEvent = require("../../src/models/audit-event.model");
 const AuthAttempt = require("../../src/models/auth-attempt.model");
 const Desafio = require("../../src/models/desafio.model");
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
@@ -21,5 +22,6 @@ describe("coleções relacionais", () => {
     expect(EnvioDesafio.collection.name).toBe("envios_desafios");
     expect(ParticipanteEnvio.collection.name).toBe("participantes_envio");
     expect(Pontuacao.collection.name).toBe("pontuacoes");
+    expect(AuditEvent.collection.name).toBe("auditorias");
   });
 });

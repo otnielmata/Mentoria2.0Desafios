@@ -20,6 +20,22 @@ const desafioSchema = new mongoose.Schema(
       trim: true,
     },
     maxParticipantes: { type: Number, required: true, min: 1, max: 5 },
+    recorrencia: {
+      enabled: { type: Boolean, default: false },
+      periodo: {
+        type: String,
+        enum: ["diario", "semanal", "mensal"],
+        default: "mensal",
+        trim: true,
+      },
+      limitePontos: { type: Number, default: null, min: 1 },
+      acaoAoExceder: {
+        type: String,
+        enum: ["bloquear"],
+        default: "bloquear",
+        trim: true,
+      },
+    },
     status: { type: String, default: "ativo", trim: true, index: true },
   },
   {

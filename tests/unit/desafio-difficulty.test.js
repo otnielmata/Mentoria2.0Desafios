@@ -28,12 +28,14 @@ describe("desafio.service difficulty", () => {
     Desafio.create.mockImplementation(async (payload) => ({ _id: "6814f12ab3f34872f7558f42", ...payload }));
   });
 
-  it("usa a pontuação padrão quando dificuldade é informada sem pontos explícitos", async () => {
+  it("cadastra desafio com pontuação fixa explícita", async () => {
     const desafio = await createDesafio(ADMIN_ID, {
       pilarId: PILAR_ID,
       title: "Publicar artigo",
       description: "Compartilhar aprendizado.",
       difficulty: "dificil",
+      points: 30,
+      status: "ativo",
       type: "individual",
     });
 
@@ -42,9 +44,45 @@ describe("desafio.service difficulty", () => {
         difficulty: "dificil",
         points: 30,
         maxParticipantes: 1,
+        status: "ativo",
       })
     );
     expect(desafio.points).toBe(30);
+  });
+
+  it("rejeita cadastro de desafio sem pontuação fixa", async () => {
+    await expect(
+      createDesafio(ADMIN_ID, {
+        pilarId: PILAR_ID,
+        title: "Sem pontos",
+        description: "Desafio sem pontuação fixa.",
+        type: "individual",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
+      message: "pontos é obrigatório para cadastro de desafio.",
+    });
+
+    expect(Desafio.create).not.toHaveBeenCalled();
+  });
+
+  it("rejeita máximo de participantes maior que 5", async () => {
+    await expect(
+      createDesafio(ADMIN_ID, {
+        pilarId: PILAR_ID,
+        title: "Grupo grande",
+        description: "Desafio em grupo com limite inválido.",
+        points: 20,
+        type: "grupo",
+        maxParticipantes: 6,
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "max_participantes deve ser um número entre 1 e 5.",
+    });
+
+    expect(Desafio.create).not.toHaveBeenCalled();
   });
 
   it("preserva pontuação customizada quando informada", async () => {
@@ -54,6 +92,7 @@ describe("desafio.service difficulty", () => {
       description: "Entrega especial.",
       difficulty: "facil",
       points: 75,
+      status: "ativo",
       type: "grupo",
       maxParticipantes: 5,
     });
@@ -63,8 +102,41 @@ describe("desafio.service difficulty", () => {
         difficulty: "facil",
         points: 75,
         maxParticipantes: 5,
+        status: "ativo",
       })
     );
+  });
+
+  it("cadastra desafio recorrente com limite de pontos por período", async () => {
+    const desafio = await createDesafio(ADMIN_ID, {
+      pilarId: PILAR_ID,
+      title: "Ajudar colega semanalmente",
+      description: "Ação recorrente com limite de pontos.",
+      points: 10,
+      type: "individual",
+      recorrencia: {
+        enabled: true,
+        periodo: "semanal",
+        limitePontos: 20,
+      },
+    });
+
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recorrencia: {
+          enabled: true,
+          periodo: "semanal",
+          limitePontos: 20,
+          acaoAoExceder: "bloquear",
+        },
+      })
+    );
+    expect(desafio.recorrencia).toEqual({
+      enabled: true,
+      periodo: "semanal",
+      limitePontos: 20,
+      acaoAoExceder: "bloquear",
+    });
   });
 
   it("lista apenas desafios ativos para aluno autenticado com paginação", async () => {

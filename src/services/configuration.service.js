@@ -1,67 +1,158 @@
-const sensitivePattern = /(authorization|database|jwt|mongodb|password|private|secret|senha|token|uri)/i;
+const {
+  FUNCTIONAL_CONFIGURATION_VERSION,
+  categoryDefinitions,
+  functionalConfigurationDefinitions,
+} = require("../models/functional-configuration.model");
 
-const configurationParameters = Object.freeze([
-  {
-    description: "Define se alunos podem visualizar o ranking geral no MVP.",
-    editable: false,
-    id: "ranking-geral-alunos",
-    name: "Ranking geral para alunos",
-    type: "boolean",
-    value: true,
-  },
-  {
-    description: "Modelo inicial usado para conceder pontos depois da aprovação.",
-    editable: false,
-    id: "modelo-pontuacao",
-    name: "Modelo de pontuação",
-    type: "text",
-    value: "Pontuação fixa por desafio",
-  },
-  {
-    description: "Regra opcional planejada, mantida desligada até existir endpoint de edição.",
-    editable: false,
-    id: "bonus-lideranca",
-    name: "Bônus por liderança",
-    type: "boolean",
-    value: false,
-  },
-  {
-    description: "Badges e medalhas são evolução futura e não estão ativos no MVP.",
-    editable: false,
-    id: "conquistas",
-    name: "Conquistas",
-    type: "boolean",
-    value: false,
-  },
-]);
+const sensitiveKeyPattern = /(authorization|database|jwt|mongodb|password|private|secret|senha|token|uri)/i;
+const sensitiveValuePattern = /(mongodb(\+srv)?:\/\/|bearer\s+|gho_[a-z0-9_]+|jwt[_-]?secret|password=|senha=|begin private key)/i;
 
-function hasSensitiveContent(value) {
-  return sensitivePattern.test(String(value || ""));
+function normalizeBoolean(value, defaultValue = false) {
+  if (value === true || value === "true" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return defaultValue;
 }
 
-function sanitizeParameter(parameter) {
-  const entries = Object.entries(parameter).filter(([key, value]) => {
-    return !hasSensitiveContent(key) && !hasSensitiveContent(value);
-  });
+function hasSensitiveContent(value) {
+  return sensitiveKeyPattern.test(String(value || "")) || sensitiveValuePattern.test(String(value || ""));
+}
+
+function sanitizeValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue).filter((item) => item !== undefined);
+  }
+
+  if (value && typeof value === "object") {
+    return sanitizeObject(value);
+  }
+
+  if (hasSensitiveContent(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function sanitizeObject(object) {
+  const entries = Object.entries(object || {})
+    .map(([key, value]) => {
+      if (hasSensitiveContent(key)) {
+        return null;
+      }
+
+      const sanitizedValue = sanitizeValue(value);
+      if (sanitizedValue === undefined) {
+        return null;
+      }
+
+      return [key, sanitizedValue];
+    })
+    .filter(Boolean);
 
   return Object.fromEntries(entries);
 }
 
-function getInitialConfigurations() {
-  const parameters = configurationParameters.map(sanitizeParameter);
+function applyRuntimeFlags(definition) {
+  if (!definition.envFlag) {
+    return definition;
+  }
 
   return {
-    editingEnabled: false,
-    parameters,
-    ranking: {
-      generalVisibleToStudents: true,
-    },
-    readOnly: true,
+    ...definition,
+    enabled: normalizeBoolean(process.env[definition.envFlag], definition.enabled),
   };
 }
 
+function normalizeParameter(definition) {
+  const config = applyRuntimeFlags(definition);
+
+  return sanitizeObject({
+    id: config.id,
+    name: config.name,
+    description: config.description,
+    category: config.category,
+    type: config.type,
+    enabled: config.enabled,
+    editable: config.editable,
+    status: config.status,
+    value: config.value === undefined ? config.enabled : config.value,
+    plannedFeatures: config.plannedFeatures,
+    reason: config.reason,
+  });
+}
+
+function buildCategories(parameters) {
+  return categoryDefinitions.map((category) =>
+    sanitizeObject({
+      ...category,
+      parameters: parameters.filter((parameter) => parameter.category === category.id),
+    })
+  );
+}
+
+function findParameter(parameters, id) {
+  return parameters.find((parameter) => parameter.id === id);
+}
+
+function getFunctionalConfigurations() {
+  const parameters = functionalConfigurationDefinitions.map(normalizeParameter);
+  const rankingGeneral = findParameter(parameters, "ranking-geral-alunos");
+  const rankingHideInactive = findParameter(parameters, "ranking-ocultar-inativos");
+  const leadershipBonus = findParameter(parameters, "bonus-lideranca");
+  const recurrence = findParameter(parameters, "desafios-recorrentes");
+  const achievements = findParameter(parameters, "conquistas-badges-medalhas");
+
+  return sanitizeObject({
+    version: FUNCTIONAL_CONFIGURATION_VERSION,
+    readOnly: true,
+    editingEnabled: false,
+    parameters,
+    categories: buildCategories(parameters),
+    ranking: {
+      generalVisibleToStudents: rankingGeneral ? rankingGeneral.enabled : true,
+      hideInactiveStudents: rankingHideInactive ? rankingHideInactive.enabled : false,
+      editable: false,
+    },
+    pontuacao: {
+      model: "pontuacao_fixa_por_desafio",
+      leadershipBonus: {
+        enabled: leadershipBonus ? leadershipBonus.enabled : false,
+        editable: false,
+        status: leadershipBonus ? leadershipBonus.status : "planejado",
+      },
+      recurrence: {
+        enabled: recurrence ? recurrence.enabled : true,
+        editable: false,
+        periodos: recurrence && recurrence.value ? recurrence.value.periodos : ["diario", "semanal", "mensal"],
+        limitePorPeriodo: recurrence && recurrence.value ? recurrence.value.limitePorPeriodo : true,
+        acaoAoExceder: recurrence && recurrence.value ? recurrence.value.acaoAoExceder : "bloquear",
+      },
+    },
+    evolucoes: {
+      achievements: {
+        enabled: achievements ? achievements.enabled : false,
+        editable: false,
+        status: achievements ? achievements.status : "futuro",
+        plannedFeatures: achievements ? achievements.plannedFeatures : ["badges", "medalhas"],
+      },
+    },
+  });
+}
+
+function getInitialConfigurations() {
+  return getFunctionalConfigurations();
+}
+
+function isLeadershipBonusEnabled() {
+  const configurations = getFunctionalConfigurations();
+  return configurations.pontuacao.leadershipBonus.enabled === true;
+}
+
 module.exports = {
+  getFunctionalConfigurations,
   getInitialConfigurations,
   hasSensitiveContent,
-  sanitizeParameter,
+  isLeadershipBonusEnabled,
+  sanitizeObject,
+  sanitizeValue,
 };

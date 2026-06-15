@@ -3,6 +3,7 @@ const adminBaixaParticipacaoRoutes = require("./admin-baixa-participacao.routes"
 const adminDashboardRoutes = require("./admin-dashboard.routes");
 const adminEnvioDesafioRoutes = require("./admin-envio-desafio.routes");
 const adminRelatorioParticipacaoRoutes = require("./admin-relatorio-participacao.routes");
+const auditoriaRoutes = require("./auditoria.routes");
 const authRoutes = require("./auth.routes");
 const configurationRoutes = require("./configuration.routes");
 const desafioRoutes = require("./desafio.routes");
@@ -26,6 +27,7 @@ router.use(adminBaixaParticipacaoRoutes);
 router.use(adminDashboardRoutes);
 router.use(adminEnvioDesafioRoutes);
 router.use(adminRelatorioParticipacaoRoutes);
+router.use(auditoriaRoutes);
 router.use("/auth", authRoutes);
 router.use("/configuracoes", configurationRoutes);
 router.use(desafioRoutes);

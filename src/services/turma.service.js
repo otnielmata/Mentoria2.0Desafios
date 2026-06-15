@@ -19,13 +19,19 @@ const ACTIVE_TURMA_STATUS = "ativa";
 const CLOSED_STATUS = "encerrada";
 
 function serializeTurma(turma, alunos = []) {
+  const startDate = toIsoDate(turma.startDate);
+  const endDate = toIsoDate(turma.endDate);
+
   return {
     id: getEntityId(turma),
     name: turma.name,
+    nome: turma.name,
     code: turma.code,
     description: turma.description,
-    startDate: toIsoDate(turma.startDate),
-    endDate: toIsoDate(turma.endDate),
+    startDate,
+    endDate,
+    data_inicio: startDate,
+    data_fim: endDate,
     status: turma.status,
     quantidadeAlunos: alunos.length || (Array.isArray(turma.alunos) ? turma.alunos.length : 0),
     alunos: alunos.map((aluno) => ({

@@ -5,6 +5,7 @@ const routeModules = [
   { base: "", router: require("../../src/routes/admin-dashboard.routes") },
   { base: "", router: require("../../src/routes/admin-envio-desafio.routes") },
   { base: "", router: require("../../src/routes/admin-relatorio-participacao.routes") },
+  { base: "", router: require("../../src/routes/auditoria.routes") },
   { base: "", router: require("../../src/routes/desafio.routes") },
   { base: "", router: require("../../src/routes/envio-desafio.routes") },
   { base: "", router: require("../../src/routes/grupo.routes") },
@@ -39,6 +40,7 @@ const webContractRouteKeys = [
   "GET /ranking",
   "GET /ranking/admin",
   "GET /relatorios/participacao",
+  "GET /auditorias",
   "GET /configuracoes",
 ];
 
@@ -114,6 +116,7 @@ describe("api route contract MR-91", () => {
       "GET /dashboard/admin",
       "GET /ranking/admin",
       "GET /relatorios/participacao",
+      "GET /auditorias",
       "GET /configuracoes",
     ];
 
@@ -141,6 +144,7 @@ describe("api route contract MR-91", () => {
       "/api/ranking",
       "/api/ranking/admin",
       "/api/relatorios/participacao",
+      "/api/auditorias",
       "/api/configuracoes",
     ].forEach((endpoint) => {
       expect(swagger).toContain(endpoint);

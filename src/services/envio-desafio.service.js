@@ -4,6 +4,7 @@ const EnvioDesafio = require("../models/envio-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { logDomainEvent } = require("./audit.service");
 const {
   assertObjectPayload,
   buildPagination,
@@ -91,7 +92,11 @@ function serializeEnvio(envio, participantes = []) {
     turmaId: getEntityId(envio.turma),
     turma: serializeTurma(envio.turma),
     alunoId: getEntityId(envio.aluno),
+    responsavelId: getEntityId(envio.aluno),
+    liderId: getEntityId(envio.aluno),
     aluno: serializeUser(envio.aluno),
+    responsavel: serializeUser(envio.aluno),
+    lider: serializeUser(envio.aluno),
     description: envio.description,
     type: envio.type,
     evidencias: envio.evidencias,
@@ -138,6 +143,7 @@ function parseParticipantes(payload, type) {
 
   const parsed = participantes.map((participante) => parseObjectId(participante, "Participantes devem conter identificadores válidos."));
   if (new Set(parsed).size !== parsed.length) throw createHttpError("Participantes não podem conter duplicidades.", 400);
+  if (parsed.length > 5) throw createHttpError("Grupo pode ter no máximo 5 participantes.", 400);
   return parsed;
 }
 
@@ -161,7 +167,11 @@ function assertChallengeAllowsSubmissionType(desafio, submissionType) {
 }
 
 function assertParticipantsLimit(participantes, desafio) {
-  if (participantes.length + 1 > desafio.maxParticipantes) {
+  if (participantes.length > 5) {
+    throw createHttpError("Grupo pode ter no máximo 5 participantes.", 400);
+  }
+
+  if (participantes.length > desafio.maxParticipantes) {
     throw createHttpError("Participantes excedem o limite permitido para este desafio.", 400);
   }
 }
@@ -199,6 +209,7 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
   const desafioId = parseObjectId(getFirstValue(payload, ["desafioId", "desafio_id", "desafio"]), "Desafio deve ser um identificador válido.");
   const turmaId = parseObjectId(getFirstValue(payload, ["turmaId", "turma_id", "turma"]), "Turma deve ser um identificador válido.");
   const participantes = parseParticipantes(payload, type);
+  const evidencias = parseEvidencias(payload);
   const [desafio] = await Promise.all([getActiveDesafio(desafioId), assertTurmaExists(turmaId)]);
   const responsibleId = getEntityId(student);
 
@@ -212,11 +223,26 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
     aluno: responsibleId,
     description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
     type,
-    evidencias: parseEvidencias(payload),
+    evidencias,
     participantes,
     status: PENDING_STATUS,
   });
   await syncParticipantes(envio._id || envio.id, participantes);
+  await logDomainEvent({
+    eventType: "envio_criado",
+    actor: responsibleId,
+    aluno: responsibleId,
+    desafio: desafioId,
+    envio: getEntityId(envio),
+    turma: turmaId,
+    statusNovo: PENDING_STATUS,
+    metadata: {
+      type,
+      participantes,
+      statusInicial: PENDING_STATUS,
+    },
+    occurredAt: envio.createdAt || new Date(),
+  });
 
   return serializeEnvio(envio, participantes);
 }

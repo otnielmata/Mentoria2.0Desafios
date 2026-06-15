@@ -20,10 +20,15 @@ jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../src/services/audit.service", () => ({
+  logDomainEvent: jest.fn(),
+}));
+
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
+const { logDomainEvent } = require("../../src/services/audit.service");
 const { evaluateEnvio } = require("../../src/services/admin-envio-desafio.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
@@ -36,6 +41,9 @@ describe("admin-envio-desafio.service participantes_envio", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
+    EnvioDesafio.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([]),
+    });
     ParticipanteEnvio.find.mockReturnValue({
       lean: jest.fn().mockResolvedValue([{ aluno: PARTICIPANT_ID }]),
     });
@@ -74,6 +82,123 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       geradas: 2,
       ignoradas: 0,
       alunos: [OWNER_ID, PARTICIPANT_ID],
+      bonusLiderancaAplicado: false,
+    });
+    expect(logDomainEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "envio_avaliado",
+        actor: ADMIN_ID,
+        aluno: OWNER_ID,
+        desafio: DESAFIO_ID,
+        statusAnterior: "pendente",
+        statusNovo: "aprovado",
+      })
+    );
+  });
+
+  it("bloqueia pontuação duplicada para mesma evidência, desafio e aluno", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, points: 20, difficulty: "medio" },
+      turma: "6814f12ab3f34872f7558f45",
+      aluno: OWNER_ID,
+      description: "Entrega individual",
+      type: "individual",
+      evidencias: ["https://exemplo.com/comprovante.pdf"],
+      participantes: [],
+      status: "pendente",
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+    EnvioDesafio.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([
+        {
+          _id: "6814f12ab3f34872f7558f46",
+          desafio: DESAFIO_ID,
+          evidencias: [" https://exemplo.com/comprovante.pdf "],
+          status: "aprovado",
+        },
+      ]),
+    });
+    Pontuacao.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([{ aluno: OWNER_ID, desafio: DESAFIO_ID, envio: "6814f12ab3f34872f7558f46" }]),
+    });
+
+    await expect(evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "aprovado" })).rejects.toMatchObject({
+      code: "DUPLICATE_EVIDENCE_SCORE",
+      statusCode: 409,
+      message: "Pontuação duplicada para a mesma evidência neste desafio.",
+    });
+
+    expect(envio.save).not.toHaveBeenCalled();
+    expect(Pontuacao.create).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia aprovação antes de salvar quando recorrência excede limite de pontos", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: {
+        _id: DESAFIO_ID,
+        points: 20,
+        difficulty: "medio",
+        recorrencia: { enabled: true, periodo: "mensal", limitePontos: 30 },
+      },
+      turma: "6814f12ab3f34872f7558f45",
+      aluno: OWNER_ID,
+      description: "Entrega recorrente",
+      type: "individual",
+      evidencias: ["https://exemplo.com/recorrente.pdf"],
+      participantes: [],
+      status: "pendente",
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+    Pontuacao.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([{ aluno: OWNER_ID, pontos: 20 }]),
+    });
+
+    await expect(evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "aprovado" })).rejects.toMatchObject({
+      code: "RECURRENCE_SCORE_LIMIT_EXCEEDED",
+      statusCode: 409,
+      message: "Limite de pontuação recorrente excedido para este desafio.",
+    });
+
+    expect(envio.save).not.toHaveBeenCalled();
+    expect(Pontuacao.create).not.toHaveBeenCalled();
+  });
+
+  it("exige feedback para reprovar ou solicitar ajuste e não gera pontuação", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, points: 20, difficulty: "medio" },
+      aluno: OWNER_ID,
+      type: "individual",
+      status: "pendente",
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+
+    await expect(evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "ajuste" })).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Feedback é obrigatório para reprovar ou solicitar ajuste.",
+    });
+
+    const result = await evaluateEnvio(ADMIN_ID, ENVIO_ID, {
+      decision: "reprovado",
+      feedback: "Evidência não comprova a execução.",
+    });
+
+    expect(result.pontuacao).toBeNull();
+    expect(Pontuacao.create).not.toHaveBeenCalled();
+    expect(result.envio).toMatchObject({
+      feedback: "Evidência não comprova a execução.",
+      status: "reprovado",
     });
   });
 

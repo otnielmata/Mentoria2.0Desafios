@@ -18,6 +18,7 @@ const {
 const ADMIN_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
 const ACTIVE_STATUS = "ativo";
+const ALLOWED_STUDENT_STATUSES = ["ativo", "inativo"];
 
 function serializeStudent(user) {
   return {
@@ -40,6 +41,32 @@ async function assertAdmin(authenticatedUserId, message) {
   if (!ADMIN_ROLES.includes(normalizeText(user.role))) throw createHttpError(message, 403);
 }
 
+function parseStudentRole(value) {
+  const role = normalizeText(value || STUDENT_ROLE);
+
+  if (role !== STUDENT_ROLE) {
+    throw createHttpError("role deve ser aluno para cadastro neste endpoint.", 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "role", message: "role deve ser aluno." }],
+    });
+  }
+
+  return role;
+}
+
+function parseStudentStatus(value) {
+  const status = normalizeText(value || ACTIVE_STATUS);
+
+  if (!ALLOWED_STUDENT_STATUSES.includes(status)) {
+    throw createHttpError("status deve ser ativo ou inativo.", 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "status", message: "status deve ser ativo ou inativo." }],
+    });
+  }
+
+  return status;
+}
+
 async function assertTurmaExists(turmaId) {
   if (!turmaId) return null;
 
@@ -54,6 +81,8 @@ async function createStudent(authenticatedUserId, payload = {}) {
   const name = parseRequiredText(payload.name, "Nome");
   const email = parseRequiredText(payload.email, "E-mail").toLowerCase();
   const password = parseRequiredText(payload.password, "Senha");
+  const role = parseStudentRole(payload.role || payload.perfil);
+  const status = parseStudentStatus(payload.status || payload.situacao);
   const turmaId = parseOptionalObjectId(payload.turmaId || payload.turma_id || payload.turma, "Turma deve ser um identificador válido.");
   const turma = await assertTurmaExists(turmaId);
 
@@ -65,8 +94,8 @@ async function createStudent(authenticatedUserId, payload = {}) {
     name,
     email,
     passwordHash,
-    role: STUDENT_ROLE,
-    status: ACTIVE_STATUS,
+    role,
+    status,
     turmas: turma ? [turma._id || turma.id] : [],
   });
 
@@ -158,8 +187,8 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
     updates.email = normalizedEmail;
   }
 
-  const status = parseOptionalText(payload.status, "Status");
-  if (status) updates.status = status;
+  const status = parseOptionalText(payload.status || payload.situacao, "Status");
+  if (status) updates.status = parseStudentStatus(status);
 
   const updated = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
   return serializeStudent(updated);

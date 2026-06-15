@@ -1,8 +1,7 @@
 const Desafio = require("../models/desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
-const ParticipanteEnvio = require("../models/participante-envio.model");
-const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
+const { logDomainEvent } = require("./audit.service");
 const {
   buildPagination,
   createHttpError,
@@ -15,6 +14,12 @@ const {
   parsePeriod,
   toIsoDate,
 } = require("./domain-utils");
+const {
+  assertNoDuplicateEvidenceScore,
+  assertRecurringScoreLimit,
+  generatePontuacoesForApprovedEnvio,
+  getScoreRecipients,
+} = require("./pontuacao.service");
 
 const REVIEWER_ROLES = ["professor", "admin"];
 const ALLOWED_DECISIONS = ["aprovado", "reprovado", "ajuste"];
@@ -22,7 +27,6 @@ const FEEDBACK_REQUIRED_DECISIONS = ["reprovado", "ajuste"];
 const APPROVED_STATUS = "aprovado";
 const PENDING_STATUS = "pendente";
 const CANCELED_STATUS = "cancelado";
-const GROUP_TYPE = "grupo";
 
 async function getReviewer(authenticatedUserId) {
   const user = await User.findById(authenticatedUserId);
@@ -131,38 +135,24 @@ async function getDesafioForEnvio(envio) {
   return desafio;
 }
 
-async function getScoreRecipients(envio) {
-  const recipients = [getEntityId(envio.aluno)];
-  if (normalizeText(envio.type) === GROUP_TYPE) {
-    const links = await ParticipanteEnvio.find({ envio: getEntityId(envio), status: "ativo" }).lean();
-    (links || []).forEach((link) => recipients.push(getEntityId(link.aluno)));
-    (envio.participantes || []).forEach((participante) => recipients.push(getEntityId(participante)));
-  }
-  return [...new Set(recipients.filter(Boolean))];
-}
-
-async function generatePontuacoesForApprovedEnvio(envio, desafio) {
-  const envioId = getEntityId(envio);
-  const desafioId = getEntityId(desafio);
-  const pontos = Number(desafio.points);
-  if (!Number.isFinite(pontos) || pontos <= 0) throw createHttpError("Desafio não possui pontuação válida.", 400);
-
-  const alunos = await getScoreRecipients(envio);
-  const existing = await Pontuacao.find({ envio: envioId, aluno: { $in: alunos } }).lean();
-  const existingAlunoIds = new Set((existing || []).map((pontuacao) => getEntityId(pontuacao.aluno)));
-  const pontuacoesToCreate = alunos
-    .filter((alunoId) => !existingAlunoIds.has(alunoId))
-    .map((alunoId) => ({
-      envio: envioId,
-      desafio: desafioId,
-      aluno: alunoId,
-      pontos,
-      motivo: `desafio_${desafio.difficulty || "pontuacao_fixa"}`,
-      source: "envio_desafio",
-    }));
-
-  if (pontuacoesToCreate.length > 0) await Pontuacao.create(pontuacoesToCreate);
-  return { pontos, geradas: pontuacoesToCreate.length, ignoradas: alunos.length - pontuacoesToCreate.length, alunos };
+async function logEvaluationEvent(envio, reviewer, previousStatus, parsedEvaluation) {
+  await logDomainEvent({
+    eventType: "envio_avaliado",
+    actor: reviewer._id || reviewer.id,
+    aluno: getEntityId(envio.aluno),
+    desafio: getEntityId(envio.desafio),
+    envio: getEntityId(envio),
+    turma: getEntityId(envio.turma),
+    statusAnterior: previousStatus,
+    statusNovo: parsedEvaluation.decision,
+    feedback: parsedEvaluation.feedback,
+    metadata: {
+      decision: parsedEvaluation.decision,
+      feedback: parsedEvaluation.feedback,
+      evaluatedAt: toIsoDate(envio.evaluatedAt),
+    },
+    occurredAt: envio.evaluatedAt || new Date(),
+  });
 }
 
 async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
@@ -181,15 +171,21 @@ async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
   if (parsedEvaluation.decision !== APPROVED_STATUS) {
     applyEvaluation(envio, reviewer, parsedEvaluation);
     const updated = await envio.save();
+    await logEvaluationEvent(updated, reviewer, currentStatus, parsedEvaluation);
     return { envio: serializeEnvio(updated), pontuacao: null };
   }
 
   const desafio = await getDesafioForEnvio(envio);
+  const scoreRecipients = await getScoreRecipients(envio);
+  await assertNoDuplicateEvidenceScore(envio, desafio, scoreRecipients);
+  await assertRecurringScoreLimit(envio, desafio, scoreRecipients);
   applyEvaluation(envio, reviewer, parsedEvaluation);
   const updated = await envio.save();
+  const pontuacao = await generatePontuacoesForApprovedEnvio(updated, desafio, scoreRecipients, { skipRecurrenceCheck: true });
+  await logEvaluationEvent(updated, reviewer, currentStatus, parsedEvaluation);
   return {
     envio: serializeEnvio(updated),
-    pontuacao: await generatePontuacoesForApprovedEnvio(updated, desafio),
+    pontuacao,
   };
 }
 

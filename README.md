@@ -22,7 +22,15 @@ src/
   app.js
   server.js
 docs/
+  contrato-web-api.md
   swagger.yaml
+web/
+  src/
+    contracts/
+    controllers/
+    lib/
+    models/
+    views/
 ```
 
 ## Configuração de ambiente
@@ -54,6 +62,7 @@ npm install
 - `npm run dev`: inicia com `nodemon` e reinicia automaticamente a cada alteração
 - `npm start`: inicia em modo estático
 - `npm test`: executa testes unitários com Jest
+- `npm run test:contract`: valida o contrato entre menus/telas da Web e endpoints reais da API
 
 ## Endpoints principais
 
@@ -81,10 +90,27 @@ npm install
 - `GET /api/dashboard/aluno`, `GET /api/me/dashboard`, `GET /api/dashboard/admin` e `GET /api/admin/dashboard`
 - `GET /api/relatorios/participacao` e `GET /api/admin/relatorios/participacao`
 - `GET /api/admin/relatorios/baixa-participacao`
+- `GET /api/auditorias` e `GET /api/admin/auditorias`
 - `GET /api/configuracoes`
 - `GET /api/docs` (Swagger UI)
 
 Rotas administrativas exigem JWT válido e perfil `professor` ou `admin`. Rotas do aluno exigem JWT válido e perfil `aluno`; a API continua sendo a autoridade final de autorização, mesmo quando a Web filtra menus visualmente.
+
+## Contrato Web/API
+
+A Web mantém a lista centralizada de endpoints consumidos em `web/src/contracts/api-endpoints.js`. Cada item informa funcionalidade, tela, menu, método, rota, perfis permitidos e se o endpoint é futuro. Endpoints marcados como futuros precisam ter justificativa explícita e não podem ser tratados como funcionalidade pronta no menu.
+
+O teste `npm run test:contract` cruza essa lista com as rotas Express registradas na API e com o Swagger. Se uma tela consumir endpoint inexistente, a falha aponta a tela, o menu, o método e a rota divergente.
+
+O cliente HTTP da Web em `web/src/lib/api-client.js` trata `404` como funcionalidade indisponível, exibindo mensagem amigável sem limpar sessão. Apenas erros reais de autenticação, como `401`, devem acionar fluxo de encerramento de sessão.
+
+Mais detalhes ficam em `docs/contrato-web-api.md`.
+
+## Configurações funcionais
+
+`GET /api/configuracoes` retorna configurações funcionais do MVP para professor/admin em modo somente leitura. A resposta informa ranking geral para alunos, ocultação opcional de alunos inativos no ranking, modelo de pontuação fixa, bônus por liderança desligado, desafios recorrentes ativos com limite por período e conquistas/badges/medalhas como evolução futura.
+
+O endpoint não expõe segredos técnicos, tokens, URI de banco, chaves privadas ou variáveis sensíveis. A Web transforma esse contrato em visualização somente leitura pelos módulos `web/src/controllers/configuration.controller.js`, `web/src/models/configuration.model.js` e `web/src/views/configuration.view.js`.
 
 ## Pilares padrão
 
@@ -100,26 +126,44 @@ Ao conectar no MongoDB, a API executa um seed idempotente dos 7 pilares do Méto
 
 ## Pontuação
 
-Desafios podem usar pontuação fixa ou pontuação por dificuldade:
+O modelo inicial usa pontuação fixa por desafio. Ao cadastrar ou editar um desafio, professor/admin deve informar `points` ou `pontos` com valor maior que zero; esse valor é usado quando um envio é aprovado.
 
-| Dificuldade | Pontos |
-| --- | ---: |
-| facil | 10 |
-| medio | 20 |
-| dificil | 30 |
-| extra | 50 |
+O campo `difficulty` pode existir como metadado legado, mas não substitui a pontuação fixa obrigatória do cadastro administrativo.
 
-Se o admin/professor informar `points`, a pontuação customizada é preservada. Se informar apenas `difficulty`, a pontuação padrão é aplicada automaticamente.
+A pontuação nunca é criada manualmente pela Web. Ela é gerada somente pelo fluxo de aprovação de envio válido, no serviço de pontuação da API, e é registrada na coleção `pontuacoes` com referência ao aluno, desafio e envio aprovado.
+
+Em envios individuais, o aluno responsável recebe os pontos fixos do desafio. Em envios em grupo, o responsável e todos os participantes ativos recebem a mesma pontuação. Bônus de liderança é tratado como configuração futura/opcional e não é aplicado implicitamente.
+
+`GET /api/pontuacoes/minha`, `GET /api/ranking` e `GET /api/ranking/admin` consideram apenas pontuações vinculadas a envios com status `aprovado`; envios pendentes, reprovados ou em ajuste não somam pontos.
+
+Desafios podem ser configurados como recorrentes por professor/admin usando `recorrencia.enabled`, `recorrencia.periodo` (`diario`, `semanal` ou `mensal`) e `recorrencia.limitePontos`. Quando a soma dos pontos já concedidos ao aluno naquele desafio e período ultrapassar o limite, a API bloqueia a aprovação com erro de integridade antes de gerar nova pontuação.
+
+## Auditoria
+
+A API registra eventos de auditoria para criação de envio, avaliação do professor/admin e geração de pontuação. Esses eventos ficam na coleção `auditorias` e mantêm vínculo com aluno, desafio, envio, turma, pontuação, status anterior/novo, feedback e data do evento.
+
+Professor/admin pode consultar o histórico em `GET /api/auditorias` ou `GET /api/admin/auditorias`, com filtros por evento, aluno, ator, desafio, envio, turma e período. As respostas não expõem senha, token, hash ou segredos.
+
+## Dashboards e relatórios
+
+Os dashboards e relatórios são consolidados pela API para que a Web apenas exiba os dados.
+
+- `GET /api/dashboard/aluno`: retorna pontos totais, ranking do aluno, resumo de desafios enviados por status, desafios aprovados, pendências, evolução por categoria/pilar e últimos envios.
+- `GET /api/dashboard/admin`: retorna alunos ativos, envios totais, aprovações pendentes, ranking, rankings por turma/pilar e métricas de participação.
+- `GET /api/relatorios/participacao`: retorna filtros/período, totais por status, distribuição de pontos aprovados, participação por aluno, participação por turma e baixa participação quando `diasSemEnvio` ou `pontuacaoMinima` forem informados.
+
+As respostas não expõem senha, token, hash ou segredos; os serviços usam apenas campos públicos dos alunos.
 
 ## Coleções principais
 
 - `users`: alunos, professores e administradores
 - `auth_attempts`: auditoria básica de tentativas inválidas de login
+- `auditorias`: eventos de domínio auditáveis
 - `heuristicas`: diretrizes cadastradas por usuários autenticados
 - `turmas`: turmas da mentoria
 - `alunos_turmas`: vínculo histórico entre alunos e turmas
 - `pilares`: tópicos do Método do Alavanque
-- `desafios`: desafios cadastrados com pilar, dificuldade, pontos e tipo
+- `desafios`: desafios cadastrados com pilar, pontos fixos, tipo, limite de participantes e status
 - `envios_desafios`: registros enviados pelos alunos
 - `participantes_envio`: participantes ativos/removidos de envios em grupo
 - `pontuacoes`: histórico de pontos concedidos após aprovação
@@ -128,19 +172,25 @@ Se o admin/professor informar `points`, a pontuação customizada é preservada.
 
 - Apenas alunos registram envios de desafios.
 - Envios começam com status `pendente`.
-- Evidência é obrigatória.
+- Evidência é obrigatória e pode ser URL, PDF, imagem ou texto.
 - Envios em grupo usam participantes em coleção própria e mantêm array legado para compatibilidade.
-- Grupo respeita o limite máximo definido no desafio, até 5 alunos no total incluindo o responsável.
+- Grupo registra o aluno responsável como líder do envio e aceita até 5 participantes, respeitando o limite definido no desafio.
 - Participantes de grupo não podem ser duplicados e devem estar ativos na mesma turma.
 - Professor/admin pode aprovar, reprovar ou solicitar ajuste.
-- Ao aprovar, a API gera pontuação para responsável e participantes ativos.
-- Rankings e dashboards consideram pontuações de envios aprovados.
+- Ao aprovar, a API gera pontuação para responsável e participantes ativos, usando a pontuação fixa do desafio.
+- A aprovação bloqueia pontuação duplicada quando a mesma evidência já pontuou o mesmo desafio para o mesmo aluno.
+- Rankings geral, por pilar, por turma, por período e por tipo usam a mesma origem de pontuações aprovadas.
+- Desafios recorrentes podem limitar a soma de pontos por aluno dentro de um período diário, semanal ou mensal.
+- Criação de envio, avaliação e geração de pontuação registram eventos de auditoria pela API.
+- Dashboards e relatórios são métricas consolidadas da API; a Web não recalcula pontuação, ranking, participação ou baixa participação.
+- Menus e telas da Web devem consumir somente endpoints existentes no contrato Web/API ou endpoints marcados explicitamente como futuros.
+- Erro `404` em endpoint consumido pela Web deve ser exibido como funcionalidade indisponível, sem confundir com expiração de sessão.
 - Usuários inativos não podem fazer login.
 - Alunos são desativados por soft delete (`status: inativo`), preservando envios, pontuações e vínculos históricos.
 
 ## Cobertura consolidada MR-1 a MR-49
 
-Esta branch consolida os contratos das User Stories MR-1 a MR-49: autenticação, perfil, heurísticas, alunos, turmas, pilares, desafios, envios, grupos, aprovações, pontuação automática, rankings, dashboards, relatórios, coleções relacionais (`alunos_turmas` e `participantes_envio`), pontuação por dificuldade e seed idempotente dos 7 pilares padrão.
+Esta branch consolida os contratos das User Stories MR-1 a MR-49 e os ajustes das MR-92/MR-98: autenticação, perfil, heurísticas, alunos, turmas, pilares fixos, desafios com pontuação fixa, recorrência com limite por período, envios com evidência obrigatória, grupos com líder, aprovações com bloqueio de duplicidade por evidência, pontuação automática somente após aprovação, auditoria de domínio, contrato Web/API, configurações funcionais somente leitura, rankings baseados em pontos aprovados, dashboards e relatórios consolidados pela API, coleções relacionais (`alunos_turmas` e `participantes_envio`) e seed idempotente dos 7 pilares padrão.
 
 ## Próximos passos planejados
 

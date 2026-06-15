@@ -21,7 +21,7 @@ jest.mock("../../src/models/user.model", () => ({
 const AlunoTurma = require("../../src/models/aluno-turma.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { createTurma, enrollStudent, removeStudent } = require("../../src/services/turma.service");
+const { createTurma, enrollStudent, listTurmas, removeStudent } = require("../../src/services/turma.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const TURMA_ID = "6814f12ab3f34872f7558f41";
@@ -78,5 +78,37 @@ describe("turma.service alunos_turmas", () => {
     });
 
     expect(Turma.create).not.toHaveBeenCalled();
+  });
+
+  it("lista turmas com nome, data de início, data de fim e status", async () => {
+    Turma.countDocuments.mockResolvedValue(1);
+    Turma.find.mockReturnValue({
+      sort: jest.fn(() => ({
+        skip: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue([
+              {
+                _id: TURMA_ID,
+                name: "Turma Agosto",
+                startDate: new Date("2026-08-01T00:00:00.000Z"),
+                endDate: new Date("2026-08-30T00:00:00.000Z"),
+                status: "ativa",
+                alunos: [],
+              },
+            ]),
+          })),
+        })),
+      })),
+    });
+
+    const result = await listTurmas(ADMIN_ID);
+
+    expect(result.turmas[0]).toMatchObject({
+      data_fim: "2026-08-30T00:00:00.000Z",
+      data_inicio: "2026-08-01T00:00:00.000Z",
+      name: "Turma Agosto",
+      nome: "Turma Agosto",
+      status: "ativa",
+    });
   });
 });
