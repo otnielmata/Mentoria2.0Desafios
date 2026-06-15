@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getGroups } from "@/controllers/groups.controller";
+import { getGroups, getMyGroups } from "@/controllers/groups.controller";
 
 describe("controllers/groups", () => {
   it("normaliza grupos para a view", async () => {
@@ -43,6 +43,37 @@ describe("controllers/groups", () => {
     await expect(getGroups({ requestGroups })).resolves.toMatchObject({
       ok: false,
       message: "Nao autorizado.",
+    });
+  });
+
+  it("normaliza meus grupos para a view do aluno", async () => {
+    const requestGroups = vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        grupos: [
+          {
+            desafioTitulo: "Networking em evento",
+            participantes: [{ nome: "Maria" }, { nome: "Joao" }],
+            pilarNome: "Networking",
+            pontos: 20,
+            responsavelNome: "Maria",
+            status: "aprovado",
+          },
+        ],
+      },
+    });
+
+    await expect(getMyGroups({ requestGroups })).resolves.toMatchObject({
+      ok: true,
+      data: [
+        {
+          leaderName: "Maria",
+          pillarName: "Networking",
+          pointsLabel: "20 pontos",
+          rankingLabel: "Pontuacao considerada no ranking",
+          statusLabel: "Aprovado",
+        },
+      ],
     });
   });
 });

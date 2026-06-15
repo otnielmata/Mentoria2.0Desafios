@@ -46,6 +46,11 @@ export const authenticatedNavigationItems = [
     roles: [roles.student],
   },
   {
+    href: "/meus-grupos",
+    label: "Meus Grupos",
+    roles: [roles.student],
+  },
+  {
     href: "/ranking",
     label: "Ranking",
     roles: [roles.student, roles.teacher, roles.admin],

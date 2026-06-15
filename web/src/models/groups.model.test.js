@@ -18,7 +18,9 @@ describe("models/groups", () => {
       className: "Turma A",
       leaderName: "Maria Silva",
       participants: [{ name: "Joao" }, { name: "Ana" }],
+      pointsLabel: "30 pontos",
       points: 30,
+      rankingLabel: "Pontuacao considerada no ranking",
       status: "aprovado",
       statusLabel: "Aprovado",
       submissionId: "envio-1",
@@ -51,5 +53,20 @@ describe("models/groups", () => {
         grupos: [{ id: "grupo-1", participantes: [{ nome: "Aluno" }] }],
       })
     ).toHaveLength(1);
+  });
+
+  it("normaliza pilar e nao mostra pontos concedidos antes da aprovacao", () => {
+    const group = toGroupDto({
+      desafio: { pilar: { name: "Compartilhamento" }, title: "Publicar artigo" },
+      participantes: [{ nome: "Aluno" }],
+      pontos: 30,
+      status: "ajuste",
+    });
+
+    expect(group.pillarName).toBe("Compartilhamento");
+    expect(group.points).toBe(30);
+    expect(group.pointsLabel).toBe("Sem pontos concedidos");
+    expect(group.rankingConsidered).toBe(false);
+    expect(group.rankingLabel).toBe("Pontuacao ainda nao considerada no ranking");
   });
 });

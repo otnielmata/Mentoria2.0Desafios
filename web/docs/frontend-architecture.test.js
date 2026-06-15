@@ -42,6 +42,7 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("GET  /api/desafios");
     expect(source).toContain("POST /api/desafios");
     expect(source).toContain("GET  /api/grupos");
+    expect(source).toContain("GET  /api/grupos/meus");
     expect(source).toContain("GET  /api/envios-desafios/aprovacoes");
     expect(source).toContain("PATCH /api/envios-desafios/aprovacoes");
     expect(source).toContain("POST /api/envios-desafios");
@@ -150,6 +151,17 @@ describe("docs/frontend-architecture", () => {
     expect(source).toContain("nao exibe dados sensiveis dos alunos");
   });
 
+  it("documenta o fluxo de meus grupos", () => {
+    const source = readArchitectureDoc();
+
+    expect(source).toContain("src/app/meus-grupos/page.js");
+    expect(source).toContain("getMyGroups");
+    expect(source).toContain("toGroupsDto");
+    expect(source).toContain("listMyGroupsRequest");
+    expect(source).toContain("GET /api/grupos/meus");
+    expect(source).toContain("nao recalcula ranking no navegador");
+  });
+
   it("documenta o fluxo de registro de desafio", () => {
     const source = readArchitectureDoc();
 
@@ -204,7 +216,9 @@ describe("docs/frontend-architecture", () => {
 
     expect(source).toContain("Menus por perfil");
     expect(source).toContain("Nenhum endpoint novo");
-    expect(source).toContain("Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Ranking e Meu Perfil");
+    expect(source).toContain(
+      "Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Meus Grupos, Ranking e Meu Perfil"
+    );
     expect(source).toContain(
       "Professor/Admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes"
     );

@@ -68,6 +68,16 @@ function normalizeStatus(status = "") {
     : "pendente";
 }
 
+function getPillarName(item = {}, desafio = {}, envio = {}) {
+  return (
+    toText(pickFirst(item, ["pilarNome", "pillarName"], "")) ||
+    getNestedText(item, ["pilar", "pillar"], "") ||
+    getNestedText(desafio, ["pilar", "pillar"], "") ||
+    getNestedText(envio, ["pilar", "pillar"], "") ||
+    "Pilar nao informado"
+  );
+}
+
 function getParticipantDisplayName(participant = {}, index = 0) {
   if (!participant || typeof participant !== "object") {
     const text = toText(participant);
@@ -112,9 +122,16 @@ export function toGroupDto(item = {}) {
   const participantsRaw = pickFirst(item, ["participantes", "participants", "alunos", "students"], []);
   const participants = normalizeParticipants(participantsRaw);
   const status = normalizeStatus(pickFirst(item, ["status", "situacao"], "") || envio.status);
+  const isApproved = status === "aprovado";
   const submissionId =
     toText(pickFirst(item, ["envio_desafio_id", "envioDesafioId", "submissionId"], "")) ||
     getNestedId({ envio }, ["envio"]);
+  const points = toNumber(
+    pickFirst(item, ["pontosConcedidos", "pontos", "points", "pontuacao"], 0),
+    0
+  );
+  const rankingConsidered =
+    isApproved && pickFirst(item, ["pontuacaoConsideradaNoRanking", "rankingConsidered"], true) !== false;
 
   return {
     challengeTitle: toText(
@@ -123,6 +140,7 @@ export function toGroupDto(item = {}) {
     ),
     className: toText(pickFirst(item, ["turmaNome", "className"], "") || getNestedText(item, ["turma"], "")),
     id: toText(pickFirst(item, ["id", "_id"], "")) || submissionId,
+    isApproved,
     leaderName:
       toText(pickFirst(item, ["liderNome", "leaderName", "responsavelNome"], "")) ||
       getNestedText(item, ["lider", "leader", "responsavel", "alunoResponsavel", "aluno_responsavel"], "Responsavel"),
@@ -131,7 +149,13 @@ export function toGroupDto(item = {}) {
       pickFirst(item, ["totalParticipantes", "participantsCount"], participantsRaw.length),
       participants.length
     ),
-    points: toNumber(pickFirst(item, ["pontos", "points", "pontuacao"], 0), 0),
+    pillarName: getPillarName(item, desafio, envio),
+    points,
+    pointsLabel: isApproved ? `${points} pontos` : "Sem pontos concedidos",
+    rankingConsidered,
+    rankingLabel: rankingConsidered
+      ? "Pontuacao considerada no ranking"
+      : "Pontuacao ainda nao considerada no ranking",
     status,
     statusLabel: groupStatusLabels[status],
     submissionId,
