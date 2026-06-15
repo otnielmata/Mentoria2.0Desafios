@@ -10,7 +10,12 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = verifyToken(token);
-    req.user = { id: payload.sub, email: payload.email };
+    req.user = {
+      email: payload.email,
+      id: payload.sub,
+      role: payload.role,
+      status: payload.status,
+    };
     return next();
   } catch (error) {
     return res.status(401).json({ message: "Token inválido ou expirado." });
