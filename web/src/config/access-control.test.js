@@ -85,6 +85,7 @@ describe("config/access-control", () => {
       "Registrar Desafio",
       "Meus Desafios",
       "Minha Pontuacao",
+      "Meus Grupos",
       "Ranking",
       "Meu Perfil",
     ]);

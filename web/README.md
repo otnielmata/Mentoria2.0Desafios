@@ -111,6 +111,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - A tela Desafios consome apenas `/api/desafios`, com `GET` para listar e `POST` para cadastrar desafios com pontuacao fixa
 - A tela Aprovacoes consome apenas `/api/envios-desafios/aprovacoes`, com `GET` para listar pendencias e `PATCH` para aprovar, reprovar ou solicitar ajuste
 - A tela Grupos consome apenas `GET /api/grupos` para consultar grupos formados em envios coletivos
+- A tela Meus Grupos consome apenas `GET /api/grupos/meus` para consultar grupos do aluno autenticado
 - O registro de desafio consome apenas `POST /api/envios-desafios` para enviar execucoes individuais ou em grupo para aprovacao
 - A tela Meus Desafios consome apenas `GET /api/envios-desafios/meus` para listar envios, status e feedback do professor
 - A tela Minha Pontuacao consome apenas `GET /api/pontuacoes/minha` para exibir total, pontos por pilar e historico concedido
@@ -142,7 +143,7 @@ Os contratos reutilizaveis ficam em `src/models/`.
 - Desafios possui DTOs de listagem e cadastro para pilar, titulo, descricao, pontos fixos, tipo, maximo de participantes e status
 - Configuracoes possui DTO de leitura para parametros iniciais, visibilidade de ranking e disponibilidade de edicao sem expor segredos tecnicos
 - Aprovacoes possui DTOs para envios pendentes e avaliacao com status, feedback e identificacao do envio
-- Grupos possui DTO de leitura para envio, lider, participantes, turma, pontos e status sem expor dados sensiveis
+- Grupos possui DTO de leitura para envio, pilar, lider, participantes, turma, pontos, ranking e status sem expor dados sensiveis
 - Registro de desafio possui DTO de envio com pilar, desafio, turma, tipo, descricao, evidencias e participantes
 - Meus desafios possui DTO de leitura para desafio, pilar, data, tipo, status, evidencias e feedback do professor
 - Minha pontuacao possui DTO de leitura para total, pontuacao por pilar e historico de pontos concedidos
@@ -302,6 +303,19 @@ A rota protegida `/grupos` permite que professor/admin consulte grupos formados 
 - Detalhes exibem ate 5 participantes vinculados
 - A primeira versao e apenas consulta e nao altera grupos ou status
 - E-mails, senha, token e dados sensiveis dos alunos nao sao exibidos
+
+## Meus grupos
+
+A rota protegida `/meus-grupos` permite que o aluno consulte seus desafios enviados em grupo.
+
+- Endpoint unico da funcionalidade: `GET /api/grupos/meus`
+- A view chama `src/controllers/groups.controller.js` pelo fluxo `getMyGroups`
+- O model `src/models/groups.model.js` normaliza desafio, pilar, responsavel, participantes, status, pontos e ranking
+- O service `src/services/groups.service.js` concentra a chamada ao endpoint do aluno
+- A tela lista apenas grupos em que o aluno autenticado e responsavel ou participante
+- Pontos concedidos aparecem somente quando o status do envio e `aprovado`
+- Envios pendentes, reprovados ou em ajuste mostram que a pontuacao ainda nao entrou no ranking
+- Estado vazio orienta o aluno quando ainda nao existem grupos vinculados
 
 ## Registro de desafio
 

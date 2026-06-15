@@ -65,7 +65,7 @@ Views nao devem montar `fetch` direto nem conhecer detalhes de endpoint. Endpoin
 
 Nenhum endpoint novo e necessario para navegacao por perfil. Os menus sao derivados da `role` salva na sessao autenticada.
 
-- Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Ranking e Meu Perfil
+- Aluno: Inicio, Registrar Desafio, Meus Desafios, Minha Pontuacao, Meus Grupos, Ranking e Meu Perfil
 - Professor/Admin: Dashboard, Alunos, Turmas, Pilares, Desafios, Aprovacoes, Grupos, Ranking, Relatorios e Configuracoes
 - Rota fora do perfil mostra bloqueio visual pelo `AuthGuard`
 - A API REST continua responsavel pela autorizacao definitiva de cada endpoint
@@ -81,6 +81,7 @@ GET  /api/dashboard/admin
 GET  /api/desafios
 POST /api/desafios
 GET  /api/grupos
+GET  /api/grupos/meus
 GET  /api/envios-desafios/aprovacoes
 PATCH /api/envios-desafios/aprovacoes
 POST /api/envios-desafios
@@ -243,6 +244,20 @@ src/app/grupos/page.js
 ```
 
 A rota `/grupos` e restrita a professor/admin pelo `AuthGuard`. A tela lista envio, lider/responsavel, participantes e status, permite abrir detalhes para ver ate 5 participantes e apresenta estado vazio claro quando nao existem envios em grupo. O front-end nao cria, edita ou altera grupos nesta primeira versao e nao exibe dados sensiveis dos alunos.
+
+## Meus grupos
+
+A consulta dos grupos do aluno segue o fluxo:
+
+```text
+src/app/meus-grupos/page.js
+  -> getMyGroups em src/controllers/groups.controller.js
+  -> toGroupsDto em src/models/groups.model.js
+  -> listMyGroupsRequest em src/services/groups.service.js
+  -> GET /api/grupos/meus
+```
+
+A rota `/meus-grupos` e restrita a alunos pelo `AuthGuard`. A tela mostra apenas grupos em que o aluno autenticado e responsavel ou participante, com desafio, pilar, responsavel, participantes, status e pontos. Pontos concedidos e mensagem de ranking aparecem somente para envios aprovados; pendentes, reprovados e ajustes nao exibem pontuacao concedida. O front-end consome um unico endpoint e nao recalcula ranking no navegador.
 
 ## Registro de desafio
 
