@@ -89,10 +89,14 @@ paths:
       tags: [Perfil]
       security:
         - bearerAuth: []
-      summary: Atualiza dados editáveis do perfil
+      summary: Atualiza nome e senha do próprio perfil sem permitir alterar turma, status ou perfil
       responses:
         "200":
           description: Perfil atualizado
+        "400":
+          description: Campo administrativo bloqueado ou senha atual ausente
+        "401":
+          description: Senha atual inválida
   /api/users/me:
     get:
       tags: [Perfil]

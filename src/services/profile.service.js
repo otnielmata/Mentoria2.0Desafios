@@ -1,7 +1,25 @@
+const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
 const { createHttpError, getEntityId, parseOptionalText } = require("./domain-utils");
 
-const FORBIDDEN_FIELDS = ["role", "status", "password", "passwordHash", "turmas"];
+const FORBIDDEN_FIELDS = ["role", "status", "passwordHash", "turmas"];
+
+function serializeTurma(turma) {
+  if (!turma) {
+    return null;
+  }
+
+  if (typeof turma !== "object") {
+    return { id: getEntityId(turma) };
+  }
+
+  return {
+    id: getEntityId(turma),
+    name: turma.name,
+    code: turma.code,
+    status: turma.status,
+  };
+}
 
 function serializeUser(user) {
   return {
@@ -10,7 +28,7 @@ function serializeUser(user) {
     email: user.email,
     role: user.role,
     status: user.status,
-    turmas: Array.isArray(user.turmas) ? user.turmas.map(getEntityId) : [],
+    turmas: Array.isArray(user.turmas) ? user.turmas.map(serializeTurma) : [],
   };
 }
 
@@ -47,6 +65,31 @@ async function updateMe(authenticatedUserId, payload = {}) {
       if (existingUser) throw createHttpError("E-mail já está em uso.", 409, { code: "EMAIL_ALREADY_IN_USE" });
     }
     updates.email = normalizedEmail;
+  }
+
+  const newPassword = parseOptionalText(payload.password || payload.newPassword || payload.novaSenha, "Senha");
+  if (newPassword) {
+    if (newPassword.length < 6) {
+      throw createHttpError("Senha deve ter ao menos 6 caracteres.", 400, {
+        code: "VALIDATION_ERROR",
+        details: [{ field: "password", message: "Senha deve ter ao menos 6 caracteres." }],
+      });
+    }
+
+    const currentPassword = parseOptionalText(payload.currentPassword || payload.senhaAtual, "Senha atual");
+    if (!currentPassword) {
+      throw createHttpError("Senha atual é obrigatória para alterar a senha.", 400, {
+        code: "VALIDATION_ERROR",
+        details: [{ field: "currentPassword", message: "Informe a senha atual." }],
+      });
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentUser.passwordHash);
+    if (!isCurrentPasswordValid) {
+      throw createHttpError("Senha atual inválida.", 401, { code: "INVALID_CURRENT_PASSWORD" });
+    }
+
+    updates.passwordHash = await bcrypt.hash(newPassword, 10);
   }
 
   const user = await User.findByIdAndUpdate(authenticatedUserId, updates, { new: true }).lean();

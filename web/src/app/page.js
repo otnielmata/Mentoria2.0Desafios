@@ -26,11 +26,10 @@ const TEST_USERS = {
 const MENU_BY_ROLE = {
   aluno: [
     { key: "inicio", label: "Início", supported: true },
-    { key: "registrar", label: "Registrar Desafio", supported: true },
-    { key: "meus-desafios", label: "Meus Desafios", supported: true },
+    { key: "calendario", label: "Calendário", supported: false },
+    { key: "desafios", label: "Desafios", supported: true },
     { key: "meus-grupos", label: "Meus Grupos", supported: true },
-    { key: "pontuacao", label: "Minha Pontuação", supported: false },
-    { key: "ranking", label: "Ranking", supported: false },
+    { key: "pontuacao", label: "Minha Pontuação", supported: true },
     { key: "perfil", label: "Meu Perfil", supported: true },
   ],
   admin: [
@@ -67,6 +66,30 @@ function getArray(value, field) {
   return [];
 }
 
+function getProfileUser(value) {
+  return value && value.user ? value.user : value;
+}
+
+function getEntityId(entity) {
+  if (!entity) return "";
+  if (typeof entity === "string") return entity;
+  return entity.id || entity._id || "";
+}
+
+function formatTurmaName(turma) {
+  if (!turma) return "-";
+  if (typeof turma === "string") return turma;
+  return turma.name || turma.code || turma.id || "-";
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("pt-BR");
+}
+
+function formatRankingPosition(value) {
+  return value ? `${value}º lugar` : "Sem posição";
+}
+
 function joinIds(value) {
   return String(value || "")
     .split(",")
@@ -83,13 +106,15 @@ function Notice({ message, type = "neutral" }) {
   return <div className={`alert ${type === "error" ? "" : "neutral"}`}>{message}</div>;
 }
 
-function LoginScreen({ theme, onThemeChange, onLogin }) {
+function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState(TEST_USERS.admin.email);
   const [password, setPassword] = useState(TEST_USERS.admin.password);
+  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function submit(event) {
+  async function submitLogin(event) {
     event.preventDefault();
     setError("");
     setLoading(true);
@@ -102,7 +127,21 @@ function LoginScreen({ theme, onThemeChange, onLogin }) {
     }
   }
 
+  async function submitRegister(event) {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await onRegister({ name, email, password });
+    } catch (registerError) {
+      setError(getErrorMessage(registerError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function fillUser(type) {
+    setMode("login");
     setEmail(TEST_USERS[type].email);
     setPassword(TEST_USERS[type].password);
   }
@@ -118,25 +157,67 @@ function LoginScreen({ theme, onThemeChange, onLogin }) {
           </div>
         </div>
 
-        <form className="login-form" onSubmit={submit}>
-          <label className="field">
-            <span>E-mail</span>
-            <input value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Senha</span>
-            <input
-              value={password}
-              type="password"
-              autoComplete="current-password"
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
-          {error ? <div className="alert">{error}</div> : null}
-          <button className="button" type="submit" disabled={loading}>
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-        </form>
+        {mode === "login" ? (
+          <form className="login-form" onSubmit={submitLogin}>
+            <label className="field">
+              <span>E-mail</span>
+              <input value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Senha</span>
+              <input
+                value={password}
+                type="password"
+                autoComplete="current-password"
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            {error ? <div className="alert">{error}</div> : null}
+            <button className="button" type="submit" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar"}
+            </button>
+            <button
+              className="button ghost"
+              type="button"
+              onClick={() => {
+                setMode("register");
+                setName("");
+                setEmail("");
+                setPassword("");
+                setError("");
+              }}
+            >
+              Inscrever-se como aluno
+            </button>
+          </form>
+        ) : (
+          <form className="login-form" onSubmit={submitRegister}>
+            <label className="field">
+              <span>Nome completo</span>
+              <input value={name} autoComplete="name" onChange={(event) => setName(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>E-mail</span>
+              <input value={email} type="email" autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Senha</span>
+              <input
+                value={password}
+                type="password"
+                autoComplete="new-password"
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            {error ? <div className="alert">{error}</div> : null}
+            <button className="button" type="submit" disabled={loading}>
+              {loading ? "Inscrevendo..." : "Criar inscrição"}
+            </button>
+            <button className="button ghost" type="button" onClick={() => setMode("login")}>
+              Voltar para login
+            </button>
+          </form>
+        )}
 
         <div className="actions">
           <button className="button secondary" type="button" onClick={() => fillUser("admin")}>
@@ -262,54 +343,217 @@ function ConfigurationView({ apiClient }) {
   );
 }
 
-function ProfileView({ user }) {
+function ProfileView({ apiClient, user, onUserChange }) {
+  const [profile, setProfile] = useState(user);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: "/me" });
+      setProfile(getProfileUser(result));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  async function updateProfile(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const newPassword = String(data.get("newPassword") || "").trim();
+    const currentPassword = String(data.get("currentPassword") || "").trim();
+    const body = {
+      name: data.get("name"),
+    };
+
+    if (newPassword || currentPassword) {
+      body.currentPassword = currentPassword;
+      body.newPassword = newPassword;
+    }
+
+    setFeedback("");
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "PATCH", path: "/me" }, { body });
+      const updatedUser = getProfileUser(result);
+      setProfile(updatedUser);
+      onUserChange(updatedUser);
+      event.currentTarget.elements.currentPassword.value = "";
+      event.currentTarget.elements.newPassword.value = "";
+      setFeedback("Perfil atualizado com sucesso.");
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    }
+  }
+
+  const turmas = getArray(profile, "turmas");
+
   return (
-    <section className="panel">
-      <h2>Meu Perfil</h2>
-      <table className="table">
-        <tbody>
-          <tr>
-            <th>Nome</th>
-            <td>{user.name}</td>
-          </tr>
-          <tr>
-            <th>E-mail</th>
-            <td>{user.email}</td>
-          </tr>
-          <tr>
-            <th>Perfil</th>
-            <td>{user.role}</td>
-          </tr>
-          <tr>
-            <th>Status</th>
-            <td>{user.status}</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    <div className="content">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Meu Perfil</h2>
+            <p className="muted">Altere seu nome completo e senha.</p>
+          </div>
+          <button className="button secondary" type="button" onClick={load}>
+            Atualizar
+          </button>
+        </div>
+        <Notice message={feedback} />
+        <Notice message={error} type="error" />
+        <form className="form-grid" key={`${profile.id || profile.email || "perfil"}-${profile.name || ""}`} onSubmit={updateProfile}>
+          <label className="field">
+            <span>Nome completo</span>
+            <input name="name" required defaultValue={profile.name} />
+          </label>
+          <label className="field">
+            <span>E-mail</span>
+            <input value={profile.email || ""} disabled readOnly />
+          </label>
+          <label className="field">
+            <span>Senha atual</span>
+            <input name="currentPassword" type="password" autoComplete="current-password" />
+          </label>
+          <label className="field">
+            <span>Nova senha</span>
+            <input name="newPassword" type="password" autoComplete="new-password" />
+          </label>
+          <button className="button" type="submit">
+            Salvar perfil
+          </button>
+        </form>
+      </section>
+
+      <section className="panel">
+        <h2>Dados administrativos</h2>
+        <table className="table">
+          <tbody>
+            <tr>
+              <th>Perfil</th>
+              <td>{profile.role}</td>
+            </tr>
+            <tr>
+              <th>Status</th>
+              <td>{profile.status}</td>
+            </tr>
+            <tr>
+              <th>Turma</th>
+              <td>{turmas.length > 0 ? turmas.map(formatTurmaName).join(", ") : "Sem turma definida"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
   );
 }
 
-function HomeView({ user }) {
+function buildPilarChartItems(dashboard) {
+  const source = getArray(dashboard, "pontosPorPilar");
+  const total = source.reduce((sum, item) => sum + Number(item.desafiosAprovados || item.pontos || 0), 0);
+
+  return source.map((item, index) => {
+    const value = Number(item.desafiosAprovados || item.pontos || 0);
+    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+    return {
+      id: (item.pilar && item.pilar.id) || `pilar-${index}`,
+      name: (item.pilar && item.pilar.name) || "Sem pilar",
+      percentage,
+      value,
+      color: ["#0f766e", "#8b5cf6", "#f59e0b", "#2563eb", "#dc2626", "#16a34a", "#db2777"][index % 7],
+    };
+  });
+}
+
+function buildPieGradient(items) {
+  let cursor = 0;
+  const slices = items
+    .filter((item) => item.percentage > 0)
+    .map((item) => {
+      const start = cursor;
+      cursor += item.percentage;
+      return `${item.color} ${start}% ${cursor}%`;
+    });
+
+  return slices.length > 0 ? `conic-gradient(${slices.join(", ")})` : "var(--surface-soft)";
+}
+
+function HomeView({ apiClient, user }) {
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: "/dashboard/aluno" });
+      setDashboard(result);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  const chartItems = buildPilarChartItems(dashboard);
+  const rankingPosition = dashboard && (dashboard.posicaoRanking || (dashboard.ranking && dashboard.ranking.posicao));
+  const totalDesafios = dashboard && dashboard.desafiosEnviados ? dashboard.desafiosEnviados.total : 0;
+
   return (
     <div className="content">
-      <section className="metrics">
+      <section className="student-hero panel">
+        <div>
+          <span className="muted">Nome do Aluno</span>
+          <h2>{user.name}</h2>
+        </div>
+        <button className="button secondary" type="button" onClick={load}>
+          Atualizar
+        </button>
+      </section>
+      <Notice message={error} type="error" />
+      <section className="metrics student-metrics">
         <div className="metric">
-          <span className="muted">Perfil</span>
-          <strong>{user.role}</strong>
+          <span className="muted">Posição do Ranking</span>
+          <strong>{formatRankingPosition(rankingPosition)}</strong>
         </div>
         <div className="metric">
-          <span className="muted">Sessão</span>
-          <strong>Ativa</strong>
+          <span className="muted">Pontuação</span>
+          <strong>{formatNumber(dashboard && dashboard.totalPontos)}</strong>
         </div>
         <div className="metric">
-          <span className="muted">API</span>
-          <strong>Conectada</strong>
+          <span className="muted">Quantidade de Desafios</span>
+          <strong>{formatNumber(totalDesafios)}</strong>
         </div>
       </section>
-      <section className="panel">
-        <h2>Início</h2>
-        <p className="muted">Olá, {user.name}.</p>
+      <section className="panel chart-panel">
+        <div>
+          <h2>Desafios por pilar</h2>
+          <p className="muted">Percentual de desafios aprovados por pilar do método.</p>
+        </div>
+        <div className="pie-layout">
+          <div className="pie-chart" style={{ background: buildPieGradient(chartItems) }}>
+            <span>{chartItems.length > 0 ? "100%" : "0%"}</span>
+          </div>
+          <div className="legend-list">
+            {chartItems.length > 0 ? (
+              chartItems.map((item) => (
+                <div className="legend-item" key={item.id}>
+                  <span className="legend-dot" style={{ background: item.color }} />
+                  <span>{item.name}</span>
+                  <strong>{item.percentage}%</strong>
+                </div>
+              ))
+            ) : (
+              <Notice message="Ainda não há desafios aprovados para montar o gráfico." />
+            )}
+          </div>
+        </div>
       </section>
     </div>
   );
@@ -854,7 +1098,7 @@ function AdminDesafiosView({ apiClient }) {
   );
 }
 
-function StudentSubmitView({ apiClient }) {
+function StudentChallengesView({ apiClient }) {
   const [profile, setProfile] = useState(null);
   const [desafios, setDesafios] = useState([]);
   const [envios, setEnvios] = useState([]);
@@ -869,7 +1113,7 @@ function StudentSubmitView({ apiClient }) {
         apiClient.request({ method: "GET", path: "/desafios?limit=100" }),
         apiClient.request({ method: "GET", path: "/envios-desafios/meus?limit=100" }),
       ]);
-      setProfile(profileResult);
+      setProfile(getProfileUser(profileResult));
       setDesafios(getArray(desafiosResult, "desafios"));
       setEnvios(getArray(enviosResult, "envios"));
     } catch (loadError) {
@@ -909,12 +1153,14 @@ function StudentSubmitView({ apiClient }) {
     }
   }
 
+  const turmas = getArray(profile, "turmas");
+
   return (
     <div className="content">
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Registrar Desafio</h2>
+            <h2>Desafios</h2>
             <p className="muted">Escolha um desafio ativo, informe evidência e envie para aprovação.</p>
           </div>
           <button className="button secondary" type="button" onClick={load}>
@@ -937,7 +1183,17 @@ function StudentSubmitView({ apiClient }) {
           </label>
           <label className="field">
             <span>Turma</span>
-            <input name="turmaId" required defaultValue={profile && profile.turmas && profile.turmas[0] ? profile.turmas[0] : ""} placeholder="ID da turma" />
+            {turmas.length > 0 ? (
+              <select name="turmaId" required defaultValue={getEntityId(turmas[0])}>
+                {turmas.map((turma) => (
+                  <option key={getEntityId(turma)} value={getEntityId(turma)}>
+                    {formatTurmaName(turma)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input name="turmaId" required placeholder="ID da turma" />
+            )}
           </label>
           <label className="field">
             <span>Tipo</span>
@@ -959,13 +1215,13 @@ function StudentSubmitView({ apiClient }) {
             <input name="evidencia" required placeholder="https://..." />
           </label>
           <button className="button" type="submit">
-            Enviar para aprovação
+            Inscrever-se no desafio
           </button>
         </form>
       </section>
 
       <section className="panel">
-        <h2>Meus envios</h2>
+        <h2>Meus desafios enviados</h2>
         <table className="table">
           <thead>
             <tr>
@@ -982,6 +1238,93 @@ function StudentSubmitView({ apiClient }) {
                 <td>{envio.type}</td>
                 <td>{envio.status}</td>
                 <td>{getArray(envio, "participantes").length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}
+
+function StudentScoreView({ apiClient }) {
+  const [score, setScore] = useState(null);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: "/pontuacoes/minha" });
+      setScore(result);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  const pontosPorPilar = getArray(score, "pontosPorPilar");
+  const historico = getArray(score, "historico");
+
+  return (
+    <div className="content">
+      <section className="metrics">
+        <div className="metric">
+          <span className="muted">Pontuação total</span>
+          <strong>{formatNumber(score && score.totalPontos)}</strong>
+        </div>
+        <div className="metric">
+          <span className="muted">Desafios aprovados</span>
+          <strong>{formatNumber(score && score.desafiosAprovados)}</strong>
+        </div>
+        <div className="metric">
+          <span className="muted">Pilares pontuados</span>
+          <strong>{formatNumber(pontosPorPilar.length)}</strong>
+        </div>
+      </section>
+      <Notice message={error} type="error" />
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Minha Pontuação</h2>
+            <p className="muted">Pontos concedidos após aprovação do professor.</p>
+          </div>
+          <button className="button secondary" type="button" onClick={load}>
+            Atualizar
+          </button>
+        </div>
+        <div className="status-grid">
+          {pontosPorPilar.map((item) => (
+            <div className="status-item" key={(item.pilar && item.pilar.id) || item.pilarId || item.pontos}>
+              <strong>{item.pilar ? item.pilar.name : "Sem pilar"}</strong>
+              <span className="muted">{formatNumber(item.pontos)} pontos</span>
+              <span className="badge ok">{formatNumber(item.desafiosAprovados)} desafios</span>
+            </div>
+          ))}
+        </div>
+        {pontosPorPilar.length === 0 ? <Notice message="Ainda não há pontuação aprovada." /> : null}
+      </section>
+
+      <section className="panel">
+        <h2>Histórico</h2>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Desafio</th>
+              <th>Pilar</th>
+              <th>Pontos</th>
+              <th>Turma</th>
+            </tr>
+          </thead>
+          <tbody>
+            {historico.map((item) => (
+              <tr key={item.id}>
+                <td>{item.desafio ? item.desafio.title : item.envioId}</td>
+                <td>{item.pilar ? item.pilar.name : "-"}</td>
+                <td>{formatNumber(item.pontos)}</td>
+                <td>{item.turma ? item.turma.name : "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -1057,10 +1400,11 @@ function FutureView({ selectedMenu }) {
   );
 }
 
-function Workspace({ apiClient, onLogout, onThemeChange, theme, user }) {
+function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, user }) {
   const [activeView, setActiveView] = useState(getInitialView(user));
   const [selectedMenu, setSelectedMenu] = useState(null);
-  const menu = MENU_BY_ROLE[getRole(user)];
+  const role = getRole(user);
+  const menu = MENU_BY_ROLE[role];
 
   function navigate(item) {
     setSelectedMenu(item);
@@ -1073,7 +1417,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, theme, user }) {
       <section className="main">
         <header className="topbar">
           <div>
-            <h1>{getRole(user) === "admin" ? "Área do professor/admin" : "Área do aluno"}</h1>
+            <h1>{role === "admin" ? "Área do professor/admin" : "Área do aluno"}</h1>
             <p className="muted">API REST em {API_BASE_URL}</p>
           </div>
           <div className="actions">
@@ -1086,13 +1430,13 @@ function Workspace({ apiClient, onLogout, onThemeChange, theme, user }) {
         {activeView === "configuracoes" ? <ConfigurationView apiClient={apiClient} /> : null}
         {activeView === "alunos" ? <AdminStudentsView apiClient={apiClient} /> : null}
         {activeView === "turmas" ? <AdminTurmasView apiClient={apiClient} /> : null}
-        {activeView === "desafios" ? <AdminDesafiosView apiClient={apiClient} /> : null}
-        {activeView === "registrar" ? <StudentSubmitView apiClient={apiClient} /> : null}
-        {activeView === "meus-desafios" ? <StudentSubmitView apiClient={apiClient} /> : null}
+        {activeView === "desafios" && role === "admin" ? <AdminDesafiosView apiClient={apiClient} /> : null}
+        {activeView === "desafios" && role === "aluno" ? <StudentChallengesView apiClient={apiClient} /> : null}
         {activeView === "meus-grupos" ? <StudentGroupsView apiClient={apiClient} /> : null}
-        {activeView === "perfil" ? <ProfileView user={user} /> : null}
-        {activeView === "inicio" ? <HomeView user={user} /> : null}
-        {!["configuracoes", "alunos", "turmas", "desafios", "registrar", "meus-desafios", "meus-grupos", "perfil", "inicio"].includes(activeView) ? (
+        {activeView === "pontuacao" ? <StudentScoreView apiClient={apiClient} /> : null}
+        {activeView === "perfil" ? <ProfileView apiClient={apiClient} onUserChange={onUserChange} user={user} /> : null}
+        {activeView === "inicio" ? <HomeView apiClient={apiClient} user={user} /> : null}
+        {!["configuracoes", "alunos", "turmas", "desafios", "meus-grupos", "pontuacao", "perfil", "inicio"].includes(activeView) ? (
           <FutureView selectedMenu={selectedMenu || { label: activeView }} />
         ) : null}
       </section>
@@ -1142,6 +1486,22 @@ export default function Page() {
     setSession(nextSession);
   }
 
+  async function registerStudent(payload) {
+    const result = await apiClient.request({ method: "POST", path: "/auth/register" }, { body: payload });
+    const nextSession = { token: result.token, user: result.user };
+    window.localStorage.setItem("desafios.session", JSON.stringify(nextSession));
+    setSession(nextSession);
+  }
+
+  function updateSessionUser(user) {
+    setSession((current) => {
+      if (!current) return current;
+      const nextSession = { ...current, user: { ...current.user, ...user } };
+      window.localStorage.setItem("desafios.session", JSON.stringify(nextSession));
+      return nextSession;
+    });
+  }
+
   function logout() {
     window.localStorage.removeItem("desafios.session");
     setSession(null);
@@ -1154,9 +1514,16 @@ export default function Page() {
   return (
     <div className="app" data-theme={theme}>
       {session ? (
-        <Workspace apiClient={apiClient} onLogout={logout} onThemeChange={toggleTheme} theme={theme} user={session.user} />
+        <Workspace
+          apiClient={apiClient}
+          onLogout={logout}
+          onThemeChange={toggleTheme}
+          onUserChange={updateSessionUser}
+          theme={theme}
+          user={session.user}
+        />
       ) : (
-        <LoginScreen theme={theme} onThemeChange={toggleTheme} onLogin={login} />
+        <LoginScreen theme={theme} onThemeChange={toggleTheme} onLogin={login} onRegister={registerStudent} />
       )}
     </div>
   );

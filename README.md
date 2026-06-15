@@ -71,7 +71,7 @@ npm install
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/usuarios/registro` e `POST /api/usuarios/login` (aliases MR-1/MR-2)
-- `GET /api/me` e `PATCH /api/me`
+- `GET /api/me` e `PATCH /api/me` (nome e senha do próprio perfil; turma, status e perfil são administrativos)
 - `GET /api/users/me` (perfil autenticado consumido pela Web)
 - `POST /api/users` e `GET /api/users` (professor/admin)
 - `POST /api/heuristicas` e `GET /api/heuristicas`
@@ -95,6 +95,16 @@ npm install
 - `GET /api/docs` (Swagger UI)
 
 Rotas administrativas exigem JWT válido e perfil `professor` ou `admin`. Rotas do aluno exigem JWT válido e perfil `aluno`; a API continua sendo a autoridade final de autorização, mesmo quando a Web filtra menus visualmente.
+
+## Fluxo Web do aluno
+
+A tela inicial da Web permite login ou inscrição pública como aluno. A inscrição pública usa `POST /api/auth/register`, não oferece seleção de perfil e cria o usuário sempre com perfil `aluno` e status `ativo`. Professor só deve ser definido em fluxo administrativo.
+
+O menu do aluno exibe `Início`, `Calendário`, `Desafios`, `Meus Grupos`, `Minha Pontuação` e `Meu Perfil`. No MVP, `Calendário` fica visível como funcionalidade futura; os demais itens consomem endpoints reais da API.
+
+No `Início`, a Web exibe nome do aluno, posição no ranking, pontuação total, quantidade de desafios enviados e gráfico de pizza com a distribuição percentual de desafios aprovados por pilar do Método do Alavanque, usando `GET /api/dashboard/aluno`.
+
+Em `Meu Perfil`, o aluno pode alterar nome completo e senha. Turma, status e perfil aparecem apenas como dados de leitura para o aluno e só devem ser alterados por administrador/professor em rotas administrativas.
 
 ## Contrato Web/API
 
