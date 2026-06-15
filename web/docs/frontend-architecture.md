@@ -51,6 +51,8 @@ src/app/login/page.js
 
 Views nao devem montar `fetch` direto nem conhecer detalhes de endpoint. Endpoints ficam em `src/services/api/endpoints.js` e chamadas HTTP passam por `src/services/api/client.js`.
 
+As respostas de login, registro e `GET /api/users/me` devem trazer `role` e `status`. A Web usa esses campos para montar menus e aplicar guardas de rota, enquanto a API REST continua sendo a autoridade final de autorização.
+
 ## Rotas e autenticacao
 
 - Rotas publicas: `/`, `/login`, `/registro`

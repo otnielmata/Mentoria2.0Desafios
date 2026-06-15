@@ -99,6 +99,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 - `NEXT_PUBLIC_API_BASE_URL` define a API REST para local, homologacao ou producao
 - Token JWT aplicado no header `Authorization` em chamadas protegidas
 - Login e registro usam chamadas publicas com `auth: false`
+- Login e registro persistem `role` e `status` retornados pela API para menus e rotas por perfil
 - Erros de rede, API e validacao sao normalizados para controllers e views
 - Endpoints ficam centralizados em `src/services/api/endpoints.js`
 - Views continuam sem montar requisicoes HTTP diretamente
@@ -123,6 +124,7 @@ O consumo da API REST usa `src/services/api/client.js` como ponto unico de confi
 O gerenciamento de sessao usa `src/services/session.service.js`.
 
 - Login e registro salvam somente token e dados minimos do usuario
+- A sessao local preserva `role` e `status` para liberar menus de aluno, professor e admin
 - Senhas e campos sensiveis nao sao persistidos
 - Sessao persistida e restaurada ao recarregar a aplicacao
 - Logout remove os dados locais de autenticacao
