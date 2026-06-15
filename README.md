@@ -60,6 +60,7 @@ npm install
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/configuracoes` (requer JWT de professor/admin)
+- `GET /api/grupos/meus` (requer JWT de aluno)
 - `GET /api/docs` (Swagger UI)
 
 ## Configurações iniciais
@@ -67,6 +68,10 @@ npm install
 O endpoint `GET /api/configuracoes` expõe parâmetros funcionais seguros da aplicação em modo somente leitura, como visibilidade do ranking geral para alunos, modelo de pontuação fixa por desafio e recursos planejados ainda indisponíveis no MVP. A rota é protegida por JWT e restrita aos perfis `professor` e `admin`.
 
 As respostas de autenticação incluem `role` e `status` do usuário para permitir que a Web filtre menus e rotas conforme os perfis definidos nas regras de negócio.
+
+## Meus grupos do aluno
+
+O endpoint `GET /api/grupos/meus` permite que o aluno autenticado consulte apenas os desafios em grupo em que ele é responsável ou participante. A resposta traz desafio, pilar, responsável, participantes, status e pontos concedidos somente quando o envio está aprovado.
 
 ## Web
 

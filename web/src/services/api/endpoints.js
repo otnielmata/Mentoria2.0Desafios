@@ -12,6 +12,7 @@ export const apiEndpoints = {
   },
   groups: {
     collection: "/api/grupos",
+    mine: "/api/grupos/meus",
   },
   challengeSubmissions: {
     approvals: "/api/envios-desafios/aprovacoes",

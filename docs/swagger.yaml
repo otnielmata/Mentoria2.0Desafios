@@ -69,6 +69,24 @@ paths:
           description: Token inválido ou ausente
         "403":
           description: Perfil sem permissão
+  /api/grupos/meus:
+    get:
+      tags: [Grupos]
+      summary: Consulta os grupos do aluno autenticado
+      description: Retorna apenas desafios em grupo nos quais o aluno autenticado é responsável ou participante.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Grupos do aluno autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyGroupsResponse"
+        "401":
+          description: Token inválido ou ausente
+        "403":
+          description: Perfil sem permissão
   /api/health/protected:
     get:
       tags: [Health]
@@ -186,3 +204,63 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ConfigurationParameter"
+    GroupUser:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        name:
+          type: string
+          example: Maria Silva
+        role:
+          type: string
+          enum: [aluno, professor, admin]
+          example: aluno
+        status:
+          type: string
+          example: ativo
+    MyGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        envioId:
+          type: string
+          example: 6814f12ab3f34872f7558f49
+        desafioTitulo:
+          type: string
+          example: Publicar artigo em grupo
+        pilarNome:
+          type: string
+          example: Compartilhamento
+        responsavelNome:
+          type: string
+          example: Maria Silva
+        participantes:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/GroupUser"
+        status:
+          type: string
+          enum: [pendente, aprovado, reprovado, ajuste]
+          example: aprovado
+        pontos:
+          type: number
+          example: 30
+        pontosConcedidos:
+          type: number
+          nullable: true
+          example: 30
+        pontuacaoConsideradaNoRanking:
+          type: boolean
+          example: true
+    MyGroupsResponse:
+      type: object
+      properties:
+        grupos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyGroup"
