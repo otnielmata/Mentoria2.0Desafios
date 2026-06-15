@@ -59,11 +59,21 @@ npm install
 - `GET /api/health/protected` (requer JWT)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/configuracoes` (requer JWT de professor/admin)
 - `GET /api/docs` (Swagger UI)
+
+## Configurações iniciais
+
+O endpoint `GET /api/configuracoes` expõe parâmetros funcionais seguros da aplicação em modo somente leitura, como visibilidade do ranking geral para alunos, modelo de pontuação fixa por desafio e recursos planejados ainda indisponíveis no MVP. A rota é protegida por JWT e restrita aos perfis `professor` e `admin`.
+
+As respostas de autenticação incluem `role` e `status` do usuário para permitir que a Web filtre menus e rotas conforme os perfis definidos nas regras de negócio.
+
+## Web
+
+A aplicação Web fica em `web/` e consome a API REST por `NEXT_PUBLIC_API_BASE_URL`. A tela administrativa `/configuracoes` usa apenas `GET /api/configuracoes`, exibe os parâmetros retornados em modo somente leitura e mostra estado vazio quando a API não retornar configurações disponíveis.
 
 ## Próximos passos planejados
 
 - Evoluir endpoints com base nas user stories do Jira
-- Adicionar testes automatizados
 - Configurar CI com GitHub Actions
 - Configurar deploy na Vercel
