@@ -92,6 +92,13 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(date);
 }
 
+function formatDateInputValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
 function formatRankingPosition(value) {
   return value ? `${value}º lugar` : "Sem posição";
 }
@@ -1293,6 +1300,7 @@ function AdminPilaresView({ apiClient }) {
 function AdminDesafiosView({ apiClient }) {
   const [pilares, setPilares] = useState([]);
   const [desafios, setDesafios] = useState([]);
+  const [editing, setEditing] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
@@ -1359,6 +1367,51 @@ function AdminDesafiosView({ apiClient }) {
     }
   }
 
+  async function updateDesafio(event) {
+    event.preventDefault();
+    if (!editing) return;
+    const data = new FormData(event.currentTarget);
+    const maxParticipantes = Number(data.get("editMaxParticipantes"));
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: `/desafios/${editing.id}` },
+        {
+          body: {
+            pilarId: data.get("editPilarId"),
+            title: data.get("editTitle"),
+            description: data.get("editDescription"),
+            deliveryDate: data.get("editDeliveryDate") || null,
+            points: Number(data.get("editPoints")),
+            livePresentationPoints: Number(data.get("editLivePresentationPoints") || 0),
+            type: maxParticipantes > 1 ? "grupo" : "individual",
+            maxParticipantes,
+            status: data.get("editStatus"),
+          },
+        }
+      );
+      setEditing(null);
+      setFeedback("Desafio atualizado.");
+      await load();
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    }
+  }
+
+  async function deleteDesafio(desafio) {
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request({ method: "DELETE", path: `/desafios/${desafio.id}` });
+      setFeedback("Desafio apagado da lista ativa.");
+      if (editing && editing.id === desafio.id) setEditing(null);
+      await load();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
+    }
+  }
+
   return (
     <div className="content">
       <section className="panel">
@@ -1422,6 +1475,73 @@ function AdminDesafiosView({ apiClient }) {
         </form>
       </section>
 
+      {editing ? (
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <h2>Editar desafio</h2>
+              <p className="muted">Atualize dados, pontuação, pilar, entrega e status.</p>
+            </div>
+            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
+              Cancelar
+            </button>
+          </div>
+          <form className="form-grid" key={editing.id} onSubmit={updateDesafio}>
+            <label className="field">
+              <span>Pilar</span>
+              <select name="editPilarId" required defaultValue={getEntityId(editing.pilar)}>
+                <option value="">Selecione</option>
+                {pilares.map((pilar) => (
+                  <option key={pilar.id} value={pilar.id}>
+                    {pilar.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Título</span>
+              <input name="editTitle" required defaultValue={editing.title} />
+            </label>
+            <label className="field">
+              <span>Pontos</span>
+              <input name="editPoints" required type="number" min="1" defaultValue={editing.points || 10} />
+            </label>
+            <label className="field">
+              <span>Pontos apresentação ao vivo</span>
+              <input
+                name="editLivePresentationPoints"
+                required
+                type="number"
+                min="0"
+                defaultValue={editing.livePresentationPoints || editing.pontosApresentacaoAoVivo || 0}
+              />
+            </label>
+            <label className="field">
+              <span>Data limite de entrega</span>
+              <input name="editDeliveryDate" type="date" defaultValue={formatDateInputValue(editing.deliveryDate || editing.dataEntrega)} />
+            </label>
+            <label className="field">
+              <span>Participantes por grupo</span>
+              <input name="editMaxParticipantes" required type="number" min="1" max="5" defaultValue={editing.maxParticipantes || 1} />
+            </label>
+            <label className="field">
+              <span>Status</span>
+              <select name="editStatus" defaultValue={editing.status || "inativo"}>
+                <option value="inativo">inativo</option>
+                <option value="ativo">ativo</option>
+              </select>
+            </label>
+            <label className="field span-2">
+              <span>Descrição</span>
+              <textarea name="editDescription" required defaultValue={editing.description || ""} />
+            </label>
+            <button className="button" type="submit">
+              Salvar edição
+            </button>
+          </form>
+        </section>
+      ) : null}
+
       <section className="panel">
         <h2>Desafios cadastrados</h2>
         <table className="table">
@@ -1452,9 +1572,17 @@ function AdminDesafiosView({ apiClient }) {
                   <code>{desafio.id}</code>
                 </td>
                 <td>
-                  <button className="button secondary" type="button" onClick={() => toggleDesafioStatus(desafio)}>
-                    {desafio.status === "ativo" ? "Desativar" : "Ativar"}
-                  </button>
+                  <div className="actions table-actions">
+                    <button className="button secondary" type="button" onClick={() => setEditing(desafio)}>
+                      Editar
+                    </button>
+                    <button className="button secondary" type="button" onClick={() => toggleDesafioStatus(desafio)}>
+                      {desafio.status === "ativo" ? "Desativar" : "Ativar"}
+                    </button>
+                    <button className="button ghost" type="button" onClick={() => deleteDesafio(desafio)}>
+                      Apagar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

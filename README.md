@@ -121,7 +121,7 @@ Em `Pilares`, professor/admin pode cadastrar, editar, inativar e reativar pilare
 
 Em `Dashboard`, a Web exibe alunos ativos, quantidade de desafios enviados, aprovações pendentes, ranking dos 10 primeiros alunos e gráfico de pizza com o percentual de desafios aprovados por pilar.
 
-Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. Quando um desafio ativo aparece na lista, o botão exibido é `Desativar`; quando está inativo, o botão exibido é `Ativar`.
+Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. A lista permite `Editar`, `Ativar`/`Desativar` e `Apagar` o desafio pela ação administrativa.
 
 Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, desafio, turma e participantes do envio. Ao aprovar, a API lança a pontuação para todos os integrantes do grupo. Se a opção de apresentação ao vivo for marcada, a pontuação extra cadastrada no desafio é somada para todos os participantes aprovados.
 
