@@ -2,6 +2,7 @@ jest.mock("../../src/models/desafio.model", () => ({
   countDocuments: jest.fn(),
   create: jest.fn(),
   find: jest.fn(),
+  findByIdAndUpdate: jest.fn(),
 }));
 
 jest.mock("../../src/models/pilar.model", () => ({
@@ -15,7 +16,7 @@ jest.mock("../../src/models/user.model", () => ({
 const Desafio = require("../../src/models/desafio.model");
 const Pilar = require("../../src/models/pilar.model");
 const User = require("../../src/models/user.model");
-const { createDesafio, listDesafios } = require("../../src/services/desafio.service");
+const { createDesafio, disableDesafio, listDesafios } = require("../../src/services/desafio.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const PILAR_ID = "6814f12ab3f34872f7558f41";
@@ -158,6 +159,31 @@ describe("desafio.service difficulty", () => {
       limitePontos: 20,
       acaoAoExceder: "bloquear",
     });
+  });
+
+  it("apaga desafio usando status apagado", async () => {
+    const lean = jest.fn().mockResolvedValue({
+      _id: "6814f12ab3f34872f7558f52",
+      pilar: { _id: PILAR_ID, name: "Prática", status: "ativo" },
+      title: "Desafio antigo",
+      description: "Não deve mais aparecer na lista padrão.",
+      difficulty: "facil",
+      points: 10,
+      type: "individual",
+      maxParticipantes: 1,
+      status: "apagado",
+    });
+    const populate = jest.fn(() => ({ lean }));
+    Desafio.findByIdAndUpdate.mockReturnValue({ populate });
+
+    const result = await disableDesafio(ADMIN_ID, "6814f12ab3f34872f7558f52");
+
+    expect(Desafio.findByIdAndUpdate).toHaveBeenCalledWith(
+      "6814f12ab3f34872f7558f52",
+      { status: "apagado" },
+      { new: true }
+    );
+    expect(result.status).toBe("apagado");
   });
 
   it("lista apenas desafios ativos para aluno autenticado com paginação", async () => {

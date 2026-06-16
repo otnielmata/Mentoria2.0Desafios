@@ -323,10 +323,10 @@ paths:
       tags: [Desafios]
       security:
         - bearerAuth: []
-      summary: Desativa desafio pelo caminho usado pela Web
+      summary: Apaga desafio pelo caminho usado pela Web usando status apagado
       responses:
         "200":
-          description: Desafio desativado
+          description: Desafio marcado como apagado
   /api/desafios/inscricoes/minhas:
     get:
       tags: [Desafios]

@@ -1404,7 +1404,7 @@ function AdminDesafiosView({ apiClient }) {
     setError("");
     try {
       await apiClient.request({ method: "DELETE", path: `/desafios/${desafio.id}` });
-      setFeedback("Desafio apagado da lista ativa.");
+      setFeedback("Desafio apagado.");
       if (editing && editing.id === desafio.id) setEditing(null);
       await load();
     } catch (deleteError) {
@@ -1555,7 +1555,7 @@ function AdminDesafiosView({ apiClient }) {
               <th>Participantes</th>
               <th>Status</th>
               <th>ID</th>
-              <th>Ação</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1576,11 +1576,11 @@ function AdminDesafiosView({ apiClient }) {
                     <button className="button secondary" type="button" onClick={() => setEditing(desafio)}>
                       Editar
                     </button>
-                    <button className="button secondary" type="button" onClick={() => toggleDesafioStatus(desafio)}>
-                      {desafio.status === "ativo" ? "Desativar" : "Ativar"}
-                    </button>
                     <button className="button ghost" type="button" onClick={() => deleteDesafio(desafio)}>
                       Apagar
+                    </button>
+                    <button className="button secondary" type="button" onClick={() => toggleDesafioStatus(desafio)}>
+                      {desafio.status === "ativo" ? "Desativar" : "Ativar"}
                     </button>
                   </div>
                 </td>

@@ -21,7 +21,7 @@ const ADMIN_ROLES = ["professor", "admin"];
 const ALLOWED_TYPES = ["individual", "grupo", "ambos"];
 const GROUP_TYPES = ["grupo", "ambos"];
 const ACTIVE_STATUS = "ativo";
-const ALLOWED_STATUSES = ["ativo", "inativo"];
+const ALLOWED_STATUSES = ["ativo", "inativo", "apagado"];
 const ALLOWED_RECURRENCE_PERIODS = ["diario", "semanal", "mensal"];
 const ALLOWED_RECURRENCE_ACTIONS = ["bloquear"];
 
@@ -120,9 +120,9 @@ function parseStatus(value) {
   const status = normalizeText(value || ACTIVE_STATUS);
 
   if (!ALLOWED_STATUSES.includes(status)) {
-    throw createHttpError("Status deve ser ativo ou inativo.", 400, {
+    throw createHttpError("Status deve ser ativo, inativo ou apagado.", 400, {
       code: "VALIDATION_ERROR",
-      details: [{ field: "status", message: "Status deve ser ativo ou inativo." }],
+      details: [{ field: "status", message: "Status deve ser ativo, inativo ou apagado." }],
     });
   }
 
@@ -355,9 +355,9 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
 }
 
 async function disableDesafio(authenticatedUserId, desafioId) {
-  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode desativar desafios.");
+  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode apagar desafios.");
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
-  const desafio = await Desafio.findByIdAndUpdate(id, { status: "inativo" }, { new: true }).populate("pilar").lean();
+  const desafio = await Desafio.findByIdAndUpdate(id, { status: "apagado" }, { new: true }).populate("pilar").lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   return serializeDesafio(desafio);
 }
