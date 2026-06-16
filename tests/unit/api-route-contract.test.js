@@ -22,6 +22,8 @@ const webContractRouteKeys = [
   "GET /users/me",
   "GET /users",
   "POST /users",
+  "GET /users/:id",
+  "PATCH /users/:id",
   "GET /turmas",
   "POST /turmas",
   "GET /pilares",
@@ -109,6 +111,8 @@ describe("api route contract MR-91", () => {
     const adminRouteKeys = [
       "GET /users",
       "POST /users",
+      "GET /users/:id",
+      "PATCH /users/:id",
       "GET /turmas",
       "POST /turmas",
       "POST /pilares",
@@ -138,6 +142,7 @@ describe("api route contract MR-91", () => {
     [
       "/api/users/me",
       "/api/users",
+      "/api/users/:id",
       "/api/envios-desafios/meus",
       "/api/desafios/inscricoes/minhas",
       "/api/desafios/:id/inscricoes",

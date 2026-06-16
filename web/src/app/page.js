@@ -3,12 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import apiClientModule from "../lib/api-client";
-import configurationControllerModule from "../controllers/configuration.controller";
-import configurationViewModule from "../views/configuration.view";
 
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
-const { loadConfigurationView } = configurationControllerModule;
-const { createConfigurationReadOnlyView } = configurationViewModule;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
@@ -41,6 +37,7 @@ const MENU_BY_ROLE = {
     { key: "aprovacoes", label: "Aprovações", supported: true },
     { key: "ranking", label: "Ranking", supported: true },
     { key: "relatorios", label: "Relatórios", supported: false },
+    { key: "configuracoes", label: "Configurações", supported: true, roles: ["admin"] },
   ],
 };
 
@@ -107,6 +104,19 @@ function formatEvidenceItem(item) {
   if (!item) return "-";
   if (typeof item === "string") return item;
   return item.url || item.link || item.name || item.nome || item.text || item.texto || JSON.stringify(item);
+}
+
+function formatAttachmentItem(item) {
+  if (!item) return "";
+  if (typeof item === "string") return item.trim();
+  if (typeof item !== "object") return String(item).trim();
+
+  return String(item.url || item.link || item.name || item.nome || item.filename || item.fileName || "").trim();
+}
+
+function formatAttachmentList(items) {
+  const formattedItems = getArray(items).map(formatAttachmentItem).filter(Boolean);
+  return formattedItems.length > 0 ? formattedItems.join(", ") : "Sem anexo";
 }
 
 function todaySuffix() {
@@ -303,75 +313,266 @@ function Sidebar({ activeView, menu, onNavigate, onLogout, user }) {
 }
 
 function ConfigurationView({ apiClient }) {
-  const [state, setState] = useState({ loading: true, error: "", view: null });
+  const [users, setUsers] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [filters, setFilters] = useState({ search: "", role: "", status: "" });
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  function buildUsersPath(nextFilters = filters) {
+    const params = new URLSearchParams({ limit: "100" });
+    if (nextFilters.search) params.set("search", nextFilters.search);
+    if (nextFilters.role) params.set("role", nextFilters.role);
+    if (nextFilters.status) params.set("status", nextFilters.status);
+    return `/users?${params.toString()}`;
+  }
+
+  async function load(nextFilters = filters) {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await apiClient.request({ method: "GET", path: buildUsersPath(nextFilters) });
+      setUsers(getArray(result, "users").length > 0 ? getArray(result, "users") : getArray(result, "usuarios"));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    let active = true;
-
-    async function load() {
-      setState({ loading: true, error: "", view: null });
-      try {
-        const viewModel = await loadConfigurationView(apiClient);
-        if (!active) return;
-        setState({ loading: false, error: "", view: createConfigurationReadOnlyView(viewModel) });
-      } catch (error) {
-        if (!active) return;
-        setState({ loading: false, error: getErrorMessage(error), view: null });
-      }
-    }
-
     load();
-
-    return () => {
-      active = false;
-    };
   }, [apiClient]);
 
-  if (state.loading) {
-    return <div className="alert neutral">Carregando configurações...</div>;
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
   }
 
-  if (state.error) {
-    return <div className="alert">{state.error}</div>;
+  async function applyFilters(event) {
+    event.preventDefault();
+    await load(filters);
   }
 
-  const view = state.view;
+  async function createUser(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "POST", path: "/users" },
+        {
+          body: {
+            name: data.get("name"),
+            email: data.get("email"),
+            password: data.get("password"),
+            role: data.get("role"),
+            status: data.get("status"),
+          },
+        }
+      );
+      event.currentTarget.reset();
+      setFeedback("Usuário cadastrado com sucesso.");
+      await load();
+    } catch (createError) {
+      setError(getErrorMessage(createError));
+    }
+  }
+
+  async function updateUser(event) {
+    event.preventDefault();
+    if (!editing) return;
+    const data = new FormData(event.currentTarget);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: `/users/${editing.id}` },
+        {
+          body: {
+            name: data.get("editName"),
+            email: data.get("editEmail"),
+            password: data.get("editPassword") || undefined,
+            role: data.get("editRole"),
+            status: data.get("editStatus"),
+          },
+        }
+      );
+      setEditing(null);
+      setFeedback("Usuário atualizado com sucesso.");
+      await load();
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    }
+  }
 
   return (
     <div className="content">
-      <section className="metrics">
-        {view.highlights.map((item) => (
-          <div className="metric" key={item.label}>
-            <span className="muted">{item.label}</span>
-            <strong>{item.value}</strong>
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Configurações</h2>
+            <p className="muted">Gestão de usuários e perfis do sistema.</p>
           </div>
-        ))}
+          <button className="button secondary" type="button" onClick={() => load()}>
+            Atualizar
+          </button>
+        </div>
+        <Notice message={feedback} />
+        <Notice message={error} type="error" />
+
+        <form className="form-grid" onSubmit={createUser}>
+          <label className="field">
+            <span>Nome</span>
+            <input name="name" required placeholder="Nome completo" />
+          </label>
+          <label className="field">
+            <span>E-mail</span>
+            <input name="email" required type="email" placeholder="usuario@exemplo.com" />
+          </label>
+          <label className="field">
+            <span>Senha inicial</span>
+            <input name="password" required type="password" defaultValue="Teste@123" />
+          </label>
+          <label className="field">
+            <span>Perfil</span>
+            <select name="role" defaultValue="aluno">
+              <option value="aluno">Aluno</option>
+              <option value="professor">Professor</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select name="status" defaultValue="ativo">
+              <option value="ativo">ativo</option>
+              <option value="inativo">inativo</option>
+            </select>
+          </label>
+          <button className="button" type="submit">
+            Cadastrar usuário
+          </button>
+        </form>
       </section>
+
+      {editing ? (
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <h2>Editar usuário</h2>
+              <p className="muted">Atualize dados, senha, status e perfil de acesso.</p>
+            </div>
+            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
+              Cancelar
+            </button>
+          </div>
+          <form className="form-grid" key={editing.id} onSubmit={updateUser}>
+            <label className="field">
+              <span>Nome</span>
+              <input name="editName" required defaultValue={editing.name} />
+            </label>
+            <label className="field">
+              <span>E-mail</span>
+              <input name="editEmail" required type="email" defaultValue={editing.email} />
+            </label>
+            <label className="field">
+              <span>Nova senha</span>
+              <input name="editPassword" type="password" placeholder="Preencha apenas se for alterar" />
+            </label>
+            <label className="field">
+              <span>Perfil</span>
+              <select name="editRole" defaultValue={editing.role || "aluno"}>
+                <option value="aluno">Aluno</option>
+                <option value="professor">Professor</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Status</span>
+              <select name="editStatus" defaultValue={editing.status || "ativo"}>
+                <option value="ativo">ativo</option>
+                <option value="inativo">inativo</option>
+              </select>
+            </label>
+            <button className="button" type="submit">
+              Salvar usuário
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>{view.title}</h2>
-            <p className="muted">{view.mode === "readonly" ? "Somente leitura" : "Editável"}</p>
+            <h2>Usuários</h2>
+            <p className="muted">Filtre por nome, e-mail, status ou perfil.</p>
           </div>
         </div>
 
-        <div className="status-grid">
-          {view.parameters.map((parameter) => (
-            <div className="status-item" key={parameter.id}>
-              <span className={`badge ${parameter.status === "ativo" ? "ok" : parameter.status === "futuro" ? "warn" : "off"}`}>
-                {parameter.status}
-              </span>
-              <strong>{parameter.title}</strong>
-              <span className="muted">{parameter.value}</span>
-            </div>
-          ))}
-        </div>
+        <form className="form-grid" onSubmit={applyFilters}>
+          <label className="field">
+            <span>Buscar</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Nome ou e-mail" />
+          </label>
+          <label className="field">
+            <span>Perfil</span>
+            <select value={filters.role} onChange={(event) => updateFilter("role", event.target.value)}>
+              <option value="">Todos</option>
+              <option value="aluno">Aluno</option>
+              <option value="professor">Professor</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}>
+              <option value="">Todos</option>
+              <option value="ativo">ativo</option>
+              <option value="inativo">inativo</option>
+            </select>
+          </label>
+          <button className="button secondary" type="submit">
+            Filtrar
+          </button>
+        </form>
+
+        {loading ? <Notice message="Carregando usuários..." /> : null}
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Perfil</th>
+              <th>Status</th>
+              <th>ID</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((managedUser) => (
+              <tr key={managedUser.id}>
+                <td>{managedUser.name}</td>
+                <td>{managedUser.email}</td>
+                <td>{managedUser.role}</td>
+                <td>{managedUser.status}</td>
+                <td>
+                  <code>{managedUser.id}</code>
+                </td>
+                <td>
+                  <button className="button secondary" type="button" onClick={() => setEditing(managedUser)}>
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!loading && users.length === 0 ? <Notice message="Nenhum usuário encontrado para o filtro informado." /> : null}
       </section>
     </div>
   );
 }
-
 function ProfileView({ apiClient, user, onUserChange }) {
   const [profile, setProfile] = useState(user);
   const [feedback, setFeedback] = useState("");
@@ -1678,9 +1879,10 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item">
               <span className="muted">Pontuação</span>
-              <strong>
-                {formatNumber(envio.desafio && envio.desafio.points)} + {formatNumber(envio.desafio && envio.desafio.livePresentationPoints)} apresentação
-              </strong>
+              <strong>{formatNumber(envio.desafio && envio.desafio.points)} pontos do desafio</strong>
+              <span className="muted">
+                +{formatNumber(envio.desafio && envio.desafio.livePresentationPoints)} apresentação somente se marcar o checkbox ao aprovar
+              </span>
             </div>
             <div className="status-item">
               <span className="muted">Participantes</span>
@@ -1692,7 +1894,7 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item span-2">
               <span className="muted">Anexos</span>
-              <strong>{getArray(envio, "anexos").map(formatEvidenceItem).join(", ") || "-"}</strong>
+              <strong>{formatAttachmentList(envio && envio.anexos)}</strong>
             </div>
           </div>
           <form className="form-grid" onSubmit={(event) => evaluateEnvio(event, envio)}>
@@ -2184,7 +2386,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
   const [activeView, setActiveView] = useState(getInitialView(user));
   const [selectedMenu, setSelectedMenu] = useState(null);
   const role = getRole(user);
-  const menu = MENU_BY_ROLE[role];
+  const menu = MENU_BY_ROLE[role].filter((item) => !item.roles || item.roles.includes(user.role));
 
   function navigate(item) {
     setSelectedMenu(item);

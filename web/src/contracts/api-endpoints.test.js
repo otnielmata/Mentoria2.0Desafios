@@ -5,13 +5,16 @@ import contractModule from "./api-endpoints";
 const { WEB_API_ENDPOINTS, getActiveWebApiEndpoints, getFutureWebApiEndpoints } = contractModule;
 
 describe("api-endpoints contract", () => {
-  it("mantém Configurações como funcionalidade futura na Web", () => {
-    const settings = WEB_API_ENDPOINTS.find((endpoint) => endpoint.key === "admin.settings");
+  it("expõe Configurações como gestão ativa de usuários e perfis", () => {
+    const settingsUsers = WEB_API_ENDPOINTS.filter((endpoint) => endpoint.menu === "Configurações" && endpoint.feature === "Configurações");
 
-    expect(settings).toMatchObject({
-      future: true,
-      menu: "Configurações",
-    });
+    expect(settingsUsers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "admin.users.list", method: "GET", path: "/users", roles: ["admin"] }),
+        expect.objectContaining({ key: "admin.users.create", method: "POST", path: "/users", roles: ["admin"] }),
+        expect.objectContaining({ key: "admin.users.update", method: "PATCH", path: "/users/:id", roles: ["admin"] }),
+      ])
+    );
   });
 
   it("expõe as rotas administrativas usadas pelas telas ativas", () => {
@@ -26,6 +29,9 @@ describe("api-endpoints contract", () => {
         "admin.challenges.update",
         "admin.approvals.evaluate",
         "admin.ranking",
+        "admin.users.list",
+        "admin.users.create",
+        "admin.users.update",
       ])
     );
   });

@@ -110,23 +110,44 @@ paths:
           description: Token inválido ou ausente
   /api/users:
     get:
-      tags: [Alunos]
+      tags: [Admin]
       security:
         - bearerAuth: []
-      summary: Lista usuários/alunos para professor ou admin
+      summary: Lista usuários para gestão de perfis pelo administrador
       responses:
         "200":
           description: Lista retornada
         "403":
           description: Perfil sem permissão
     post:
-      tags: [Alunos]
+      tags: [Admin]
       security:
         - bearerAuth: []
-      summary: Cadastra aluno para professor ou admin
+      summary: Cadastra usuário com perfil aluno, professor ou admin
       responses:
         "201":
-          description: Aluno cadastrado
+          description: Usuário cadastrado
+        "403":
+          description: Perfil sem permissão
+  /api/users/:id:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Visualiza usuário na gestão de perfis
+      responses:
+        "200":
+          description: Usuário retornado
+        "403":
+          description: Perfil sem permissão
+    patch:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Edita nome, e-mail, senha, status e perfil do usuário
+      responses:
+        "200":
+          description: Usuário atualizado
         "403":
           description: Perfil sem permissão
   /api/alunos:

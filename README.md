@@ -73,7 +73,7 @@ npm install
 - `POST /api/usuarios/registro` e `POST /api/usuarios/login` (aliases MR-1/MR-2)
 - `GET /api/me` e `PATCH /api/me` (nome e senha do próprio perfil; turma, status e perfil são administrativos)
 - `GET /api/users/me` (perfil autenticado consumido pela Web)
-- `POST /api/users` e `GET /api/users` (professor/admin)
+- `POST /api/users`, `GET /api/users`, `GET /api/users/:id` e `PATCH /api/users/:id` (admin)
 - `POST /api/heuristicas` e `GET /api/heuristicas`
 - `POST /api/alunos`, `GET /api/alunos`, `GET /api/alunos/:id`, `PATCH /api/alunos/:id`, `DELETE /api/alunos/:id`
 - `POST /api/turmas`, `GET /api/turmas`, `GET /api/turmas/:id`, `PATCH /api/turmas/:id`, `DELETE /api/turmas/:id`
@@ -113,7 +113,7 @@ Em `Meus Grupos`, o aluno vê os integrantes do grupo automático e qualquer par
 
 ## Fluxo Web do professor/admin
 
-O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Aprovações`, `Grupos`, `Ranking` e `Relatórios`. `Configurações` permanece oculto no menu Web por enquanto.
+O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Aprovações`, `Grupos`, `Ranking`, `Relatórios` e, para usuários com perfil `admin`, `Configurações`.
 
 Em `Alunos`, professor/admin pode cadastrar alunos e editar nome, e-mail, senha, status e turma. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
 
@@ -126,6 +126,8 @@ Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade
 Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, desafio, turma e participantes do envio. Ao aprovar, a API lança a pontuação para todos os integrantes do grupo. Se a opção de apresentação ao vivo for marcada, a pontuação extra cadastrada no desafio é somada para todos os participantes aprovados.
 
 Em `Ranking`, a Web lista todos os alunos rankeados por pontuação total e quantidade de desafios executados.
+
+Em `Configurações`, o administrador faz a gestão geral de usuários e perfis do sistema. A tela permite filtrar por nome/e-mail, perfil e status, cadastrar usuários com perfil `aluno`, `professor` ou `admin`, visualizar a listagem e editar nome, e-mail, senha, status e perfil.
 
 ## Contrato Web/API
 

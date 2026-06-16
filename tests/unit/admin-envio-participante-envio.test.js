@@ -129,6 +129,38 @@ describe("admin-envio-desafio.service participantes_envio", () => {
     expect(result.envio.avaliacao).toMatchObject({ apresentacaoAoVivo: true });
   });
 
+  it("aprova envio sem somar apresentação quando o checkbox não foi marcado", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, points: 20, livePresentationPoints: 10, difficulty: "medio" },
+      turma: "6814f12ab3f34872f7558f45",
+      aluno: OWNER_ID,
+      description: "Entrega em grupo sem apresentação",
+      type: "grupo",
+      evidencias: ["https://exemplo.com/sem-apresentacao"],
+      participantes: [],
+      status: "pendente",
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+
+    const result = await evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "aprovado" });
+
+    expect(Pontuacao.create).toHaveBeenCalledWith([
+      expect.objectContaining({ aluno: OWNER_ID, pontos: 20, motivo: "desafio_medio" }),
+      expect.objectContaining({ aluno: PARTICIPANT_ID, pontos: 20, motivo: "desafio_medio" }),
+    ]);
+    expect(result.pontuacao).toMatchObject({
+      pontos: 20,
+      geradas: 2,
+      alunos: [OWNER_ID, PARTICIPANT_ID],
+    });
+    expect(result.pontuacao).not.toHaveProperty("bonusApresentacaoAoVivo");
+    expect(result.envio.avaliacao).toMatchObject({ apresentacaoAoVivo: false });
+  });
+
   it("bloqueia pontuação duplicada para mesma evidência, desafio e aluno", async () => {
     const envio = {
       _id: ENVIO_ID,
