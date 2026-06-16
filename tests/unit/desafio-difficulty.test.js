@@ -107,6 +107,27 @@ describe("desafio.service difficulty", () => {
     );
   });
 
+  it("cadastra pontuação extra para apresentação ao vivo", async () => {
+    const desafio = await createDesafio(ADMIN_ID, {
+      pilarId: PILAR_ID,
+      title: "Apresentar solução",
+      description: "Mostrar a entrega em evento ao vivo.",
+      points: 20,
+      livePresentationPoints: 15,
+      type: "grupo",
+      maxParticipantes: 5,
+    });
+
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        points: 20,
+        livePresentationPoints: 15,
+      })
+    );
+    expect(desafio.livePresentationPoints).toBe(15);
+    expect(desafio.pontosApresentacaoAoVivo).toBe(15);
+  });
+
   it("cadastra desafio recorrente com limite de pontos por período", async () => {
     const desafio = await createDesafio(ADMIN_ID, {
       pilarId: PILAR_ID,

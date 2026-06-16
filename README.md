@@ -111,6 +111,22 @@ Em `Desafios`, o aluno primeiro se inscreve em um desafio ativo. A API cria ou c
 
 Em `Meus Grupos`, o aluno vê os integrantes do grupo automático e qualquer participante pode informar ou atualizar o link de contato do grupo (`whatsapp`, `telegram` ou `discord`) para combinar a execução do desafio.
 
+## Fluxo Web do professor/admin
+
+O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Aprovações`, `Grupos`, `Ranking` e `Relatórios`. `Configurações` permanece oculto no menu Web por enquanto.
+
+Em `Alunos`, professor/admin pode cadastrar alunos e editar nome, e-mail, senha, status e turma. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
+
+Em `Pilares`, professor/admin pode cadastrar, editar, inativar e reativar pilares do método.
+
+Em `Dashboard`, a Web exibe alunos ativos, quantidade de desafios enviados, aprovações pendentes, ranking dos 10 primeiros alunos e gráfico de pizza com o percentual de desafios aprovados por pilar.
+
+Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. Quando um desafio ativo aparece na lista, o botão exibido é `Desativar`; quando está inativo, o botão exibido é `Ativar`.
+
+Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, desafio, turma e participantes do envio. Ao aprovar, a API lança a pontuação para todos os integrantes do grupo. Se a opção de apresentação ao vivo for marcada, a pontuação extra cadastrada no desafio é somada para todos os participantes aprovados.
+
+Em `Ranking`, a Web lista todos os alunos rankeados por pontuação total e quantidade de desafios executados.
+
 ## Contrato Web/API
 
 A Web mantém a lista centralizada de endpoints consumidos em `web/src/contracts/api-endpoints.js`. Cada item informa funcionalidade, tela, menu, método, rota, perfis permitidos e se o endpoint é futuro. Endpoints marcados como futuros precisam ter justificativa explícita e não podem ser tratados como funcionalidade pronta no menu.

@@ -126,6 +126,35 @@ describe("pontuacao.service MR-94", () => {
     });
   });
 
+  it("soma bônus de apresentação ao vivo para todos os participantes aprovados", async () => {
+    mockLean(ParticipanteEnvio.find, [{ aluno: PARTICIPANT_ID }]);
+
+    const result = await generatePontuacoesForApprovedEnvio(
+      {
+        _id: ENVIO_ID,
+        aluno: OWNER_ID,
+        status: "aprovado",
+        type: "grupo",
+        participantes: [],
+      },
+      { _id: DESAFIO_ID, points: 20, livePresentationPoints: 10, difficulty: "medio" },
+      undefined,
+      { apresentacaoAoVivo: true }
+    );
+
+    expect(Pontuacao.create).toHaveBeenCalledWith([
+      expect.objectContaining({ aluno: OWNER_ID, pontos: 30, motivo: "desafio_medio_apresentacao_ao_vivo" }),
+      expect.objectContaining({ aluno: PARTICIPANT_ID, pontos: 30, motivo: "desafio_medio_apresentacao_ao_vivo" }),
+    ]);
+    expect(result).toMatchObject({
+      pontos: 30,
+      pontosBase: 20,
+      bonusApresentacaoAoVivo: 10,
+      geradas: 2,
+      alunos: [OWNER_ID, PARTICIPANT_ID],
+    });
+  });
+
   it("não aplica bônus de liderança enquanto a configuração do MVP estiver desligada", () => {
     expect(shouldApplyLeadershipBonus()).toBe(false);
   });

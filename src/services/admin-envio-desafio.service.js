@@ -18,6 +18,7 @@ const {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
   generatePontuacoesForApprovedEnvio,
+  getLivePresentationBonusPoints,
   getScoreRecipients,
 } = require("./pontuacao.service");
 
@@ -39,6 +40,10 @@ function parseEvaluationPayload(payload = {}) {
   const decision = normalizeText(getFirstValue(payload, ["decision", "decisao", "status", "resultado"]));
   if (!ALLOWED_DECISIONS.includes(decision)) throw createHttpError("Decisão deve ser aprovado, reprovado ou ajuste.", 400);
   const feedback = getFirstValue(payload, ["feedback", "comentario", "comentário", "observacao", "observação"]);
+  const apresentacaoAoVivo = parseBoolean(
+    getFirstValue(payload, ["apresentacaoAoVivo", "apresentouAoVivo", "livePresentation", "apresentacao_ao_vivo"]),
+    "apresentacaoAoVivo"
+  );
   if (FEEDBACK_REQUIRED_DECISIONS.includes(decision) && (!feedback || typeof feedback !== "string" || feedback.trim().length === 0)) {
     throw createHttpError("Feedback é obrigatório para reprovar ou solicitar ajuste.", 400);
   }
@@ -46,10 +51,65 @@ function parseEvaluationPayload(payload = {}) {
   return {
     decision,
     feedback: typeof feedback === "string" ? feedback.trim() : null,
+    apresentacaoAoVivo,
     avaliacao: {
       decision,
       feedback: typeof feedback === "string" ? feedback.trim() : null,
+      apresentacaoAoVivo,
     },
+  };
+}
+
+function parseBoolean(value, fieldName) {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "boolean") return value;
+  if (["true", "1", "sim", "s", "yes", "y"].includes(normalizeText(value))) return true;
+  if (["false", "0", "nao", "não", "n", "no"].includes(normalizeText(value))) return false;
+  throw createHttpError(`${fieldName} deve ser verdadeiro ou falso.`, 400);
+}
+
+function serializeUser(user) {
+  if (!user || typeof user !== "object") return user ? { id: getEntityId(user) } : null;
+  return {
+    id: getEntityId(user),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+  };
+}
+
+function serializeTurma(turma) {
+  if (!turma || typeof turma !== "object") return turma ? { id: getEntityId(turma) } : null;
+  return {
+    id: getEntityId(turma),
+    name: turma.name,
+    code: turma.code,
+    status: turma.status,
+  };
+}
+
+function serializePilar(pilar) {
+  if (!pilar || typeof pilar !== "object") return pilar ? { id: getEntityId(pilar) } : null;
+  return {
+    id: getEntityId(pilar),
+    name: pilar.name,
+    description: pilar.description,
+    status: pilar.status,
+  };
+}
+
+function serializeDesafio(desafio) {
+  if (!desafio || typeof desafio !== "object") return desafio ? { id: getEntityId(desafio) } : null;
+  return {
+    id: getEntityId(desafio),
+    title: desafio.title,
+    description: desafio.description,
+    points: desafio.points,
+    livePresentationPoints: Number(desafio.livePresentationPoints || 0),
+    type: desafio.type,
+    difficulty: desafio.difficulty,
+    pilar: serializePilar(desafio.pilar),
   };
 }
 
@@ -57,14 +117,21 @@ function serializeEnvio(envio) {
   return {
     id: getEntityId(envio),
     desafioId: getEntityId(envio.desafio),
+    desafio: serializeDesafio(envio.desafio),
     turmaId: getEntityId(envio.turma),
+    turma: serializeTurma(envio.turma),
     alunoId: getEntityId(envio.aluno),
+    aluno: serializeUser(envio.aluno),
     description: envio.description,
     type: envio.type,
     evidencias: envio.evidencias,
-    participantes: (envio.participantes || []).map(getEntityId),
+    anexos: envio.anexos || [],
+    participantes: (envio.participantes || []).map((participante) =>
+      typeof participante === "object" ? serializeUser(participante) : { id: getEntityId(participante) }
+    ),
     status: envio.status,
     feedback: envio.feedback,
+    avaliacao: envio.avaliacao || null,
     evaluatedBy: envio.evaluatedBy ? getEntityId(envio.evaluatedBy) : null,
     evaluatedAt: toIsoDate(envio.evaluatedAt),
     approvedBy: envio.approvedBy ? getEntityId(envio.approvedBy) : null,
@@ -99,10 +166,11 @@ async function listPending(authenticatedUserId, query = {}) {
     EnvioDesafio.countDocuments(filters),
     EnvioDesafio.find(filters)
       .populate("aluno", "name email role status")
+      .populate("participantes", "name email role status")
       .populate("turma", "name code status")
       .populate({
         path: "desafio",
-        select: "title points difficulty type pilar",
+        select: "title description points livePresentationPoints difficulty type pilar",
         populate: { path: "pilar", select: "name description status" },
       })
       .sort({ createdAt: sortDirection })
@@ -149,6 +217,7 @@ async function logEvaluationEvent(envio, reviewer, previousStatus, parsedEvaluat
     metadata: {
       decision: parsedEvaluation.decision,
       feedback: parsedEvaluation.feedback,
+      apresentacaoAoVivo: parsedEvaluation.apresentacaoAoVivo,
       evaluatedAt: toIsoDate(envio.evaluatedAt),
     },
     occurredAt: envio.evaluatedAt || new Date(),
@@ -177,11 +246,17 @@ async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
 
   const desafio = await getDesafioForEnvio(envio);
   const scoreRecipients = await getScoreRecipients(envio);
+  const bonusApresentacaoAoVivo = getLivePresentationBonusPoints(desafio, parsedEvaluation.apresentacaoAoVivo);
   await assertNoDuplicateEvidenceScore(envio, desafio, scoreRecipients);
-  await assertRecurringScoreLimit(envio, desafio, scoreRecipients);
+  await assertRecurringScoreLimit(envio, desafio, scoreRecipients, new Date(), {
+    pontosSolicitados: Number(desafio.points) + bonusApresentacaoAoVivo,
+  });
   applyEvaluation(envio, reviewer, parsedEvaluation);
   const updated = await envio.save();
-  const pontuacao = await generatePontuacoesForApprovedEnvio(updated, desafio, scoreRecipients, { skipRecurrenceCheck: true });
+  const pontuacao = await generatePontuacoesForApprovedEnvio(updated, desafio, scoreRecipients, {
+    apresentacaoAoVivo: parsedEvaluation.apresentacaoAoVivo,
+    skipRecurrenceCheck: true,
+  });
   await logEvaluationEvent(updated, reviewer, currentStatus, parsedEvaluation);
   return {
     envio: serializeEnvio(updated),

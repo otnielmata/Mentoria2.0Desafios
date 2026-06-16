@@ -7,6 +7,7 @@ const {
   buildPagination,
   createHttpError,
   getEntityId,
+  getFirstValue,
   normalizeText,
   parseObjectId,
   parseOptionalObjectId,
@@ -19,6 +20,8 @@ const ADMIN_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
 const ACTIVE_STATUS = "ativo";
 const ALLOWED_STUDENT_STATUSES = ["ativo", "inativo"];
+const ACTIVE_CLASS_LINK_STATUS = "ativa";
+const INACTIVE_CLASS_LINK_STATUS = "inativa";
 
 function serializeStudent(user) {
   return {
@@ -73,6 +76,41 @@ async function assertTurmaExists(turmaId) {
   const turma = await Turma.findById(turmaId);
   if (!turma) throw createHttpError("Turma não encontrada.", 404);
   return turma;
+}
+
+async function syncStudentTurma(studentId, turmaId) {
+  const normalizedTurmaId = turmaId || null;
+
+  if (typeof AlunoTurma.updateMany === "function") {
+    await AlunoTurma.updateMany(
+      { aluno: studentId, status: ACTIVE_CLASS_LINK_STATUS },
+      { status: INACTIVE_CLASS_LINK_STATUS, removedAt: new Date() }
+    );
+  }
+
+  if (typeof Turma.updateMany === "function") {
+    await Turma.updateMany({ alunos: studentId }, { $pull: { alunos: studentId } });
+  }
+
+  if (!normalizedTurmaId) {
+    return [];
+  }
+
+  if (typeof AlunoTurma.findOneAndUpdate === "function") {
+    await AlunoTurma.findOneAndUpdate(
+      { aluno: studentId, turma: normalizedTurmaId },
+      { aluno: studentId, turma: normalizedTurmaId, status: ACTIVE_CLASS_LINK_STATUS, removedAt: null },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } else if (typeof AlunoTurma.create === "function") {
+    await AlunoTurma.create({ aluno: studentId, turma: normalizedTurmaId, status: ACTIVE_CLASS_LINK_STATUS });
+  }
+
+  if (typeof Turma.updateOne === "function") {
+    await Turma.updateOne({ _id: normalizedTurmaId }, { $addToSet: { alunos: studentId } });
+  }
+
+  return [normalizedTurmaId];
 }
 
 async function createStudent(authenticatedUserId, payload = {}) {
@@ -189,6 +227,16 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
 
   const status = parseOptionalText(payload.status || payload.situacao, "Status");
   if (status) updates.status = parseStudentStatus(status);
+
+  const password = parseOptionalText(payload.password || payload.senha || payload.newPassword || payload.novaSenha, "Senha");
+  if (password) updates.passwordHash = await bcrypt.hash(password, 10);
+
+  const rawTurmaId = getFirstValue(payload, ["turmaId", "turma_id", "turma"]);
+  if (rawTurmaId !== undefined) {
+    const turmaId = parseOptionalObjectId(rawTurmaId, "Turma deve ser um identificador válido.");
+    await assertTurmaExists(turmaId);
+    updates.turmas = await syncStudentTurma(id, turmaId);
+  }
 
   const updated = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
   return serializeStudent(updated);

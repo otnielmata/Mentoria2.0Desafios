@@ -165,6 +165,14 @@ h3 {
   resize: vertical;
 }
 
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-weight: 700;
+}
+
 .button {
   min-height: 42px;
   padding: 10px 14px;
@@ -277,6 +285,10 @@ h3 {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: end;
+}
+
+.table-actions {
+  justify-content: start;
 }
 
 .content {

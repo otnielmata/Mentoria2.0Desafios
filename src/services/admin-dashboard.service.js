@@ -11,7 +11,7 @@ const STUDENT_ROLE = "aluno";
 const INACTIVE_STATUS = "inativo";
 const APPROVED_STATUS = "aprovado";
 const PENDING_STATUS = "pendente";
-const TOP_RANKING_LIMIT = 5;
+const TOP_RANKING_LIMIT = 10;
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -269,6 +269,20 @@ function buildRankingPorPilar(pontuacoes) {
     .sort((first, second) => second.totalPontos - first.totalPontos);
 }
 
+function buildDesafiosPorPilar(rankingPorPilar) {
+  const totalDesafios = rankingPorPilar.reduce((total, item) => total + Number(item.desafiosAprovados || 0), 0);
+
+  return rankingPorPilar.map((item) => {
+    const quantidade = Number(item.desafiosAprovados || 0);
+    return {
+      pilar: item.pilar,
+      quantidade,
+      percentual: totalDesafios > 0 ? quantidade / totalDesafios : 0,
+      totalPontos: item.totalPontos,
+    };
+  });
+}
+
 function buildEngajamento(activeStudents, envios, approvedEnvioIds) {
   const activeStudentIds = new Set(activeStudents.map(getEntityId));
   const alunosComEnvio = new Set();
@@ -311,18 +325,21 @@ async function getAdminDashboard(authenticatedUserId) {
   const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)));
   const pendingApprovals = (envios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS);
   const ranking = assignPositions(buildStudentRanking(approvedPontuacoes));
+  const rankingPorPilar = buildRankingPorPilar(approvedPontuacoes);
   const engajamento = buildEngajamento(activeStudents, envios || [], approvedEnvioIds);
 
   return {
     indicadores: {
       alunosAtivos: activeStudents.length,
       totalEnvios: (envios || []).length,
+      quantidadeDesafios: (envios || []).length,
       aprovacoesPendentes: pendingApprovals.length,
     },
     topRanking: ranking.slice(0, TOP_RANKING_LIMIT),
     ranking: ranking.slice(0, TOP_RANKING_LIMIT),
     rankingPorTurma: buildRankingPorTurma(approvedPontuacoes),
-    rankingPorPilar: buildRankingPorPilar(approvedPontuacoes),
+    rankingPorPilar,
+    desafiosPorPilar: buildDesafiosPorPilar(rankingPorPilar),
     engajamento,
     metricasParticipacao: engajamento,
   };

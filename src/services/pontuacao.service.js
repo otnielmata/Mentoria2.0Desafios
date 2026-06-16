@@ -162,7 +162,13 @@ function getRecurrenceLimit(desafio) {
   };
 }
 
-async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate = new Date()) {
+function getLivePresentationBonusPoints(desafio, enabled) {
+  if (!enabled) return 0;
+  const pontos = Number(desafio.livePresentationPoints || desafio.pontosApresentacaoAoVivo || desafio.presentationPoints || 0);
+  return Number.isFinite(pontos) && pontos > 0 ? pontos : 0;
+}
+
+async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate = new Date(), options = {}) {
   const recurrence = getRecurrenceLimit(desafio);
   if (!recurrence) {
     return null;
@@ -170,7 +176,7 @@ async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate =
 
   const envioId = getEntityId(envio);
   const desafioId = getEntityId(desafio);
-  const pontos = Number(desafio.points);
+  const pontos = Number(options.pontosSolicitados ?? desafio.points);
   const { start, end } = getPeriodBounds(referenceDate, recurrence.periodo);
   const existingPontuacoes = await Pontuacao.find({
     envio: { $ne: envioId },
@@ -232,6 +238,7 @@ async function logPontuacoesGeradas(envio, desafio, pontuacoes) {
           motivo: pontuacao.motivo,
           source: pontuacao.source,
           desafioPoints: desafio.points,
+          livePresentationPoints: desafio.livePresentationPoints || 0,
         },
       })
     )
@@ -245,10 +252,14 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
   const desafioId = getEntityId(desafio);
   const pontos = Number(desafio.points);
   if (!Number.isFinite(pontos) || pontos <= 0) throw createHttpError("Desafio não possui pontuação válida.", 400);
+  const bonusApresentacaoAoVivo = getLivePresentationBonusPoints(desafio, options.apresentacaoAoVivo);
+  const pontosTotais = pontos + bonusApresentacaoAoVivo;
 
   const alunos = recipients || (await getScoreRecipients(envio));
   if (!options.skipRecurrenceCheck) {
-    await assertRecurringScoreLimit(envio, desafio, alunos, envio.approvedAt || envio.evaluatedAt || new Date());
+    await assertRecurringScoreLimit(envio, desafio, alunos, envio.approvedAt || envio.evaluatedAt || new Date(), {
+      pontosSolicitados: pontosTotais,
+    });
   }
   const existing = await Pontuacao.find({ envio: envioId, aluno: { $in: alunos } }).lean();
   const existingAlunoIds = new Set((existing || []).map((pontuacao) => getEntityId(pontuacao.aluno)));
@@ -258,8 +269,11 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
       envio: envioId,
       desafio: desafioId,
       aluno: alunoId,
-      pontos,
-      motivo: `desafio_${desafio.difficulty || "pontuacao_fixa"}`,
+      pontos: pontosTotais,
+      motivo:
+        bonusApresentacaoAoVivo > 0
+          ? `desafio_${desafio.difficulty || "pontuacao_fixa"}_apresentacao_ao_vivo`
+          : `desafio_${desafio.difficulty || "pontuacao_fixa"}`,
       source: "envio_desafio",
     }));
 
@@ -268,7 +282,8 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
     await logPontuacoesGeradas(envio, desafio, pontuacoesToCreate);
   }
   return {
-    pontos,
+    pontos: pontosTotais,
+    ...(bonusApresentacaoAoVivo > 0 ? { pontosBase: pontos, bonusApresentacaoAoVivo } : {}),
     geradas: pontuacoesToCreate.length,
     ignoradas: alunos.length - pontuacoesToCreate.length,
     alunos,
@@ -280,6 +295,7 @@ module.exports = {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
   generatePontuacoesForApprovedEnvio,
+  getLivePresentationBonusPoints,
   getPeriodBounds,
   getScoreRecipients,
   normalizeEvidenceList,

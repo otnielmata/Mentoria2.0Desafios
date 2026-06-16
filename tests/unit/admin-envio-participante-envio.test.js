@@ -96,6 +96,39 @@ describe("admin-envio-desafio.service participantes_envio", () => {
     );
   });
 
+  it("aprova envio com bônus de apresentação ao vivo para todos os integrantes", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, points: 20, livePresentationPoints: 10, difficulty: "medio" },
+      turma: "6814f12ab3f34872f7558f45",
+      aluno: OWNER_ID,
+      description: "Entrega em grupo apresentada",
+      type: "grupo",
+      evidencias: ["https://exemplo.com/apresentacao"],
+      participantes: [],
+      status: "pendente",
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+
+    const result = await evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "aprovado", apresentacaoAoVivo: true });
+
+    expect(Pontuacao.create).toHaveBeenCalledWith([
+      expect.objectContaining({ aluno: OWNER_ID, pontos: 30, motivo: "desafio_medio_apresentacao_ao_vivo" }),
+      expect.objectContaining({ aluno: PARTICIPANT_ID, pontos: 30, motivo: "desafio_medio_apresentacao_ao_vivo" }),
+    ]);
+    expect(result.pontuacao).toMatchObject({
+      pontos: 30,
+      pontosBase: 20,
+      bonusApresentacaoAoVivo: 10,
+      geradas: 2,
+      alunos: [OWNER_ID, PARTICIPANT_ID],
+    });
+    expect(result.envio.avaliacao).toMatchObject({ apresentacaoAoVivo: true });
+  });
+
   it("bloqueia pontuação duplicada para mesma evidência, desafio e aluno", async () => {
     const envio = {
       _id: ENVIO_ID,

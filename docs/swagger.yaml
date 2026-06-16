@@ -177,6 +177,15 @@ paths:
       responses:
         "200":
           description: Aluno desativado
+  /api/alunos/:id:
+    patch:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Edita aluno pelo caminho usado pela Web
+      responses:
+        "200":
+          description: Aluno atualizado
   /api/turmas:
     get:
       tags: [Turmas]
@@ -265,6 +274,23 @@ paths:
       responses:
         "201":
           description: Pilar cadastrado
+  /api/pilares/:id:
+    patch:
+      tags: [Pilares]
+      security:
+        - bearerAuth: []
+      summary: Edita pilar pelo caminho usado pela Web
+      responses:
+        "200":
+          description: Pilar atualizado
+    delete:
+      tags: [Pilares]
+      security:
+        - bearerAuth: []
+      summary: Exclui pilar da lista ativa pelo caminho usado pela Web
+      responses:
+        "200":
+          description: Pilar inativado
   /api/desafios:
     get:
       tags: [Desafios]
@@ -284,6 +310,23 @@ paths:
           description: Desafio cadastrado
         "400":
           description: Pontuação fixa ausente ou limite de participantes inválido
+  /api/desafios/:id:
+    patch:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Edita desafio, inclusive status e pontos de apresentação ao vivo
+      responses:
+        "200":
+          description: Desafio atualizado
+    delete:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Desativa desafio pelo caminho usado pela Web
+      responses:
+        "200":
+          description: Desafio desativado
   /api/desafios/inscricoes/minhas:
     get:
       tags: [Desafios]

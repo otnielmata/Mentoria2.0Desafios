@@ -3,7 +3,10 @@ jest.mock("bcryptjs", () => ({
 }));
 
 jest.mock("../../src/models/aluno-turma.model", () => ({
+  create: jest.fn(),
   find: jest.fn(),
+  findOneAndUpdate: jest.fn(),
+  updateMany: jest.fn(),
 }));
 
 jest.mock("../../src/models/pontuacao.model", () => ({
@@ -12,6 +15,7 @@ jest.mock("../../src/models/pontuacao.model", () => ({
 
 jest.mock("../../src/models/turma.model", () => ({
   findById: jest.fn(),
+  updateMany: jest.fn(),
   updateOne: jest.fn(),
 }));
 
@@ -30,7 +34,7 @@ const bcrypt = require("bcryptjs");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { createStudent, disableStudent, getStudent, listStudents } = require("../../src/services/student.service");
+const { createStudent, disableStudent, getStudent, listStudents, updateStudent } = require("../../src/services/student.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const STUDENT_ID = "6814f12ab3f34872f7558f42";
@@ -154,5 +158,64 @@ describe("student.service", () => {
       { new: true }
     );
     expect(result.status).toBe("inativo");
+  });
+
+  it("edita aluno com nome, e-mail, senha, status e turma pelo perfil admin", async () => {
+    bcrypt.hash.mockResolvedValue("nova-hash");
+    Turma.findById.mockResolvedValue({ _id: TURMA_ID, name: "Turma 1" });
+    User.findOne
+      .mockReturnValueOnce({
+        lean: jest.fn().mockResolvedValue({ _id: STUDENT_ID, email: "ana@email.com", role: "aluno", turmas: [] }),
+      })
+      .mockReturnValueOnce({
+        lean: jest.fn().mockResolvedValue(null),
+      });
+    User.findByIdAndUpdate.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({
+        _id: STUDENT_ID,
+        name: "Ana Atualizada",
+        email: "ana.nova@email.com",
+        role: "aluno",
+        status: "ativo",
+        turmas: [TURMA_ID],
+      }),
+    });
+
+    const result = await updateStudent(ADMIN_ID, STUDENT_ID, {
+      name: "Ana Atualizada",
+      email: "ana.nova@email.com",
+      password: "Nova@123",
+      status: "ativo",
+      turmaId: TURMA_ID,
+    });
+
+    expect(bcrypt.hash).toHaveBeenCalledWith("Nova@123", 10);
+    expect(AlunoTurma.updateMany).toHaveBeenCalledWith(
+      { aluno: STUDENT_ID, status: "ativa" },
+      expect.objectContaining({ status: "inativa" })
+    );
+    expect(AlunoTurma.findOneAndUpdate).toHaveBeenCalledWith(
+      { aluno: STUDENT_ID, turma: TURMA_ID },
+      { aluno: STUDENT_ID, turma: TURMA_ID, status: "ativa", removedAt: null },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    expect(Turma.updateMany).toHaveBeenCalledWith({ alunos: STUDENT_ID }, { $pull: { alunos: STUDENT_ID } });
+    expect(Turma.updateOne).toHaveBeenCalledWith({ _id: TURMA_ID }, { $addToSet: { alunos: STUDENT_ID } });
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+      STUDENT_ID,
+      expect.objectContaining({
+        email: "ana.nova@email.com",
+        name: "Ana Atualizada",
+        passwordHash: "nova-hash",
+        status: "ativo",
+        turmas: [TURMA_ID],
+      }),
+      { new: true }
+    );
+    expect(result).toMatchObject({
+      email: "ana.nova@email.com",
+      name: "Ana Atualizada",
+      turmas: [TURMA_ID],
+    });
   });
 });

@@ -90,6 +90,13 @@ describe("admin-dashboard.service MR-95", () => {
       [ALUNO_1_ID, 20],
     ]);
     expect(result.metricasParticipacao).toEqual(result.engajamento);
+    expect(result.desafiosPorPilar).toEqual([
+      expect.objectContaining({
+        quantidade: 2,
+        percentual: 1,
+        pilar: expect.objectContaining({ name: "Prática" }),
+      }),
+    ]);
     expect(result.engajamento).toMatchObject({
       alunosComEnvio: 2,
       taxaParticipacao: 1,

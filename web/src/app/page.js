@@ -33,14 +33,13 @@ const MENU_BY_ROLE = {
     { key: "perfil", label: "Meu Perfil", supported: true },
   ],
   admin: [
-    { key: "configuracoes", label: "Configurações", supported: true },
-    { key: "dashboard", label: "Dashboard", supported: false },
+    { key: "dashboard", label: "Dashboard", supported: true },
     { key: "alunos", label: "Alunos", supported: true },
     { key: "turmas", label: "Turmas", supported: true },
-    { key: "pilares", label: "Pilares", supported: false },
+    { key: "pilares", label: "Pilares", supported: true },
     { key: "desafios", label: "Desafios", supported: true },
-    { key: "aprovacoes", label: "Aprovações", supported: false },
-    { key: "ranking", label: "Ranking", supported: false },
+    { key: "aprovacoes", label: "Aprovações", supported: true },
+    { key: "ranking", label: "Ranking", supported: true },
     { key: "relatorios", label: "Relatórios", supported: false },
   ],
 };
@@ -50,7 +49,7 @@ function getRole(user) {
 }
 
 function getInitialView(user) {
-  return getRole(user) === "admin" ? "configuracoes" : "inicio";
+  return getRole(user) === "admin" ? "dashboard" : "inicio";
 }
 
 function getErrorMessage(error) {
@@ -95,6 +94,12 @@ function formatDate(value) {
 
 function formatRankingPosition(value) {
   return value ? `${value}º lugar` : "Sem posição";
+}
+
+function formatEvidenceItem(item) {
+  if (!item) return "-";
+  if (typeof item === "string") return item;
+  return item.url || item.link || item.name || item.nome || item.text || item.texto || JSON.stringify(item);
 }
 
 function todaySuffix() {
@@ -487,6 +492,23 @@ function buildPilarChartItems(dashboard) {
   });
 }
 
+function buildAdminPilarChartItems(dashboard) {
+  const source = getArray(dashboard, "desafiosPorPilar").length > 0 ? getArray(dashboard, "desafiosPorPilar") : getArray(dashboard, "rankingPorPilar");
+  const total = source.reduce((sum, item) => sum + Number(item.quantidade || item.desafiosAprovados || 0), 0);
+
+  return source.map((item, index) => {
+    const value = Number(item.quantidade || item.desafiosAprovados || 0);
+    const percentage = item.percentual !== undefined ? Math.round(Number(item.percentual || 0) * 100) : total > 0 ? Math.round((value / total) * 100) : 0;
+    return {
+      id: (item.pilar && item.pilar.id) || `admin-pilar-${index}`,
+      name: (item.pilar && item.pilar.name) || "Sem pilar",
+      percentage,
+      value,
+      color: ["#0f766e", "#8b5cf6", "#f59e0b", "#2563eb", "#dc2626", "#16a34a", "#db2777"][index % 7],
+    };
+  });
+}
+
 function buildPieGradient(items) {
   let cursor = 0;
   const slices = items
@@ -548,6 +570,110 @@ function HomeView({ apiClient, user }) {
           <strong>{formatNumber(totalDesafios)}</strong>
         </div>
       </section>
+      <section className="panel chart-panel">
+        <div>
+          <h2>Desafios por pilar</h2>
+          <p className="muted">Percentual de desafios aprovados por pilar do método.</p>
+        </div>
+        <div className="pie-layout">
+          <div className="pie-chart" style={{ background: buildPieGradient(chartItems) }}>
+            <span>{chartItems.length > 0 ? "100%" : "0%"}</span>
+          </div>
+          <div className="legend-list">
+            {chartItems.length > 0 ? (
+              chartItems.map((item) => (
+                <div className="legend-item" key={item.id}>
+                  <span className="legend-dot" style={{ background: item.color }} />
+                  <span>{item.name}</span>
+                  <strong>{item.percentage}%</strong>
+                </div>
+              ))
+            ) : (
+              <Notice message="Ainda não há desafios aprovados para montar o gráfico." />
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminDashboardView({ apiClient }) {
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: "/dashboard/admin" });
+      setDashboard(result);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  const indicadores = (dashboard && dashboard.indicadores) || {};
+  const ranking = getArray(dashboard, "topRanking").length > 0 ? getArray(dashboard, "topRanking") : getArray(dashboard, "ranking");
+  const chartItems = buildAdminPilarChartItems(dashboard);
+
+  return (
+    <div className="content">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Dashboard</h2>
+            <p className="muted">Visão da turma com ranking, desafios enviados e distribuição por pilar.</p>
+          </div>
+          <button className="button secondary" type="button" onClick={load}>
+            Atualizar
+          </button>
+        </div>
+        <Notice message={error} type="error" />
+      </section>
+
+      <section className="metrics">
+        <div className="metric">
+          <span className="muted">Alunos ativos</span>
+          <strong>{formatNumber(indicadores.alunosAtivos)}</strong>
+        </div>
+        <div className="metric">
+          <span className="muted">Quantidade de Desafios</span>
+          <strong>{formatNumber(indicadores.quantidadeDesafios || indicadores.totalEnvios)}</strong>
+        </div>
+        <div className="metric">
+          <span className="muted">Pendentes de aprovação</span>
+          <strong>{formatNumber(indicadores.aprovacoesPendentes)}</strong>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>Ranking dos 10 primeiros alunos</h2>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Posição</th>
+              <th>Aluno</th>
+              <th>Pontuação</th>
+              <th>Desafios</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map((row) => (
+              <tr key={(row.aluno && row.aluno.id) || row.posicao}>
+                <td>{row.posicao}º</td>
+                <td>{row.aluno && row.aluno.name}</td>
+                <td>{formatNumber(row.totalPontos)}</td>
+                <td>{formatNumber(row.desafiosAprovados)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
       <section className="panel chart-panel">
         <div>
           <h2>Desafios por pilar</h2>
@@ -644,6 +770,8 @@ function AdminStudentsView({ apiClient }) {
           body: {
             name: data.get("editName"),
             email: data.get("editEmail"),
+            password: data.get("editPassword") || undefined,
+            turmaId: data.get("editTurmaId") || "",
             status: data.get("editStatus"),
           },
         }
@@ -654,6 +782,17 @@ function AdminStudentsView({ apiClient }) {
     } catch (updateError) {
       setError(getErrorMessage(updateError));
     }
+  }
+
+  function getStudentTurmaNames(student) {
+    const ids = student && Array.isArray(student.turmas) ? student.turmas : [];
+    if (ids.length === 0) return "Sem turma";
+    return ids
+      .map((id) => {
+        const turma = turmas.find((item) => item.id === id);
+        return turma ? turma.name : id;
+      })
+      .join(", ");
   }
 
   return (
@@ -724,6 +863,21 @@ function AdminStudentsView({ apiClient }) {
                 <option value="inativo">inativo</option>
               </select>
             </label>
+            <label className="field">
+              <span>Turma</span>
+              <select name="editTurmaId" defaultValue={(editing.turmas && editing.turmas[0]) || ""}>
+                <option value="">Sem turma</option>
+                {turmas.map((turma) => (
+                  <option key={turma.id} value={turma.id}>
+                    {turma.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Nova senha</span>
+              <input name="editPassword" type="password" placeholder="Preencha apenas se for alterar" />
+            </label>
             <button className="button" type="submit">
               Salvar edição
             </button>
@@ -739,6 +893,7 @@ function AdminStudentsView({ apiClient }) {
             <tr>
               <th>Nome</th>
               <th>E-mail</th>
+              <th>Turma</th>
               <th>Status</th>
               <th>ID</th>
               <th>Ação</th>
@@ -749,6 +904,7 @@ function AdminStudentsView({ apiClient }) {
               <tr key={student.id}>
                 <td>{student.name}</td>
                 <td>{student.email}</td>
+                <td>{getStudentTurmaNames(student)}</td>
                 <td>{student.status}</td>
                 <td>
                   <code>{student.id}</code>
@@ -948,6 +1104,192 @@ function AdminTurmasView({ apiClient }) {
   );
 }
 
+function AdminPilaresView({ apiClient }) {
+  const [pilares, setPilares] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const [activeResult, inactiveResult] = await Promise.all([
+        apiClient.request({ method: "GET", path: "/pilares?status=ativo" }),
+        apiClient.request({ method: "GET", path: "/pilares?status=inativo" }),
+      ]);
+      setPilares([...getArray(activeResult, "pilares"), ...getArray(inactiveResult, "pilares")]);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  async function createPilar(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "POST", path: "/pilares" },
+        {
+          body: {
+            name: data.get("name"),
+            description: data.get("description"),
+          },
+        }
+      );
+      event.currentTarget.reset();
+      setFeedback("Pilar cadastrado com sucesso.");
+      await load();
+    } catch (createError) {
+      setError(getErrorMessage(createError));
+    }
+  }
+
+  async function updatePilar(event) {
+    event.preventDefault();
+    if (!editing) return;
+    const data = new FormData(event.currentTarget);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: `/pilares/${editing.id}` },
+        {
+          body: {
+            name: data.get("editName"),
+            description: data.get("editDescription"),
+            status: data.get("editStatus"),
+          },
+        }
+      );
+      setEditing(null);
+      setFeedback("Pilar atualizado.");
+      await load();
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    }
+  }
+
+  async function togglePilar(pilar) {
+    setFeedback("");
+    setError("");
+    try {
+      if (pilar.status === "ativo") {
+        await apiClient.request({ method: "DELETE", path: `/pilares/${pilar.id}` });
+        setFeedback("Pilar excluído da lista ativa.");
+      } else {
+        await apiClient.request({ method: "PATCH", path: `/pilares/${pilar.id}` }, { body: { status: "ativo" } });
+        setFeedback("Pilar ativado.");
+      }
+      await load();
+    } catch (toggleError) {
+      setError(getErrorMessage(toggleError));
+    }
+  }
+
+  return (
+    <div className="content">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Pilares</h2>
+            <p className="muted">Cadastre, edite e exclua pilares do método quando necessário.</p>
+          </div>
+          <button className="button secondary" type="button" onClick={load}>
+            Atualizar
+          </button>
+        </div>
+        <Notice message={feedback} />
+        <Notice message={error} type="error" />
+        <form className="form-grid" onSubmit={createPilar}>
+          <label className="field">
+            <span>Nome</span>
+            <input name="name" required placeholder="Novo pilar" />
+          </label>
+          <label className="field">
+            <span>Descrição</span>
+            <input name="description" placeholder="Resumo do pilar" />
+          </label>
+          <button className="button" type="submit">
+            Cadastrar pilar
+          </button>
+        </form>
+      </section>
+
+      {editing ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Editar pilar</h2>
+            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
+              Cancelar
+            </button>
+          </div>
+          <form className="form-grid" onSubmit={updatePilar}>
+            <label className="field">
+              <span>Nome</span>
+              <input name="editName" required defaultValue={editing.name} />
+            </label>
+            <label className="field">
+              <span>Status</span>
+              <select name="editStatus" defaultValue={editing.status || "ativo"}>
+                <option value="ativo">ativo</option>
+                <option value="inativo">inativo</option>
+              </select>
+            </label>
+            <label className="field span-2">
+              <span>Descrição</span>
+              <textarea name="editDescription" defaultValue={editing.description || ""} />
+            </label>
+            <button className="button" type="submit">
+              Salvar pilar
+            </button>
+          </form>
+        </section>
+      ) : null}
+
+      <section className="panel">
+        <h2>Pilares cadastrados</h2>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Descrição</th>
+              <th>Status</th>
+              <th>Origem</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pilares.map((pilar) => (
+              <tr key={pilar.id}>
+                <td>{pilar.name}</td>
+                <td>{pilar.description || "-"}</td>
+                <td>{pilar.status}</td>
+                <td>{pilar.isDefault ? "padrão" : "manual"}</td>
+                <td>
+                  <div className="actions table-actions">
+                    <button className="button secondary" type="button" onClick={() => setEditing(pilar)}>
+                      Editar
+                    </button>
+                    <button className="button ghost" type="button" onClick={() => togglePilar(pilar)}>
+                      {pilar.status === "ativo" ? "Excluir" : "Ativar"}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}
+
 function AdminDesafiosView({ apiClient }) {
   const [pilares, setPilares] = useState([]);
   const [desafios, setDesafios] = useState([]);
@@ -989,6 +1331,7 @@ function AdminDesafiosView({ apiClient }) {
             description: data.get("description"),
             deliveryDate: data.get("deliveryDate") || undefined,
             points: Number(data.get("points")),
+            livePresentationPoints: Number(data.get("livePresentationPoints") || 0),
             type: maxParticipantes > 1 ? "grupo" : "individual",
             maxParticipantes,
             status: data.get("status"),
@@ -1003,15 +1346,16 @@ function AdminDesafiosView({ apiClient }) {
     }
   }
 
-  async function activateDesafio(desafioId) {
+  async function toggleDesafioStatus(desafio) {
+    const nextStatus = desafio.status === "ativo" ? "inativo" : "ativo";
     setFeedback("");
     setError("");
     try {
-      await apiClient.request({ method: "PATCH", path: `/desafios/${desafioId}` }, { body: { status: "ativo" } });
-      setFeedback("Desafio ativado.");
+      await apiClient.request({ method: "PATCH", path: `/desafios/${desafio.id}` }, { body: { status: nextStatus } });
+      setFeedback(nextStatus === "ativo" ? "Desafio ativado." : "Desafio desativado.");
       await load();
-    } catch (activateError) {
-      setError(getErrorMessage(activateError));
+    } catch (toggleError) {
+      setError(getErrorMessage(toggleError));
     }
   }
 
@@ -1050,6 +1394,10 @@ function AdminDesafiosView({ apiClient }) {
             <input name="points" required type="number" min="1" defaultValue="10" />
           </label>
           <label className="field">
+            <span>Pontos apresentação ao vivo</span>
+            <input name="livePresentationPoints" required type="number" min="0" defaultValue="0" />
+          </label>
+          <label className="field">
             <span>Data limite de entrega</span>
             <input name="deliveryDate" type="date" />
           </label>
@@ -1082,6 +1430,7 @@ function AdminDesafiosView({ apiClient }) {
               <th>Título</th>
               <th>Pilar</th>
               <th>Pontos</th>
+              <th>Apresentação</th>
               <th>Entrega até</th>
               <th>Participantes</th>
               <th>Status</th>
@@ -1095,6 +1444,7 @@ function AdminDesafiosView({ apiClient }) {
                 <td>{desafio.title}</td>
                 <td>{desafio.pilar && desafio.pilar.name}</td>
                 <td>{desafio.points}</td>
+                <td>{formatNumber(desafio.livePresentationPoints || desafio.pontosApresentacaoAoVivo)}</td>
                 <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
                 <td>{desafio.maxParticipantes}</td>
                 <td>{desafio.status}</td>
@@ -1102,10 +1452,192 @@ function AdminDesafiosView({ apiClient }) {
                   <code>{desafio.id}</code>
                 </td>
                 <td>
-                  <button className="button secondary" type="button" disabled={desafio.status === "ativo"} onClick={() => activateDesafio(desafio.id)}>
-                    Ativar
+                  <button className="button secondary" type="button" onClick={() => toggleDesafioStatus(desafio)}>
+                    {desafio.status === "ativo" ? "Desativar" : "Ativar"}
                   </button>
                 </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}
+
+function AdminApprovalsView({ apiClient }) {
+  const [envios, setEnvios] = useState([]);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: "/envios-desafios/aprovacoes?limit=100&sort=desc" });
+      setEnvios(getArray(result, "envios"));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  async function evaluateEnvio(event, envio) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const decision = event.nativeEvent.submitter ? event.nativeEvent.submitter.value : "aprovado";
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: "/envios-desafios/aprovacoes" },
+        {
+          body: {
+            envioId: envio.id,
+            decision,
+            feedback: data.get("feedback") || undefined,
+            apresentacaoAoVivo: data.get("apresentacaoAoVivo") === "on",
+          },
+        }
+      );
+      setFeedback("Avaliação registrada.");
+      await load();
+    } catch (evaluationError) {
+      setError(getErrorMessage(evaluationError));
+    }
+  }
+
+  function getParticipantes(envio) {
+    const participantes = getArray(envio, "participantes");
+    if (participantes.length > 0) return participantes;
+    return envio.aluno ? [envio.aluno] : [];
+  }
+
+  return (
+    <div className="content">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Aprovações</h2>
+            <p className="muted">Revise os envios pendentes, confira evidências e aprove ou reprove.</p>
+          </div>
+          <button className="button secondary" type="button" onClick={load}>
+            Atualizar
+          </button>
+        </div>
+        <Notice message={feedback} />
+        <Notice message={error} type="error" />
+      </section>
+
+      {envios.length === 0 ? <Notice message="Nenhum envio pendente no momento." /> : null}
+      {envios.map((envio) => (
+        <section className="panel" key={envio.id}>
+          <div className="panel-header">
+            <div>
+              <h2>{envio.desafio ? envio.desafio.title : "Envio de desafio"}</h2>
+              <p className="muted">
+                Responsável: {envio.aluno ? envio.aluno.name : envio.alunoId} · Turma: {formatTurmaName(envio.turma)}
+              </p>
+            </div>
+            <span className="badge warn">{envio.status}</span>
+          </div>
+          <div className="status-grid">
+            <div className="status-item">
+              <span className="muted">Descrição enviada</span>
+              <strong>{envio.description}</strong>
+            </div>
+            <div className="status-item">
+              <span className="muted">Pontuação</span>
+              <strong>
+                {formatNumber(envio.desafio && envio.desafio.points)} + {formatNumber(envio.desafio && envio.desafio.livePresentationPoints)} apresentação
+              </strong>
+            </div>
+            <div className="status-item">
+              <span className="muted">Participantes</span>
+              <strong>{getParticipantes(envio).map((participante) => participante.name || participante.id).join(", ")}</strong>
+            </div>
+            <div className="status-item">
+              <span className="muted">Evidências</span>
+              <strong>{getArray(envio, "evidencias").map(formatEvidenceItem).join(", ") || "-"}</strong>
+            </div>
+            <div className="status-item span-2">
+              <span className="muted">Anexos</span>
+              <strong>{getArray(envio, "anexos").map(formatEvidenceItem).join(", ") || "-"}</strong>
+            </div>
+          </div>
+          <form className="form-grid" onSubmit={(event) => evaluateEnvio(event, envio)}>
+            <label className="field span-2">
+              <span>Feedback</span>
+              <textarea name="feedback" placeholder="Obrigatório para reprovar." />
+            </label>
+            <label className="checkbox-field span-2">
+              <input name="apresentacaoAoVivo" type="checkbox" />
+              <span>Este grupo apresentou o desafio em evento ao vivo</span>
+            </label>
+            <div className="actions span-2">
+              <button className="button" type="submit" name="decision" value="aprovado">
+                Aprovar
+              </button>
+              <button className="button secondary" type="submit" name="decision" value="reprovado">
+                Reprovar
+              </button>
+            </div>
+          </form>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function AdminRankingView({ apiClient }) {
+  const [ranking, setRanking] = useState([]);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: "/ranking/admin?limit=100" });
+      setRanking(getArray(result, "ranking"));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  return (
+    <div className="content">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Ranking</h2>
+            <p className="muted">Listagem dos alunos rankeados por pontuação e desafios executados.</p>
+          </div>
+          <button className="button secondary" type="button" onClick={load}>
+            Atualizar
+          </button>
+        </div>
+        <Notice message={error} type="error" />
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Posição</th>
+              <th>Aluno</th>
+              <th>Pontuação</th>
+              <th>Desafios executados</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map((row) => (
+              <tr key={(row.aluno && row.aluno.id) || row.posicao}>
+                <td>{row.posicao}º</td>
+                <td>{row.aluno && row.aluno.name}</td>
+                <td>{formatNumber(row.totalPontos)}</td>
+                <td>{formatNumber(row.desafiosAprovados)}</td>
               </tr>
             ))}
           </tbody>
@@ -1548,15 +2080,32 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
         </header>
 
         {activeView === "configuracoes" ? <ConfigurationView apiClient={apiClient} /> : null}
+        {activeView === "dashboard" && role === "admin" ? <AdminDashboardView apiClient={apiClient} /> : null}
         {activeView === "alunos" ? <AdminStudentsView apiClient={apiClient} /> : null}
         {activeView === "turmas" ? <AdminTurmasView apiClient={apiClient} /> : null}
+        {activeView === "pilares" ? <AdminPilaresView apiClient={apiClient} /> : null}
         {activeView === "desafios" && role === "admin" ? <AdminDesafiosView apiClient={apiClient} /> : null}
         {activeView === "desafios" && role === "aluno" ? <StudentChallengesView apiClient={apiClient} /> : null}
+        {activeView === "aprovacoes" ? <AdminApprovalsView apiClient={apiClient} /> : null}
+        {activeView === "ranking" ? <AdminRankingView apiClient={apiClient} /> : null}
         {activeView === "meus-grupos" ? <StudentGroupsView apiClient={apiClient} /> : null}
         {activeView === "pontuacao" ? <StudentScoreView apiClient={apiClient} /> : null}
         {activeView === "perfil" ? <ProfileView apiClient={apiClient} onUserChange={onUserChange} user={user} /> : null}
         {activeView === "inicio" ? <HomeView apiClient={apiClient} user={user} /> : null}
-        {!["configuracoes", "alunos", "turmas", "desafios", "meus-grupos", "pontuacao", "perfil", "inicio"].includes(activeView) ? (
+        {![
+          "configuracoes",
+          "dashboard",
+          "alunos",
+          "turmas",
+          "pilares",
+          "desafios",
+          "aprovacoes",
+          "ranking",
+          "meus-grupos",
+          "pontuacao",
+          "perfil",
+          "inicio",
+        ].includes(activeView) ? (
           <FutureView selectedMenu={selectedMenu || { label: activeView }} />
         ) : null}
       </section>

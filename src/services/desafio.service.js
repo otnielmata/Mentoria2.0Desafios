@@ -46,6 +46,8 @@ function serializeDesafio(desafio) {
     dataEntrega: toIsoDate(desafio.deliveryDate),
     difficulty: desafio.difficulty,
     points: desafio.points,
+    livePresentationPoints: Number(desafio.livePresentationPoints || 0),
+    pontosApresentacaoAoVivo: Number(desafio.livePresentationPoints || 0),
     type: desafio.type,
     maxParticipantes: desafio.maxParticipantes,
     recorrencia: desafio.recorrencia,
@@ -103,6 +105,14 @@ function parsePoints(payload, difficulty, { required = false } = {}) {
 
   const points = Number(rawPoints);
   if (!Number.isFinite(points) || points <= 0) throw createHttpError("Pontuação deve ser maior que zero.", 400);
+  return points;
+}
+
+function parseNonNegativePoints(payload, fields, fieldName) {
+  const rawPoints = getFirstValue(payload, fields);
+  if (rawPoints === undefined || rawPoints === null || rawPoints === "") return 0;
+  const points = Number(rawPoints);
+  if (!Number.isFinite(points) || points < 0) throw createHttpError(`${fieldName} deve ser maior ou igual a zero.`, 400);
   return points;
 }
 
@@ -247,6 +257,11 @@ async function createDesafio(authenticatedUserId, payload = {}) {
     deliveryDate: parseOptionalDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega"),
     difficulty,
     points: parsePoints(payload, difficulty, { required: true }),
+    livePresentationPoints: parseNonNegativePoints(
+      payload,
+      ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
+      "pontosApresentacaoAoVivo"
+    ),
     type,
     maxParticipantes: parseMaxParticipantes(payload, type),
     recorrencia: parseRecorrencia(payload),
@@ -316,6 +331,18 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
 
   const difficulty = updates.difficulty || "facil";
   if (payload.points !== undefined || payload.pontos !== undefined || updates.difficulty) updates.points = parsePoints(payload, difficulty);
+  if (
+    payload.livePresentationPoints !== undefined ||
+    payload.pontosApresentacaoAoVivo !== undefined ||
+    payload.pontos_apresentacao_ao_vivo !== undefined ||
+    payload.presentationPoints !== undefined
+  ) {
+    updates.livePresentationPoints = parseNonNegativePoints(
+      payload,
+      ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
+      "pontosApresentacaoAoVivo"
+    );
+  }
   if (payload.maxParticipantes !== undefined || payload.max_participantes !== undefined || payload.maxParticipants !== undefined) {
     updates.maxParticipantes = parseMaxParticipantes(payload, updates.type || "grupo");
   }
