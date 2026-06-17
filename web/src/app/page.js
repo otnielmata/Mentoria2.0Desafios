@@ -21,23 +21,23 @@ const TEST_USERS = {
 
 const MENU_BY_ROLE = {
   aluno: [
-    { key: "inicio", label: "Início", supported: true },
-    { key: "calendario", label: "Calendário", supported: false },
-    { key: "desafios", label: "Desafios", supported: true },
-    { key: "meus-grupos", label: "Meus Grupos", supported: true },
-    { key: "pontuacao", label: "Minha Pontuação", supported: true },
-    { key: "perfil", label: "Meu Perfil", supported: true },
+    { key: "inicio", label: "Início", icon: "home", supported: true },
+    { key: "calendario", label: "Calendário", icon: "calendar_month", supported: false },
+    { key: "desafios", label: "Desafios", icon: "emoji_events", supported: true },
+    { key: "meus-grupos", label: "Meus Grupos", icon: "groups", supported: true },
+    { key: "pontuacao", label: "Minha Pontuação", icon: "leaderboard", supported: true },
+    { key: "perfil", label: "Meu Perfil", icon: "account_circle", supported: true },
   ],
   admin: [
-    { key: "dashboard", label: "Dashboard", supported: true },
-    { key: "alunos", label: "Alunos", supported: true },
-    { key: "turmas", label: "Turmas", supported: true },
-    { key: "pilares", label: "Pilares", supported: true },
-    { key: "desafios", label: "Desafios", supported: true },
-    { key: "aprovacoes", label: "Aprovações", supported: true },
-    { key: "ranking", label: "Ranking", supported: true },
-    { key: "relatorios", label: "Relatórios", supported: false },
-    { key: "configuracoes", label: "Configurações", supported: true, roles: ["admin"] },
+    { key: "dashboard", label: "Dashboard", icon: "dashboard", supported: true },
+    { key: "alunos", label: "Alunos", icon: "school", supported: true },
+    { key: "turmas", label: "Turmas", icon: "groups_2", supported: true },
+    { key: "pilares", label: "Pilares", icon: "account_tree", supported: true },
+    { key: "desafios", label: "Desafios", icon: "emoji_events", supported: true },
+    { key: "aprovacoes", label: "Aprovações", icon: "fact_check", supported: true },
+    { key: "ranking", label: "Ranking", icon: "leaderboard", supported: true },
+    { key: "relatorios", label: "Relatórios", icon: "analytics", supported: false },
+    { key: "configuracoes", label: "Configurações", icon: "manage_accounts", supported: true, roles: ["admin"] },
   ],
 };
 
@@ -140,6 +140,36 @@ function readFileAsAttachment(file) {
   });
 }
 
+function Icon({ filled = false, name }) {
+  return (
+    <span aria-hidden="true" className={`material-symbols-rounded${filled ? " filled" : ""}`}>
+      {name}
+    </span>
+  );
+}
+
+function IconButton({ className = "button secondary", disabled = false, icon, label, name, onClick, type = "button", value }) {
+  return (
+    <button
+      aria-label={label}
+      className={`${className} icon-button`}
+      disabled={disabled}
+      name={name}
+      onClick={onClick}
+      title={label}
+      type={type}
+      value={value}
+    >
+      <Icon name={icon} />
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
+function ButtonIcon({ name }) {
+  return <Icon name={name} />;
+}
+
 function Notice({ message, type = "neutral" }) {
   if (!message) return null;
   return <div className={`alert ${type === "error" ? "" : "neutral"}`}>{message}</div>;
@@ -212,11 +242,12 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
               />
             </label>
             {error ? <div className="alert">{error}</div> : null}
-            <button className="button" type="submit" disabled={loading}>
+            <button className="button with-icon" type="submit" disabled={loading}>
+              <ButtonIcon name="login" />
               {loading ? "Entrando..." : "Entrar"}
             </button>
             <button
-              className="button ghost"
+              className="button ghost with-icon"
               type="button"
               onClick={() => {
                 setMode("register");
@@ -226,6 +257,7 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
                 setError("");
               }}
             >
+              <ButtonIcon name="person_add" />
               Inscrever-se como aluno
             </button>
           </form>
@@ -249,25 +281,27 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
               />
             </label>
             {error ? <div className="alert">{error}</div> : null}
-            <button className="button" type="submit" disabled={loading}>
+            <button className="button with-icon" type="submit" disabled={loading}>
+              <ButtonIcon name="how_to_reg" />
               {loading ? "Inscrevendo..." : "Criar inscrição"}
             </button>
-            <button className="button ghost" type="button" onClick={() => setMode("login")}>
+            <button className="button ghost with-icon" type="button" onClick={() => setMode("login")}>
+              <ButtonIcon name="arrow_back" />
               Voltar para login
             </button>
           </form>
         )}
 
         <div className="actions">
-          <button className="button secondary" type="button" onClick={() => fillUser("admin")}>
+          <button className="button secondary with-icon" type="button" onClick={() => fillUser("admin")}>
+            <ButtonIcon name="admin_panel_settings" />
             Admin teste
           </button>
-          <button className="button secondary" type="button" onClick={() => fillUser("aluno")}>
+          <button className="button secondary with-icon" type="button" onClick={() => fillUser("aluno")}>
+            <ButtonIcon name="school" />
             Aluno teste
           </button>
-          <button className="button ghost" type="button" onClick={onThemeChange}>
-            Tema {theme === "dark" ? "claro" : "escuro"}
-          </button>
+          <IconButton className="button ghost" icon={theme === "dark" ? "light_mode" : "dark_mode"} label={`Tema ${theme === "dark" ? "claro" : "escuro"}`} onClick={onThemeChange} />
         </div>
       </section>
       <section className="login-hero" aria-label="Mentoria">
@@ -299,13 +333,17 @@ function Sidebar({ activeView, menu, onNavigate, onLogout, user }) {
             type="button"
             onClick={() => onNavigate(item)}
           >
-            <span>{item.label}</span>
+            <span className="nav-label">
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
+            </span>
             {!item.supported ? <span className="badge off">MVP</span> : null}
           </button>
         ))}
       </nav>
 
-      <button className="button secondary" type="button" onClick={onLogout}>
+      <button className="button secondary with-icon" type="button" onClick={onLogout}>
+        <ButtonIcon name="logout" />
         Sair
       </button>
     </aside>
@@ -415,9 +453,7 @@ function ConfigurationView({ apiClient }) {
             <h2>Configurações</h2>
             <p className="muted">Gestão de usuários e perfis do sistema.</p>
           </div>
-          <button className="button secondary" type="button" onClick={() => load()}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar usuários" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -450,9 +486,7 @@ function ConfigurationView({ apiClient }) {
               <option value="inativo">inativo</option>
             </select>
           </label>
-          <button className="button" type="submit">
-            Cadastrar usuário
-          </button>
+          <IconButton className="button" icon="person_add" label="Cadastrar usuário" type="submit" />
         </form>
       </section>
 
@@ -463,9 +497,7 @@ function ConfigurationView({ apiClient }) {
               <h2>Editar usuário</h2>
               <p className="muted">Atualize dados, senha, status e perfil de acesso.</p>
             </div>
-            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
-              Cancelar
-            </button>
+            <IconButton className="button ghost" icon="close" label="Cancelar edição" onClick={() => setEditing(null)} />
           </div>
           <form className="form-grid" key={editing.id} onSubmit={updateUser}>
             <label className="field">
@@ -495,9 +527,7 @@ function ConfigurationView({ apiClient }) {
                 <option value="inativo">inativo</option>
               </select>
             </label>
-            <button className="button" type="submit">
-              Salvar usuário
-            </button>
+            <IconButton className="button" icon="save" label="Salvar usuário" type="submit" />
           </form>
         </section>
       ) : null}
@@ -532,9 +562,7 @@ function ConfigurationView({ apiClient }) {
               <option value="inativo">inativo</option>
             </select>
           </label>
-          <button className="button secondary" type="submit">
-            Filtrar
-          </button>
+          <IconButton icon="filter_alt" label="Filtrar usuários" type="submit" />
         </form>
 
         {loading ? <Notice message="Carregando usuários..." /> : null}
@@ -560,9 +588,7 @@ function ConfigurationView({ apiClient }) {
                   <code>{managedUser.id}</code>
                 </td>
                 <td>
-                  <button className="button secondary" type="button" onClick={() => setEditing(managedUser)}>
-                    Editar
-                  </button>
+                  <IconButton icon="edit" label={`Editar ${managedUser.name}`} onClick={() => setEditing(managedUser)} />
                 </td>
               </tr>
             ))}
@@ -631,9 +657,7 @@ function ProfileView({ apiClient, user, onUserChange }) {
             <h2>Meu Perfil</h2>
             <p className="muted">Altere seu nome completo e senha.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar perfil" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -654,9 +678,10 @@ function ProfileView({ apiClient, user, onUserChange }) {
             <span>Nova senha</span>
             <input name="newPassword" type="password" autoComplete="new-password" />
           </label>
-          <button className="button" type="submit">
-            Salvar perfil
-          </button>
+            <button className="button with-icon" type="submit">
+              <ButtonIcon name="save" />
+              Salvar perfil
+            </button>
         </form>
       </section>
 
@@ -759,9 +784,7 @@ function HomeView({ apiClient, user }) {
           <span className="muted">Nome do Aluno</span>
           <h2>{user.name}</h2>
         </div>
-        <button className="button secondary" type="button" onClick={load}>
-          Atualizar
-        </button>
+        <IconButton icon="refresh" label="Atualizar início" onClick={load} />
       </section>
       <Notice message={error} type="error" />
       <section className="metrics student-metrics">
@@ -836,9 +859,7 @@ function AdminDashboardView({ apiClient }) {
             <h2>Dashboard</h2>
             <p className="muted">Visão da turma com ranking, desafios enviados e distribuição por pilar.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar dashboard" onClick={load} />
         </div>
         <Notice message={error} type="error" />
       </section>
@@ -1011,9 +1032,7 @@ function AdminStudentsView({ apiClient }) {
             <h2>Alunos</h2>
             <p className="muted">Cadastre, edite e copie IDs para formar grupos em desafios.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar alunos" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1041,9 +1060,7 @@ function AdminStudentsView({ apiClient }) {
               ))}
             </select>
           </label>
-          <button className="button" type="submit">
-            Cadastrar aluno
-          </button>
+          <IconButton className="button" icon="person_add" label="Cadastrar aluno" type="submit" />
         </form>
       </section>
 
@@ -1051,9 +1068,7 @@ function AdminStudentsView({ apiClient }) {
         <section className="panel">
           <div className="panel-header">
             <h2>Editar aluno</h2>
-            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
-              Cancelar
-            </button>
+            <IconButton className="button ghost" icon="close" label="Cancelar edição" onClick={() => setEditing(null)} />
           </div>
           <form className="form-grid" onSubmit={updateStudent}>
             <label className="field">
@@ -1086,9 +1101,7 @@ function AdminStudentsView({ apiClient }) {
               <span>Nova senha</span>
               <input name="editPassword" type="password" placeholder="Preencha apenas se for alterar" />
             </label>
-            <button className="button" type="submit">
-              Salvar edição
-            </button>
+            <IconButton className="button" icon="save" label="Salvar edição do aluno" type="submit" />
           </form>
         </section>
       ) : null}
@@ -1118,9 +1131,7 @@ function AdminStudentsView({ apiClient }) {
                   <code>{student.id}</code>
                 </td>
                 <td>
-                  <button className="button secondary" type="button" onClick={() => setEditing(student)}>
-                    Editar
-                  </button>
+                  <IconButton icon="edit" label={`Editar ${student.name}`} onClick={() => setEditing(student)} />
                 </td>
               </tr>
             ))}
@@ -1226,9 +1237,7 @@ function AdminTurmasView({ apiClient }) {
             <h2>Turmas</h2>
             <p className="muted">Cadastre turmas, matricule alunos por ID e visualize alunos por turma.</p>
           </div>
-          <button className="button secondary" type="button" onClick={loadTurmas}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar turmas" onClick={loadTurmas} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1249,9 +1258,7 @@ function AdminTurmasView({ apiClient }) {
             <span>Descrição</span>
             <input name="description" placeholder="Mentoria 2.0" />
           </label>
-          <button className="button" type="submit">
-            Cadastrar turma
-          </button>
+          <IconButton className="button" icon="add_business" label="Cadastrar turma" type="submit" />
         </form>
       </section>
 
@@ -1279,9 +1286,7 @@ function AdminTurmasView({ apiClient }) {
               <span>ID do aluno</span>
               <input name="alunoId" placeholder="Cole o ID do aluno" />
             </label>
-            <button className="button secondary" type="submit" disabled={!selectedTurmaId}>
-              Matricular
-            </button>
+            <IconButton disabled={!selectedTurmaId} icon="person_add" label="Matricular aluno" type="submit" />
           </form>
         </div>
 
@@ -1408,9 +1413,7 @@ function AdminPilaresView({ apiClient }) {
             <h2>Pilares</h2>
             <p className="muted">Cadastre, edite e exclua pilares do método quando necessário.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar pilares" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1423,9 +1426,7 @@ function AdminPilaresView({ apiClient }) {
             <span>Descrição</span>
             <input name="description" placeholder="Resumo do pilar" />
           </label>
-          <button className="button" type="submit">
-            Cadastrar pilar
-          </button>
+          <IconButton className="button" icon="add_circle" label="Cadastrar pilar" type="submit" />
         </form>
       </section>
 
@@ -1433,9 +1434,7 @@ function AdminPilaresView({ apiClient }) {
         <section className="panel">
           <div className="panel-header">
             <h2>Editar pilar</h2>
-            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
-              Cancelar
-            </button>
+            <IconButton className="button ghost" icon="close" label="Cancelar edição" onClick={() => setEditing(null)} />
           </div>
           <form className="form-grid" onSubmit={updatePilar}>
             <label className="field">
@@ -1453,9 +1452,7 @@ function AdminPilaresView({ apiClient }) {
               <span>Descrição</span>
               <textarea name="editDescription" defaultValue={editing.description || ""} />
             </label>
-            <button className="button" type="submit">
-              Salvar pilar
-            </button>
+            <IconButton className="button" icon="save" label="Salvar pilar" type="submit" />
           </form>
         </section>
       ) : null}
@@ -1481,12 +1478,13 @@ function AdminPilaresView({ apiClient }) {
                 <td>{pilar.isDefault ? "padrão" : "manual"}</td>
                 <td>
                   <div className="actions table-actions">
-                    <button className="button secondary" type="button" onClick={() => setEditing(pilar)}>
-                      Editar
-                    </button>
-                    <button className="button ghost" type="button" onClick={() => togglePilar(pilar)}>
-                      {pilar.status === "ativo" ? "Excluir" : "Ativar"}
-                    </button>
+                    <IconButton icon="edit" label={`Editar ${pilar.name}`} onClick={() => setEditing(pilar)} />
+                    <IconButton
+                      className="button ghost"
+                      icon={pilar.status === "ativo" ? "delete" : "toggle_on"}
+                      label={pilar.status === "ativo" ? `Excluir ${pilar.name}` : `Ativar ${pilar.name}`}
+                      onClick={() => togglePilar(pilar)}
+                    />
                   </div>
                 </td>
               </tr>
@@ -1621,9 +1619,7 @@ function AdminDesafiosView({ apiClient }) {
             <h2>Desafios</h2>
             <p className="muted">Cadastre desafios e ative quando estiverem prontos para alunos.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar desafios" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1670,9 +1666,7 @@ function AdminDesafiosView({ apiClient }) {
             <span>Descrição</span>
             <textarea name="description" required placeholder="Descreva o que o aluno deve executar." />
           </label>
-          <button className="button" type="submit">
-            Cadastrar desafio
-          </button>
+          <IconButton className="button" icon="add_task" label="Cadastrar desafio" type="submit" />
         </form>
       </section>
 
@@ -1683,9 +1677,7 @@ function AdminDesafiosView({ apiClient }) {
               <h2>Editar desafio</h2>
               <p className="muted">Atualize dados, pontuação, pilar, entrega e status.</p>
             </div>
-            <button className="button ghost" type="button" onClick={() => setEditing(null)}>
-              Cancelar
-            </button>
+            <IconButton className="button ghost" icon="close" label="Cancelar edição" onClick={() => setEditing(null)} />
           </div>
           <form className="form-grid" key={editing.id} onSubmit={updateDesafio}>
             <label className="field">
@@ -1736,9 +1728,7 @@ function AdminDesafiosView({ apiClient }) {
               <span>Descrição</span>
               <textarea name="editDescription" required defaultValue={editing.description || ""} />
             </label>
-            <button className="button" type="submit">
-              Salvar edição
-            </button>
+            <IconButton className="button" icon="save" label="Salvar desafio" type="submit" />
           </form>
         </section>
       ) : null}
@@ -1774,15 +1764,13 @@ function AdminDesafiosView({ apiClient }) {
                 </td>
                 <td>
                   <div className="actions table-actions">
-                    <button className="button secondary" type="button" onClick={() => setEditing(desafio)}>
-                      Editar
-                    </button>
-                    <button className="button ghost" type="button" onClick={() => deleteDesafio(desafio)}>
-                      Apagar
-                    </button>
-                    <button className="button secondary" type="button" onClick={() => toggleDesafioStatus(desafio)}>
-                      {desafio.status === "ativo" ? "Desativar" : "Ativar"}
-                    </button>
+                    <IconButton icon="edit" label={`Editar ${desafio.title}`} onClick={() => setEditing(desafio)} />
+                    <IconButton className="button ghost" icon="delete" label={`Apagar ${desafio.title}`} onClick={() => deleteDesafio(desafio)} />
+                    <IconButton
+                      icon={desafio.status === "ativo" ? "toggle_off" : "toggle_on"}
+                      label={desafio.status === "ativo" ? `Desativar ${desafio.title}` : `Ativar ${desafio.title}`}
+                      onClick={() => toggleDesafioStatus(desafio)}
+                    />
                   </div>
                 </td>
               </tr>
@@ -1852,9 +1840,7 @@ function AdminApprovalsView({ apiClient }) {
             <h2>Aprovações</h2>
             <p className="muted">Revise os envios pendentes, confira evidências e aprove ou reprove.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar aprovações" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1907,10 +1893,12 @@ function AdminApprovalsView({ apiClient }) {
               <span>Este grupo apresentou o desafio em evento ao vivo</span>
             </label>
             <div className="actions span-2">
-              <button className="button" type="submit" name="decision" value="aprovado">
+              <button className="button with-icon" type="submit" name="decision" value="aprovado">
+                <ButtonIcon name="check_circle" />
                 Aprovar
               </button>
-              <button className="button secondary" type="submit" name="decision" value="reprovado">
+              <button className="button secondary with-icon" type="submit" name="decision" value="reprovado">
+                <ButtonIcon name="cancel" />
                 Reprovar
               </button>
             </div>
@@ -1947,9 +1935,7 @@ function AdminRankingView({ apiClient }) {
             <h2>Ranking</h2>
             <p className="muted">Listagem dos alunos rankeados por pontuação e desafios executados.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar ranking" onClick={load} />
         </div>
         <Notice message={error} type="error" />
         <table className="table">
@@ -2064,9 +2050,7 @@ function StudentChallengesView({ apiClient }) {
             <h2>Desafios</h2>
             <p className="muted">Inscreva-se primeiro. O sistema monta seu grupo automaticamente.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar desafios" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -2095,7 +2079,8 @@ function StudentChallengesView({ apiClient }) {
                   <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
                   <td>{formatNumber(desafio.maxParticipantes)} participantes</td>
                   <td>
-                    <button className="button secondary" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id)}>
+                    <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id)}>
+                      <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
                       {isSubscribed ? "Inscrito" : "Inscrever-se"}
                     </button>
                   </td>
@@ -2145,7 +2130,8 @@ function StudentChallengesView({ apiClient }) {
             <span>Anexo</span>
             <input name="anexo" type="file" />
           </label>
-          <button className="button" type="submit">
+          <button className="button with-icon" type="submit">
+            <ButtonIcon name="send" />
             Enviar para aprovação
           </button>
         </form>
@@ -2223,9 +2209,7 @@ function StudentScoreView({ apiClient }) {
             <h2>Minha Pontuação</h2>
             <p className="muted">Pontos concedidos após aprovação do professor.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar pontuação" onClick={load} />
         </div>
         <div className="status-grid">
           {pontosPorPilar.map((item) => (
@@ -2315,9 +2299,7 @@ function StudentGroupsView({ apiClient }) {
             <h2>Meus Grupos</h2>
             <p className="muted">Veja com quem você caiu no desafio e combine o canal de contato.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load}>
-            Atualizar
-          </button>
+          <IconButton icon="refresh" label="Atualizar grupos" onClick={load} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -2360,9 +2342,7 @@ function StudentGroupsView({ apiClient }) {
                   <span>Link de contato</span>
                   <input name="url" defaultValue={(grupo.contato && grupo.contato.url) || ""} placeholder="https://..." />
                 </label>
-                <button className="button secondary" type="submit">
-                  Salvar contato
-                </button>
+                <IconButton icon="save" label="Salvar contato" type="submit" />
               </form>
             </article>
           ))}
@@ -2403,9 +2383,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
             <p className="muted">API REST em {API_BASE_URL}</p>
           </div>
           <div className="actions">
-            <button className="button secondary" type="button" onClick={onThemeChange}>
-              Tema {theme === "dark" ? "claro" : "escuro"}
-            </button>
+            <IconButton icon={theme === "dark" ? "light_mode" : "dark_mode"} label={`Tema ${theme === "dark" ? "claro" : "escuro"}`} onClick={onThemeChange} />
           </div>
         </header>
 
