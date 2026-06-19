@@ -15,6 +15,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../../src/models/user.model");
 const {
   createManagedUser,
+  deleteManagedUser,
   listManagedUsers,
   updateManagedUser,
 } = require("../../src/services/user-management.service");
@@ -70,7 +71,9 @@ describe("user-management.service", () => {
       })
     );
     expect(result).toEqual({
+      discordJoined: false,
       email: "gestor@email.com",
+      entrouNoDiscord: false,
       id: USER_ID,
       name: "Gestor",
       role: "admin",
@@ -173,6 +176,35 @@ describe("user-management.service", () => {
     await expect(listManagedUsers(ADMIN_ID)).rejects.toMatchObject({
       statusCode: 403,
       message: "Apenas administrador pode gerenciar usuários e perfis.",
+    });
+  });
+
+  it("exclui usuário por soft delete marcando status inativo", async () => {
+    User.findByIdAndUpdate.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({
+        _id: USER_ID,
+        name: "Usuário",
+        email: "usuario@email.com",
+        role: "professor",
+        status: "inativo",
+        turmas: [],
+      }),
+    });
+
+    const result = await deleteManagedUser(ADMIN_ID, USER_ID);
+
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(USER_ID, { status: "inativo" }, { new: true });
+    expect(result).toMatchObject({
+      id: USER_ID,
+      status: "inativo",
+      discordJoined: false,
+    });
+  });
+
+  it("bloqueia exclusão do próprio administrador autenticado", async () => {
+    await expect(deleteManagedUser(ADMIN_ID, ADMIN_ID)).rejects.toMatchObject({
+      statusCode: 400,
+      code: "SELF_DELETE_NOT_ALLOWED",
     });
   });
 });

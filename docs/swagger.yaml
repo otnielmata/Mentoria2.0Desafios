@@ -150,6 +150,18 @@ paths:
           description: Usuário atualizado
         "403":
           description: Perfil sem permissão
+    delete:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Exclui usuário por soft delete, alterando status para inativo
+      responses:
+        "200":
+          description: Usuário inativado
+        "400":
+          description: Administrador não pode excluir o próprio usuário
+        "403":
+          description: Perfil sem permissão
   /api/alunos:
     get:
       tags: [Alunos]
@@ -167,6 +179,17 @@ paths:
       responses:
         "201":
           description: Aluno cadastrado
+  /api/alunos/importar:
+    post:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Importa alunos em lote por CSV com Nome, E-mail, Senha Inicial e Turma
+      responses:
+        "201":
+          description: Resultado da importação com alunos importados e falhas por linha
+        "400":
+          description: CSV inválido
   /api/alunos/{id}:
     get:
       tags: [Alunos]
@@ -182,7 +205,7 @@ paths:
       tags: [Alunos]
       security:
         - bearerAuth: []
-      summary: Edita dados de aluno
+      summary: Edita dados de aluno, turma, status, senha e entrada no Discord
       parameters:
         - $ref: "#/components/parameters/id"
       responses:
@@ -207,6 +230,14 @@ paths:
       responses:
         "200":
           description: Aluno atualizado
+    delete:
+      tags: [Alunos]
+      security:
+        - bearerAuth: []
+      summary: Desativa aluno pelo caminho usado pela Web
+      responses:
+        "200":
+          description: Aluno desativado
   /api/turmas:
     get:
       tags: [Turmas]

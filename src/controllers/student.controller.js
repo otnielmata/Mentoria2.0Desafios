@@ -9,6 +9,15 @@ async function create(req, res, next) {
   }
 }
 
+async function importBatch(req, res, next) {
+  try {
+    const importacao = await studentService.importStudentsFromCsv(req.user.id, req.body);
+    return res.status(201).json({ importacao });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function list(req, res, next) {
   try {
     const result = await studentService.listStudents(req.user.id, req.query);
@@ -48,6 +57,7 @@ async function disable(req, res, next) {
 module.exports = {
   create,
   disable,
+  importBatch,
   list,
   show,
   update,

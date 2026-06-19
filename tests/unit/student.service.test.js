@@ -15,6 +15,7 @@ jest.mock("../../src/models/pontuacao.model", () => ({
 
 jest.mock("../../src/models/turma.model", () => ({
   findById: jest.fn(),
+  findOne: jest.fn(),
   updateMany: jest.fn(),
   updateOne: jest.fn(),
 }));
@@ -34,7 +35,7 @@ const bcrypt = require("bcryptjs");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { createStudent, disableStudent, getStudent, listStudents, updateStudent } = require("../../src/services/student.service");
+const { createStudent, disableStudent, getStudent, importStudentsFromCsv, listStudents, updateStudent } = require("../../src/services/student.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const STUDENT_ID = "6814f12ab3f34872f7558f42";
@@ -67,6 +68,7 @@ describe("student.service", () => {
       passwordHash: "hash-seguro",
       role: "aluno",
       status: "inativo",
+      discordJoined: true,
       turmas: [],
     });
 
@@ -76,6 +78,7 @@ describe("student.service", () => {
       password: "123456",
       role: "aluno",
       status: "inativo",
+      discordJoined: true,
     });
 
     expect(User.create).toHaveBeenCalledWith(
@@ -85,10 +88,13 @@ describe("student.service", () => {
         passwordHash: "hash-seguro",
         role: "aluno",
         status: "inativo",
+        discordJoined: true,
       })
     );
     expect(result).toEqual({
+      discordJoined: true,
       email: "ana@email.com",
+      entrouNoDiscord: true,
       id: STUDENT_ID,
       name: "Ana",
       role: "aluno",
@@ -103,7 +109,9 @@ describe("student.service", () => {
       lean: jest.fn().mockResolvedValue([{ aluno: STUDENT_ID }]),
     });
     User.countDocuments.mockResolvedValue(1);
-    const chain = mockUserFindChain([{ _id: STUDENT_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", turmas: [TURMA_ID] }]);
+    const chain = mockUserFindChain([
+      { _id: STUDENT_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", discordJoined: true, turmas: [TURMA_ID] },
+    ]);
 
     const result = await listStudents(ADMIN_ID, {
       turmaId: TURMA_ID,
@@ -123,6 +131,7 @@ describe("student.service", () => {
     expect(chain.skip).toHaveBeenCalledWith(5);
     expect(chain.limit).toHaveBeenCalledWith(5);
     expect(result.pagination).toEqual({ page: 2, limit: 5, total: 1, totalPages: 1 });
+    expect(result.alunos[0]).toMatchObject({ discordJoined: true, entrouNoDiscord: true });
     expect(result.alunos[0]).not.toHaveProperty("passwordHash");
   });
 
@@ -177,6 +186,7 @@ describe("student.service", () => {
         email: "ana.nova@email.com",
         role: "aluno",
         status: "ativo",
+        discordJoined: true,
         turmas: [TURMA_ID],
       }),
     });
@@ -187,6 +197,7 @@ describe("student.service", () => {
       password: "Nova@123",
       status: "ativo",
       turmaId: TURMA_ID,
+      discordJoined: true,
     });
 
     expect(bcrypt.hash).toHaveBeenCalledWith("Nova@123", 10);
@@ -208,6 +219,7 @@ describe("student.service", () => {
         name: "Ana Atualizada",
         passwordHash: "nova-hash",
         status: "ativo",
+        discordJoined: true,
         turmas: [TURMA_ID],
       }),
       { new: true }
@@ -216,6 +228,53 @@ describe("student.service", () => {
       email: "ana.nova@email.com",
       name: "Ana Atualizada",
       turmas: [TURMA_ID],
+      discordJoined: true,
+      entrouNoDiscord: true,
+    });
+  });
+
+  it("importa alunos em lote por CSV vinculando turma existente", async () => {
+    bcrypt.hash.mockResolvedValue("hash-csv");
+    Turma.findOne.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ _id: TURMA_ID, name: "Turma 1", code: "T1" }),
+    });
+    User.findOne.mockReturnValue({
+      lean: jest.fn().mockResolvedValue(null),
+    });
+    User.create.mockResolvedValue({
+      _id: STUDENT_ID,
+      id: STUDENT_ID,
+      name: "Aluno CSV",
+      email: "aluno.csv@email.com",
+      role: "aluno",
+      status: "ativo",
+      discordJoined: false,
+      turmas: [TURMA_ID],
+    });
+
+    const result = await importStudentsFromCsv(ADMIN_ID, "Nome;E-mail;Senha Inicial;Turma\nAluno CSV;aluno.csv@email.com;Teste@123;Turma 1");
+
+    expect(Turma.findOne).toHaveBeenCalledWith({
+      $or: [{ name: /^Turma 1$/i }, { code: /^Turma 1$/i }],
+    });
+    expect(User.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "aluno.csv@email.com",
+        name: "Aluno CSV",
+        passwordHash: "hash-csv",
+        role: "aluno",
+        status: "ativo",
+        discordJoined: false,
+        turmas: [TURMA_ID],
+      })
+    );
+    expect(AlunoTurma.create).toHaveBeenCalledWith({ aluno: STUDENT_ID, turma: TURMA_ID, status: "ativa" });
+    expect(Turma.updateOne).toHaveBeenCalledWith({ _id: TURMA_ID }, { $addToSet: { alunos: STUDENT_ID } });
+    expect(result).toMatchObject({
+      total: 1,
+      importados: 1,
+      falhas: 0,
+      alunos: [expect.objectContaining({ email: "aluno.csv@email.com", discordJoined: false })],
     });
   });
 });

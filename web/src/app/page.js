@@ -140,6 +140,17 @@ function readFileAsAttachment(file) {
   });
 }
 
+function readFileAsText(file) {
+  if (!file || !file.name) return Promise.resolve("");
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Não foi possível ler o arquivo."));
+    reader.readAsText(file);
+  });
+}
+
 function Icon({ filled = false, name }) {
   return (
     <span aria-hidden="true" className={`material-symbols-rounded${filled ? " filled" : ""}`}>
@@ -445,6 +456,21 @@ function ConfigurationView({ apiClient }) {
     }
   }
 
+  async function deleteUser(managedUser) {
+    if (typeof window !== "undefined" && !window.confirm(`Excluir o usuário ${managedUser.name}?`)) return;
+
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request({ method: "DELETE", path: `/users/${managedUser.id}` });
+      if (editing && editing.id === managedUser.id) setEditing(null);
+      setFeedback("Usuário excluído com sucesso.");
+      await load();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
+    }
+  }
+
   return (
     <div className="content">
       <section className="panel">
@@ -588,7 +614,10 @@ function ConfigurationView({ apiClient }) {
                   <code>{managedUser.id}</code>
                 </td>
                 <td>
-                  <IconButton icon="edit" label={`Editar ${managedUser.name}`} onClick={() => setEditing(managedUser)} />
+                  <div className="actions table-actions">
+                    <IconButton icon="edit" label={`Editar ${managedUser.name}`} onClick={() => setEditing(managedUser)} />
+                    <IconButton className="button ghost" icon="delete" label={`Excluir ${managedUser.name}`} onClick={() => deleteUser(managedUser)} />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -974,6 +1003,7 @@ function AdminStudentsView({ apiClient }) {
             email: data.get("email"),
             password: data.get("password"),
             turmaId: data.get("turmaId") || undefined,
+            discordJoined: data.get("discordJoined") === "on",
             status: "ativo",
           },
         }
@@ -983,6 +1013,33 @@ function AdminStudentsView({ apiClient }) {
       await load();
     } catch (createError) {
       setError(getErrorMessage(createError));
+    }
+  }
+
+  async function importStudents(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setError("");
+    setFeedback("");
+    try {
+      const csv = await readFileAsText(data.get("csvFile"));
+      const result = await apiClient.request({ method: "POST", path: "/alunos/importar" }, { body: { csv } });
+      const importacao = result && result.importacao ? result.importacao : {};
+      const importados = Number(importacao.importados || 0);
+      const falhas = Number(importacao.falhas || 0);
+      event.currentTarget.reset();
+      setFeedback(`Importação finalizada: ${importados} aluno(s) importado(s), ${falhas} falha(s).`);
+      if (falhas > 0) {
+        setError(
+          getArray(importacao, "erros")
+            .slice(0, 5)
+            .map((erro) => `Linha ${erro.linha}: ${erro.message}`)
+            .join(" | ")
+        );
+      }
+      await load();
+    } catch (importError) {
+      setError(getErrorMessage(importError));
     }
   }
 
@@ -1002,6 +1059,7 @@ function AdminStudentsView({ apiClient }) {
             password: data.get("editPassword") || undefined,
             turmaId: data.get("editTurmaId") || "",
             status: data.get("editStatus"),
+            discordJoined: data.get("editDiscordJoined") === "on",
           },
         }
       );
@@ -1010,6 +1068,21 @@ function AdminStudentsView({ apiClient }) {
       await load();
     } catch (updateError) {
       setError(getErrorMessage(updateError));
+    }
+  }
+
+  async function deleteStudent(student) {
+    if (typeof window !== "undefined" && !window.confirm(`Excluir o aluno ${student.name}?`)) return;
+
+    setError("");
+    setFeedback("");
+    try {
+      await apiClient.request({ method: "DELETE", path: `/alunos/${student.id}` });
+      if (editing && editing.id === student.id) setEditing(null);
+      setFeedback("Aluno excluído com sucesso.");
+      await load();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
     }
   }
 
@@ -1060,7 +1133,30 @@ function AdminStudentsView({ apiClient }) {
               ))}
             </select>
           </label>
+          <label className="checkbox-field span-2">
+            <input name="discordJoined" type="checkbox" />
+            <span>Aluno entrou no Discord</span>
+          </label>
           <IconButton className="button" icon="person_add" label="Cadastrar aluno" type="submit" />
+        </form>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Importar em Lotes</h2>
+            <p className="muted">CSV com as colunas Nome, E-mail, Senha Inicial e Turma.</p>
+          </div>
+        </div>
+        <form className="inline-form" onSubmit={importStudents}>
+          <label className="field">
+            <span>Arquivo CSV</span>
+            <input name="csvFile" required type="file" accept=".csv,text/csv" />
+          </label>
+          <button className="button secondary with-icon" type="submit">
+            <ButtonIcon name="upload_file" />
+            Importar em Lotes
+          </button>
         </form>
       </section>
 
@@ -1101,6 +1197,10 @@ function AdminStudentsView({ apiClient }) {
               <span>Nova senha</span>
               <input name="editPassword" type="password" placeholder="Preencha apenas se for alterar" />
             </label>
+            <label className="checkbox-field span-2">
+              <input name="editDiscordJoined" type="checkbox" defaultChecked={editing.discordJoined === true || editing.entrouNoDiscord === true} />
+              <span>Aluno entrou no Discord</span>
+            </label>
             <IconButton className="button" icon="save" label="Salvar edição do aluno" type="submit" />
           </form>
         </section>
@@ -1115,9 +1215,10 @@ function AdminStudentsView({ apiClient }) {
               <th>Nome</th>
               <th>E-mail</th>
               <th>Turma</th>
+              <th>Discord</th>
               <th>Status</th>
               <th>ID</th>
-              <th>Ação</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1126,12 +1227,20 @@ function AdminStudentsView({ apiClient }) {
                 <td>{student.name}</td>
                 <td>{student.email}</td>
                 <td>{getStudentTurmaNames(student)}</td>
+                <td>
+                  <span className={`badge ${student.discordJoined || student.entrouNoDiscord ? "ok" : "off"}`}>
+                    {student.discordJoined || student.entrouNoDiscord ? "Sim" : "Não"}
+                  </span>
+                </td>
                 <td>{student.status}</td>
                 <td>
                   <code>{student.id}</code>
                 </td>
                 <td>
-                  <IconButton icon="edit" label={`Editar ${student.name}`} onClick={() => setEditing(student)} />
+                  <div className="actions table-actions">
+                    <IconButton icon="edit" label={`Editar ${student.name}`} onClick={() => setEditing(student)} />
+                    <IconButton className="button ghost" icon="delete" label={`Excluir ${student.name}`} onClick={() => deleteStudent(student)} />
+                  </div>
                 </td>
               </tr>
             ))}

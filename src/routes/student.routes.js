@@ -8,6 +8,7 @@ const router = express.Router();
 const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 
 router.post("/alunos", authMiddleware, authorizeRoles(adminRoles), studentController.create);
+router.post("/alunos/importar", authMiddleware, authorizeRoles(adminRoles), studentController.importBatch);
 router.get("/alunos", authMiddleware, authorizeRoles(adminRoles), studentController.list);
 router.get("/alunos/:id", authMiddleware, authorizeRoles(adminRoles), studentController.show);
 router.patch("/alunos/:id", authMiddleware, authorizeRoles(adminRoles), studentController.update);

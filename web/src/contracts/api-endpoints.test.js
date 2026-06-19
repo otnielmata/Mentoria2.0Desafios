@@ -13,6 +13,7 @@ describe("api-endpoints contract", () => {
         expect.objectContaining({ key: "admin.users.list", method: "GET", path: "/users", roles: ["admin"] }),
         expect.objectContaining({ key: "admin.users.create", method: "POST", path: "/users", roles: ["admin"] }),
         expect.objectContaining({ key: "admin.users.update", method: "PATCH", path: "/users/:id", roles: ["admin"] }),
+        expect.objectContaining({ key: "admin.users.delete", method: "DELETE", path: "/users/:id", roles: ["admin"] }),
       ])
     );
   });
@@ -24,6 +25,8 @@ describe("api-endpoints contract", () => {
       expect.arrayContaining([
         "admin.dashboard",
         "admin.students.update",
+        "admin.students.delete",
+        "admin.students.import",
         "admin.pillars.update",
         "admin.pillars.delete",
         "admin.challenges.update",
@@ -32,6 +35,7 @@ describe("api-endpoints contract", () => {
         "admin.users.list",
         "admin.users.create",
         "admin.users.update",
+        "admin.users.delete",
       ])
     );
   });

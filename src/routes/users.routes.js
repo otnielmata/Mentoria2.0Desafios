@@ -13,5 +13,6 @@ router.post("/", authMiddleware, authorizeRoles(adminRoles), userManagementContr
 router.get("/", authMiddleware, authorizeRoles(adminRoles), userManagementController.list);
 router.get("/:id", authMiddleware, authorizeRoles(adminRoles), userManagementController.show);
 router.patch("/:id", authMiddleware, authorizeRoles(adminRoles), userManagementController.update);
+router.delete("/:id", authMiddleware, authorizeRoles(adminRoles), userManagementController.remove);
 
 module.exports = router;

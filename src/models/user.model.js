@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    discordJoined: { type: Boolean, default: false },
     turmas: [{ type: mongoose.Schema.Types.ObjectId, ref: "Turma" }],
   },
   {

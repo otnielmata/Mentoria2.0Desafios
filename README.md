@@ -73,9 +73,9 @@ npm install
 - `POST /api/usuarios/registro` e `POST /api/usuarios/login` (aliases MR-1/MR-2)
 - `GET /api/me` e `PATCH /api/me` (nome e senha do próprio perfil; turma, status e perfil são administrativos)
 - `GET /api/users/me` (perfil autenticado consumido pela Web)
-- `POST /api/users`, `GET /api/users`, `GET /api/users/:id` e `PATCH /api/users/:id` (admin)
+- `POST /api/users`, `GET /api/users`, `GET /api/users/:id`, `PATCH /api/users/:id` e `DELETE /api/users/:id` (admin)
 - `POST /api/heuristicas` e `GET /api/heuristicas`
-- `POST /api/alunos`, `GET /api/alunos`, `GET /api/alunos/:id`, `PATCH /api/alunos/:id`, `DELETE /api/alunos/:id`
+- `POST /api/alunos`, `POST /api/alunos/importar`, `GET /api/alunos`, `GET /api/alunos/:id`, `PATCH /api/alunos/:id`, `DELETE /api/alunos/:id`
 - `POST /api/turmas`, `GET /api/turmas`, `GET /api/turmas/:id`, `PATCH /api/turmas/:id`, `DELETE /api/turmas/:id`
 - `POST /api/turmas/:turmaId/alunos` e `DELETE /api/turmas/:turmaId/alunos/:alunoId`
 - `POST /api/pilares`, `GET /api/pilares`, `GET /api/pilares/:id`, `PATCH /api/pilares/:id`, `DELETE /api/pilares/:id`
@@ -115,7 +115,9 @@ Em `Meus Grupos`, o aluno vê os integrantes do grupo automático e qualquer par
 
 O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Aprovações`, `Grupos`, `Ranking`, `Relatórios` e, para usuários com perfil `admin`, `Configurações`.
 
-Em `Alunos`, professor/admin pode cadastrar alunos e editar nome, e-mail, senha, status e turma. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
+Em `Alunos`, professor/admin pode cadastrar alunos, importar alunos em lote por CSV, editar nome, e-mail, senha, status, turma e a marcação se o aluno entrou no Discord. A lista permite editar e excluir o aluno por soft delete. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
+
+O CSV de importação em lote de alunos deve conter as colunas `Nome`, `E-mail`, `Senha Inicial` e `Turma`. A turma informada precisa existir e pode ser localizada por nome, código ou ID.
 
 Em `Pilares`, professor/admin pode cadastrar, editar, inativar e reativar pilares do método.
 
@@ -127,7 +129,7 @@ Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, d
 
 Em `Ranking`, a Web lista todos os alunos rankeados por pontuação total e quantidade de desafios executados.
 
-Em `Configurações`, o administrador faz a gestão geral de usuários e perfis do sistema. A tela permite filtrar por nome/e-mail, perfil e status, cadastrar usuários com perfil `aluno`, `professor` ou `admin`, visualizar a listagem e editar nome, e-mail, senha, status e perfil.
+Em `Configurações`, o administrador faz a gestão geral de usuários e perfis do sistema. A tela permite filtrar por nome/e-mail, perfil e status, cadastrar usuários com perfil `aluno`, `professor` ou `admin`, visualizar a listagem, editar nome, e-mail, senha, status e perfil, além de excluir usuários por soft delete.
 
 ## Contrato Web/API
 
@@ -189,7 +191,7 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 
 ## Coleções principais
 
-- `users`: alunos, professores e administradores
+- `users`: alunos, professores e administradores, incluindo a marcação administrativa `discordJoined`
 - `auth_attempts`: auditoria básica de tentativas inválidas de login
 - `auditorias`: eventos de domínio auditáveis
 - `heuristicas`: diretrizes cadastradas por usuários autenticados
@@ -228,6 +230,7 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - Erro `404` em endpoint consumido pela Web deve ser exibido como funcionalidade indisponível, sem confundir com expiração de sessão.
 - Usuários inativos não podem fazer login.
 - Alunos são desativados por soft delete (`status: inativo`), preservando envios, pontuações e vínculos históricos.
+- Usuários excluídos em Configurações também são inativados por soft delete; o administrador autenticado não pode excluir a própria conta.
 
 ## Cobertura consolidada MR-1 a MR-49
 

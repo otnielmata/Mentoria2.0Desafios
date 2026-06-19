@@ -36,9 +36,19 @@ async function update(req, res, next) {
   }
 }
 
+async function remove(req, res, next) {
+  try {
+    const user = await userManagementService.deleteManagedUser(req.user.id, req.params.id);
+    return res.status(200).json({ user, usuario: user });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   create,
   list,
+  remove,
   show,
   update,
 };

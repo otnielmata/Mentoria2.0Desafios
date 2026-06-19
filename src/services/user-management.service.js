@@ -18,12 +18,16 @@ const ALLOWED_ROLES = ["aluno", "professor", "admin"];
 const ALLOWED_STATUSES = ["ativo", "inativo"];
 
 function serializeManagedUser(user) {
+  const discordJoined = user.discordJoined === true;
+
   return {
     id: getEntityId(user),
     name: user.name,
     email: user.email,
     role: user.role,
     status: user.status,
+    discordJoined,
+    entrouNoDiscord: discordJoined,
     turmas: Array.isArray(user.turmas) ? user.turmas.map(getEntityId) : [],
   };
 }
@@ -159,8 +163,22 @@ async function updateManagedUser(authenticatedUserId, userId, payload = {}) {
   return serializeManagedUser(updatedUser);
 }
 
+async function deleteManagedUser(authenticatedUserId, userId) {
+  await assertAdmin(authenticatedUserId);
+  const id = parseObjectId(userId, "Usuário deve ser um identificador válido.");
+
+  if (id === String(authenticatedUserId)) {
+    throw createHttpError("Administrador autenticado não pode excluir o próprio usuário.", 400, { code: "SELF_DELETE_NOT_ALLOWED" });
+  }
+
+  const deletedUser = await User.findByIdAndUpdate(id, { status: "inativo" }, { new: true }).lean();
+  if (!deletedUser) throw createHttpError("Usuário não encontrado.", 404);
+  return serializeManagedUser(deletedUser);
+}
+
 module.exports = {
   createManagedUser,
+  deleteManagedUser,
   getManagedUser,
   listManagedUsers,
   updateManagedUser,
