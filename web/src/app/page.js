@@ -300,7 +300,7 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
     <main className="login-shell">
       <section className="login-panel">
         <div className="brand">
-          <span className="brand-mark">DM</span>
+          <img className="brand-logo" src="/logo-mentoria-wordmark.png" alt="Mentoria 2.0" width="132" height="61" />
           <div>
             <h1>Desafios Mentoria 2.0</h1>
             <p className="muted">Painel Alavanque</p>
@@ -391,7 +391,7 @@ function Sidebar({ activeView, menu, onNavigate, onLogout, user }) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark">DM</span>
+        <img className="brand-logo" src="/logo-mentoria-wordmark.png" alt="Mentoria 2.0" width="108" height="50" />
         <div>
           <h3>{user.name}</h3>
           <p className="muted">{user.role}</p>

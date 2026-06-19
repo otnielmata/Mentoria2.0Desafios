@@ -5,9 +5,9 @@
   --text: #18202f;
   --muted: #667085;
   --line: #d8dee8;
-  --primary: #0f766e;
-  --primary-strong: #115e59;
-  --accent: #8b5cf6;
+  --primary: #8502ab;
+  --primary-strong: #6c018c;
+  --accent: #009ec6;
   --danger: #b42318;
   --warning: #b54708;
   --success: #047857;
@@ -21,9 +21,9 @@
   --text: #f2f5f8;
   --muted: #a8b3c2;
   --line: #34404c;
-  --primary: #2dd4bf;
-  --primary-strong: #5eead4;
-  --accent: #c4b5fd;
+  --primary: #8502ab;
+  --primary-strong: #a51bd3;
+  --accent: #2bd7f4;
   --danger: #f97066;
   --warning: #fdb022;
   --success: #34d399;
@@ -90,15 +90,21 @@ input:disabled {
   gap: 10px;
 }
 
-.brand-mark {
-  display: inline-grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 800;
+.brand-logo {
+  display: block;
+  width: 132px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
+}
+
+[data-theme="dark"] .brand-logo {
+  filter: invert(1);
+}
+
+.sidebar .brand-logo {
+  width: 108px;
 }
 
 h1,
@@ -292,7 +298,8 @@ h3 {
   align-items: end;
   padding: 56px;
   background:
-    linear-gradient(rgba(16, 20, 24, 0.2), rgba(16, 20, 24, 0.62)),
+    linear-gradient(135deg, rgba(133, 2, 171, 0.72), rgba(0, 158, 198, 0.46)),
+    linear-gradient(rgba(16, 20, 24, 0.12), rgba(16, 20, 24, 0.66)),
     url("https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1800&q=80");
   background-position: center;
   background-size: cover;
