@@ -55,6 +55,10 @@ function serializeDesafio(desafio) {
   };
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function parseOptionalDate(value, fieldName) {
   if (value === undefined || value === null || value === "") return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -279,10 +283,20 @@ async function listDesafios(authenticatedUserId, query = {}) {
   if (pilarId) filters.pilar = pilarId;
 
   if (query.type || query.tipo) filters.type = parseType(query.type || query.tipo);
-  if (isAdmin && query.status) {
-    filters.status = String(query.status).trim();
-  } else if (!isAdmin) {
+  if (isAdmin) {
+    const status = query.status ? normalizeText(query.status) : "";
+    if (status && !["todos", "all"].includes(status)) {
+      filters.status = String(query.status).trim();
+    } else {
+      filters.status = { $ne: "apagado" };
+    }
+  } else {
     filters.status = ACTIVE_STATUS;
+  }
+  const search = parseOptionalText(query.search || query.q || query.titulo || query.title, "Busca");
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    filters.$or = [{ title: searchRegex }];
   }
 
   const { page, limit, skip } = parsePagination(query);

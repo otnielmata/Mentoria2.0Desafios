@@ -355,6 +355,14 @@ h3 {
   justify-content: start;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+}
+
 .content {
   display: grid;
   gap: 20px;

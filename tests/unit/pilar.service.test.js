@@ -3,6 +3,7 @@ jest.mock("../../src/models/desafio.model", () => ({
 }));
 
 jest.mock("../../src/models/pilar.model", () => ({
+  countDocuments: jest.fn(),
   create: jest.fn(),
   find: jest.fn(),
   findById: jest.fn(),
@@ -31,18 +32,23 @@ describe("pilar.service", () => {
 
   it("consulta pilares garantindo os 7 padrões pelo backend", async () => {
     Pilar.findOneAndUpdate.mockResolvedValue({});
+    Pilar.countDocuments.mockResolvedValue(7);
     Pilar.find.mockReturnValue({
       sort: jest.fn(() => ({
-        lean: jest.fn().mockResolvedValue(
-          DEFAULT_PILARES.map((pilar, index) => ({
-            _id: `6814f12ab3f34872f7558f4${index}`,
-            description: pilar.description,
-            isDefault: true,
-            name: pilar.name,
-            normalizedName: pilar.name.toLowerCase(),
-            status: "ativo",
-          }))
-        ),
+        skip: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(
+              DEFAULT_PILARES.map((pilar, index) => ({
+                _id: `6814f12ab3f34872f7558f4${index}`,
+                description: pilar.description,
+                isDefault: true,
+                name: pilar.name,
+                normalizedName: pilar.name.toLowerCase(),
+                status: "ativo",
+              }))
+            ),
+          })),
+        })),
       })),
     });
 

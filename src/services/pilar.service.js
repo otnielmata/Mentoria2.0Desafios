@@ -3,12 +3,14 @@ const Pilar = require("../models/pilar.model");
 const User = require("../models/user.model");
 const { seedDefaultPilares } = require("../seeds/pilares.seed");
 const {
+  buildPagination,
   createHttpError,
   getEntityId,
   normalizeName,
   normalizeText,
   parseObjectId,
   parseOptionalText,
+  parsePagination,
   parseRequiredText,
 } = require("./domain-utils");
 
@@ -37,6 +39,10 @@ function serializeDesafioResumo(desafio) {
     maxParticipantes: desafio.maxParticipantes,
     status: desafio.status,
   };
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function getAuthenticatedUser(authenticatedUserId) {
@@ -73,14 +79,32 @@ async function listPilares(authenticatedUserId, query = {}) {
   const filters = {};
   if (!ADMIN_ROLES.includes(normalizeText(user.role))) {
     filters.status = ACTIVE_STATUS;
-  } else if (query.status) {
-    filters.status = String(query.status).trim();
   } else {
-    filters.status = ACTIVE_STATUS;
+    const status = query.status ? normalizeText(query.status) : "";
+    if (status && !["todos", "all"].includes(status)) {
+      filters.status = String(query.status).trim();
+    } else if (!status) {
+      filters.status = ACTIVE_STATUS;
+    }
   }
 
-  const pilares = await Pilar.find(filters).sort({ name: 1 }).lean();
-  return { total: pilares.length, pilares: pilares.map(serializePilar) };
+  const search = parseOptionalText(query.search || query.q || query.nome || query.name, "Busca");
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    filters.$or = [{ name: searchRegex }, { normalizedName: searchRegex }];
+  }
+
+  const { page, limit, skip } = parsePagination(query);
+  const [total, pilares] = await Promise.all([
+    Pilar.countDocuments(filters),
+    Pilar.find(filters).sort({ name: 1 }).skip(skip).limit(limit).lean(),
+  ]);
+
+  return {
+    total,
+    pagination: buildPagination(total, page, limit),
+    pilares: pilares.map(serializePilar),
+  };
 }
 
 async function getPilar(authenticatedUserId, pilarId) {

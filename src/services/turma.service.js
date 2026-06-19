@@ -43,6 +43,10 @@ function serializeTurma(turma, alunos = []) {
   };
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function assertAdmin(authenticatedUserId, message) {
   const user = await User.findById(authenticatedUserId);
   if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
@@ -84,6 +88,11 @@ async function listTurmas(authenticatedUserId, query = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode listar turmas.");
   const filters = {};
   if (query.status) filters.status = String(query.status).trim();
+  const search = parseOptionalText(query.search || query.q || query.nome || query.name, "Busca");
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    filters.$or = [{ name: searchRegex }, { code: searchRegex }];
+  }
   const { page, limit, skip } = parsePagination(query);
   const [total, turmas] = await Promise.all([
     Turma.countDocuments(filters),

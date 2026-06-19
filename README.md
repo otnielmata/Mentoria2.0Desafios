@@ -115,21 +115,23 @@ Em `Meus Grupos`, o aluno vê os integrantes do grupo automático e qualquer par
 
 O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Aprovações`, `Grupos`, `Ranking`, `Relatórios` e, para usuários com perfil `admin`, `Configurações`.
 
-Em `Alunos`, professor/admin pode cadastrar alunos, importar alunos em lote por CSV, editar nome, e-mail, senha, status, turma e a marcação se o aluno entrou no Discord. A lista permite editar e excluir o aluno por soft delete. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
+Em `Alunos`, professor/admin pode cadastrar alunos, importar alunos em lote por CSV, editar nome, e-mail, senha, status, turma e a marcação se o aluno entrou no Discord. A lista exibe 10 registros por página, permite filtrar por parte do nome, editar e excluir o aluno por soft delete. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
 
 O CSV de importação em lote de alunos deve conter as colunas `Nome`, `E-mail`, `Senha Inicial` e `Turma`. A turma informada precisa existir e pode ser localizada por nome, código ou ID.
 
-Em `Pilares`, professor/admin pode cadastrar, editar, inativar e reativar pilares do método.
+Em `Turmas`, professor/admin pode cadastrar, listar, filtrar por parte do nome, editar e excluir turmas. A listagem exibe 10 registros por página e substitui a visualização antiga de alunos por turma.
+
+Em `Pilares`, professor/admin pode cadastrar, editar, inativar e reativar pilares do método. A listagem exibe 10 registros por página e permite filtrar por parte do nome do pilar.
 
 Em `Dashboard`, a Web exibe alunos ativos, quantidade de desafios enviados, aprovações pendentes, ranking dos 10 primeiros alunos e gráfico de pizza com o percentual de desafios aprovados por pilar.
 
-Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. A lista permite `Editar`, `Ativar`/`Desativar` e `Apagar` o desafio pela ação administrativa.
+Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. A lista exibe 10 registros por página, permite filtrar por parte do título e oferece `Editar`, `Ativar`/`Desativar` e `Apagar` o desafio pela ação administrativa.
 
-Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, desafio, turma e participantes do envio. Ao aprovar, a API lança a pontuação para todos os integrantes do grupo. Se a opção de apresentação ao vivo for marcada, a pontuação extra cadastrada no desafio é somada para todos os participantes aprovados.
+Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, desafio, turma e participantes do envio. A lista exibe 10 registros por página, permite filtrar por nome de aluno/participante ou título do desafio e consultar pendentes, aprovados, reprovados, ajustes ou todos. Ao aprovar, a API lança a pontuação para todos os integrantes do grupo. Se a opção de apresentação ao vivo for marcada, a pontuação extra cadastrada no desafio é somada para todos os participantes aprovados.
 
 Em `Ranking`, a Web lista todos os alunos rankeados por pontuação total e quantidade de desafios executados.
 
-Em `Configurações`, o administrador faz a gestão geral de usuários e perfis do sistema. A tela permite filtrar por nome/e-mail, perfil e status, cadastrar usuários com perfil `aluno`, `professor` ou `admin`, visualizar a listagem, editar nome, e-mail, senha, status e perfil, além de excluir usuários por soft delete.
+Em `Configurações`, o administrador faz a gestão geral de usuários e perfis do sistema. A tela exibe 10 registros por página e permite filtrar por nome/e-mail, perfil e status, cadastrar usuários com perfil `aluno`, `professor` ou `admin`, visualizar a listagem, editar nome, e-mail, senha, status e perfil, além de excluir usuários por soft delete.
 
 ## Contrato Web/API
 

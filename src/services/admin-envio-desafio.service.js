@@ -10,6 +10,7 @@ const {
   normalizeText,
   parseObjectId,
   parseOptionalObjectId,
+  parseOptionalText,
   parsePagination,
   parsePeriod,
   toIsoDate,
@@ -28,6 +29,7 @@ const FEEDBACK_REQUIRED_DECISIONS = ["reprovado", "ajuste"];
 const APPROVED_STATUS = "aprovado";
 const PENDING_STATUS = "pendente";
 const CANCELED_STATUS = "cancelado";
+const LISTABLE_STATUSES = ["pendente", "aprovado", "reprovado", "ajuste", "cancelado"];
 
 async function getReviewer(authenticatedUserId) {
   const user = await User.findById(authenticatedUserId);
@@ -139,10 +141,26 @@ function serializeEnvio(envio) {
   };
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseListStatus(query = {}) {
+  const rawStatus = parseOptionalText(query.status || query.situacao, "Status");
+  if (!rawStatus) return PENDING_STATUS;
+
+  const status = normalizeText(rawStatus);
+  if (["todos", "all"].includes(status)) return null;
+  if (!LISTABLE_STATUSES.includes(status)) throw createHttpError("Status deve ser pendente, aprovado, reprovado, ajuste, cancelado ou todos.", 400);
+  return status;
+}
+
 async function listPending(authenticatedUserId, query = {}) {
   await getReviewer(authenticatedUserId);
   const period = parsePeriod(query);
-  const filters = { status: PENDING_STATUS };
+  const filters = {};
+  const status = parseListStatus(query);
+  if (status) filters.status = status;
   if (period.createdAt) filters.createdAt = period.createdAt;
   const turmaId = parseOptionalObjectId(query.turmaId || query.turma_id || query.turma, "Turma deve ser um identificador válido.");
   if (turmaId) filters.turma = turmaId;
@@ -159,6 +177,21 @@ async function listPending(authenticatedUserId, query = {}) {
 
   const alunoId = parseOptionalObjectId(query.alunoId || query.aluno_id || query.aluno, "Aluno deve ser um identificador válido.");
   if (alunoId) filters.$or = [{ aluno: alunoId }, { participantes: alunoId }];
+
+  const search = parseOptionalText(query.search || query.q || query.nome || query.name, "Busca");
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    const [users, desafiosPorTitulo] = await Promise.all([
+      User.find({ name: searchRegex }).select("_id").lean(),
+      Desafio.find({ title: searchRegex }).select("_id").lean(),
+    ]);
+    const userIds = (users || []).map(getEntityId).filter(Boolean);
+    const desafioIds = (desafiosPorTitulo || []).map(getEntityId).filter(Boolean);
+    const searchFilters = [];
+    if (userIds.length > 0) searchFilters.push({ aluno: { $in: userIds } }, { participantes: { $in: userIds } });
+    if (desafioIds.length > 0) searchFilters.push({ desafio: { $in: desafioIds } });
+    filters.$and = [...(filters.$and || []), { $or: searchFilters.length > 0 ? searchFilters : [{ _id: { $in: [] } }] }];
+  }
 
   const { page, limit, skip } = parsePagination(query);
   const sortDirection = ["desc", "recentes", "-createdAt"].includes(String(query.sort || query.ordenacao || "").trim()) ? -1 : 1;

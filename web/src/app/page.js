@@ -7,6 +7,7 @@ import apiClientModule from "../lib/api-client";
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const LIST_PAGE_SIZE = 10;
 
 const TEST_USERS = {
   admin: {
@@ -184,6 +185,36 @@ function ButtonIcon({ name }) {
 function Notice({ message, type = "neutral" }) {
   if (!message) return null;
   return <div className={`alert ${type === "error" ? "" : "neutral"}`}>{message}</div>;
+}
+
+function buildListPath(path, params = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") searchParams.set(key, String(value));
+  });
+  const query = searchParams.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+function getPagination(result) {
+  return (result && result.pagination) || { page: 1, limit: LIST_PAGE_SIZE, total: 0, totalPages: 0 };
+}
+
+function PaginationControls({ label, onPageChange, pagination }) {
+  if (!pagination || Number(pagination.totalPages || 0) <= 1) return null;
+
+  const currentPage = Number(pagination.page || 1);
+  const totalPages = Number(pagination.totalPages || 1);
+
+  return (
+    <div className="pagination" aria-label={label || "Paginação"}>
+      <IconButton disabled={currentPage <= 1} icon="chevron_left" label="Página anterior" onClick={() => onPageChange(currentPage - 1)} />
+      <span className="muted">
+        Página {currentPage} de {totalPages}
+      </span>
+      <IconButton disabled={currentPage >= totalPages} icon="chevron_right" label="Próxima página" onClick={() => onPageChange(currentPage + 1)} />
+    </div>
+  );
 }
 
 function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
@@ -365,24 +396,28 @@ function ConfigurationView({ apiClient }) {
   const [users, setUsers] = useState([]);
   const [editing, setEditing] = useState(null);
   const [filters, setFilters] = useState({ search: "", role: "", status: "" });
+  const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  function buildUsersPath(nextFilters = filters) {
-    const params = new URLSearchParams({ limit: "100" });
-    if (nextFilters.search) params.set("search", nextFilters.search);
-    if (nextFilters.role) params.set("role", nextFilters.role);
-    if (nextFilters.status) params.set("status", nextFilters.status);
-    return `/users?${params.toString()}`;
+  function buildUsersPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/users", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      search: nextFilters.search,
+      role: nextFilters.role,
+      status: nextFilters.status,
+    });
   }
 
-  async function load(nextFilters = filters) {
+  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
     setError("");
     setLoading(true);
     try {
-      const result = await apiClient.request({ method: "GET", path: buildUsersPath(nextFilters) });
+      const result = await apiClient.request({ method: "GET", path: buildUsersPath(nextFilters, nextPage) });
       setUsers(getArray(result, "users").length > 0 ? getArray(result, "users") : getArray(result, "usuarios"));
+      setPagination(getPagination(result));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -400,7 +435,11 @@ function ConfigurationView({ apiClient }) {
 
   async function applyFilters(event) {
     event.preventDefault();
-    await load(filters);
+    await load(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await load(filters, page);
   }
 
   async function createUser(event) {
@@ -423,7 +462,7 @@ function ConfigurationView({ apiClient }) {
       );
       event.currentTarget.reset();
       setFeedback("Usuário cadastrado com sucesso.");
-      await load();
+      await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
     }
@@ -623,6 +662,7 @@ function ConfigurationView({ apiClient }) {
             ))}
           </tbody>
         </table>
+        <PaginationControls label="Paginação de usuários" onPageChange={goToPage} pagination={pagination} />
         {!loading && users.length === 0 ? <Notice message="Nenhum usuário encontrado para o filtro informado." /> : null}
       </section>
     </div>
@@ -964,19 +1004,30 @@ function AdminStudentsView({ apiClient }) {
   const [students, setStudents] = useState([]);
   const [turmas, setTurmas] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [filters, setFilters] = useState({ search: "" });
+  const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  async function load() {
+  function buildStudentsPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/alunos", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      search: nextFilters.search,
+    });
+  }
+
+  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
     setError("");
     setLoading(true);
     try {
       const [studentsResult, turmasResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: "/alunos?limit=100" }),
+        apiClient.request({ method: "GET", path: buildStudentsPath(nextFilters, nextPage) }),
         apiClient.request({ method: "GET", path: "/turmas?limit=100" }),
       ]);
       setStudents(getArray(studentsResult, "alunos"));
+      setPagination(getPagination(studentsResult));
       setTurmas(getArray(turmasResult, "turmas"));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
@@ -988,6 +1039,19 @@ function AdminStudentsView({ apiClient }) {
   useEffect(() => {
     load();
   }, [apiClient]);
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyFilters(event) {
+    event.preventDefault();
+    await load(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await load(filters, page);
+  }
 
   async function createStudent(event) {
     event.preventDefault();
@@ -1010,7 +1074,7 @@ function AdminStudentsView({ apiClient }) {
       );
       event.currentTarget.reset();
       setFeedback("Aluno cadastrado com sucesso.");
-      await load();
+      await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
     }
@@ -1105,7 +1169,7 @@ function AdminStudentsView({ apiClient }) {
             <h2>Alunos</h2>
             <p className="muted">Cadastre, edite e copie IDs para formar grupos em desafios.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar alunos" onClick={load} />
+          <IconButton icon="refresh" label="Atualizar alunos" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1208,6 +1272,13 @@ function AdminStudentsView({ apiClient }) {
 
       <section className="panel">
         <h2>Lista de alunos</h2>
+        <form className="toolbar" onSubmit={applyFilters}>
+          <label className="field">
+            <span>Filtrar por nome do aluno</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Digite parte do nome" />
+          </label>
+          <IconButton icon="filter_alt" label="Filtrar alunos" type="submit" />
+        </form>
         {loading ? <Notice message="Carregando alunos..." /> : null}
         <table className="table">
           <thead>
@@ -1246,6 +1317,8 @@ function AdminStudentsView({ apiClient }) {
             ))}
           </tbody>
         </table>
+        <PaginationControls label="Paginação de alunos" onPageChange={goToPage} pagination={pagination} />
+        {!loading && students.length === 0 ? <Notice message="Nenhum aluno encontrado para o filtro informado." /> : null}
       </section>
     </div>
   );
@@ -1253,31 +1326,32 @@ function AdminStudentsView({ apiClient }) {
 
 function AdminTurmasView({ apiClient }) {
   const [turmas, setTurmas] = useState([]);
-  const [selectedTurmaId, setSelectedTurmaId] = useState("");
-  const [turmaDetails, setTurmaDetails] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [filters, setFilters] = useState({ search: "" });
+  const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  async function loadTurmas() {
-    setError("");
-    try {
-      const result = await apiClient.request({ method: "GET", path: "/turmas?limit=100" });
-      const nextTurmas = getArray(result, "turmas");
-      setTurmas(nextTurmas);
-      if (!selectedTurmaId && nextTurmas[0]) setSelectedTurmaId(nextTurmas[0].id);
-    } catch (loadError) {
-      setError(getErrorMessage(loadError));
-    }
+  function buildTurmasPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/turmas", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      search: nextFilters.search,
+    });
   }
 
-  async function loadTurmaDetails(turmaId = selectedTurmaId) {
-    if (!turmaId) return;
+  async function loadTurmas(nextFilters = filters, nextPage = pagination.page || 1) {
     setError("");
+    setLoading(true);
     try {
-      const result = await apiClient.request({ method: "GET", path: `/turmas/${turmaId}` });
-      setTurmaDetails(result);
-    } catch (detailsError) {
-      setError(getErrorMessage(detailsError));
+      const result = await apiClient.request({ method: "GET", path: buildTurmasPath(nextFilters, nextPage) });
+      setTurmas(getArray(result, "turmas"));
+      setPagination(getPagination(result));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -1285,9 +1359,18 @@ function AdminTurmasView({ apiClient }) {
     loadTurmas();
   }, [apiClient]);
 
-  useEffect(() => {
-    if (selectedTurmaId) loadTurmaDetails(selectedTurmaId);
-  }, [selectedTurmaId]);
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyFilters(event) {
+    event.preventDefault();
+    await loadTurmas(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await loadTurmas(filters, page);
+  }
 
   async function createTurma(event) {
     event.preventDefault();
@@ -1295,7 +1378,7 @@ function AdminTurmasView({ apiClient }) {
     setFeedback("");
     setError("");
     try {
-      const turma = await apiClient.request(
+      await apiClient.request(
         { method: "POST", path: "/turmas" },
         {
           body: {
@@ -1309,32 +1392,52 @@ function AdminTurmasView({ apiClient }) {
       );
       event.currentTarget.reset();
       setFeedback("Turma cadastrada com sucesso.");
-      setSelectedTurmaId(turma.id);
-      await loadTurmas();
+      await loadTurmas(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
     }
   }
 
-  async function enrollStudent(event) {
+  async function updateTurma(event) {
     event.preventDefault();
+    if (!editing) return;
     const data = new FormData(event.currentTarget);
     setFeedback("");
     setError("");
     try {
       await apiClient.request(
-        { method: "POST", path: `/turmas/${selectedTurmaId}/alunos` },
+        { method: "PATCH", path: `/turmas/${editing.id}` },
         {
           body: {
-            alunoId: data.get("alunoId"),
+            name: data.get("editName"),
+            code: data.get("editCode"),
+            description: data.get("editDescription"),
+            startDate: data.get("editStartDate") || undefined,
+            endDate: data.get("editEndDate") || undefined,
+            status: data.get("editStatus"),
           },
         }
       );
-      event.currentTarget.reset();
-      setFeedback("Aluno matriculado na turma.");
-      await loadTurmaDetails(selectedTurmaId);
-    } catch (enrollError) {
-      setError(getErrorMessage(enrollError));
+      setEditing(null);
+      setFeedback("Turma atualizada com sucesso.");
+      await loadTurmas();
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    }
+  }
+
+  async function deleteTurma(turma) {
+    if (typeof window !== "undefined" && !window.confirm(`Excluir a turma ${turma.name}?`)) return;
+
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request({ method: "DELETE", path: `/turmas/${turma.id}` });
+      if (editing && editing.id === turma.id) setEditing(null);
+      setFeedback("Turma excluída com sucesso.");
+      await loadTurmas();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
     }
   }
 
@@ -1344,9 +1447,9 @@ function AdminTurmasView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Turmas</h2>
-            <p className="muted">Cadastre turmas, matricule alunos por ID e visualize alunos por turma.</p>
+            <p className="muted">Cadastre, edite, filtre e exclua turmas da mentoria.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar turmas" onClick={loadTurmas} />
+          <IconButton icon="refresh" label="Atualizar turmas" onClick={() => loadTurmas()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1371,56 +1474,98 @@ function AdminTurmasView({ apiClient }) {
         </form>
       </section>
 
+      {editing ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Editar turma</h2>
+            <IconButton className="button ghost" icon="close" label="Cancelar edição" onClick={() => setEditing(null)} />
+          </div>
+          <form className="form-grid" key={editing.id} onSubmit={updateTurma}>
+            <label className="field">
+              <span>Nome da turma</span>
+              <input name="editName" required defaultValue={editing.name} />
+            </label>
+            <label className="field">
+              <span>Código</span>
+              <input name="editCode" defaultValue={editing.code || ""} />
+            </label>
+            <label className="field">
+              <span>Início</span>
+              <input name="editStartDate" type="date" defaultValue={formatDateInputValue(editing.startDate || editing.data_inicio)} />
+            </label>
+            <label className="field">
+              <span>Fim</span>
+              <input name="editEndDate" type="date" defaultValue={formatDateInputValue(editing.endDate || editing.data_fim)} />
+            </label>
+            <label className="field">
+              <span>Status</span>
+              <select name="editStatus" defaultValue={editing.status || "ativa"}>
+                <option value="ativa">ativa</option>
+                <option value="encerrada">encerrada</option>
+              </select>
+            </label>
+            <label className="field span-2">
+              <span>Descrição</span>
+              <textarea name="editDescription" defaultValue={editing.description || ""} />
+            </label>
+            <IconButton className="button" icon="save" label="Salvar turma" type="submit" />
+          </form>
+        </section>
+      ) : null}
+
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Alunos por turma</h2>
-            <p className="muted">Selecione uma turma para visualizar alunos matriculados.</p>
+            <h2>Listagem de turmas</h2>
+            <p className="muted">Filtre por nome da turma e navegue pelos registros.</p>
           </div>
         </div>
-        <div className="toolbar">
+        <form className="toolbar" onSubmit={applyFilters}>
           <label className="field">
-            <span>Turma</span>
-            <select value={selectedTurmaId} onChange={(event) => setSelectedTurmaId(event.target.value)}>
-              <option value="">Selecione</option>
-              {turmas.map((turma) => (
-                <option key={turma.id} value={turma.id}>
-                  {turma.name}
-                </option>
-              ))}
-            </select>
+            <span>Filtrar por nome da turma</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Digite parte do nome" />
           </label>
-          <form className="inline-form" onSubmit={enrollStudent}>
-            <label className="field">
-              <span>ID do aluno</span>
-              <input name="alunoId" placeholder="Cole o ID do aluno" />
-            </label>
-            <IconButton disabled={!selectedTurmaId} icon="person_add" label="Matricular aluno" type="submit" />
-          </form>
-        </div>
+          <IconButton icon="filter_alt" label="Filtrar turmas" type="submit" />
+        </form>
 
+        {loading ? <Notice message="Carregando turmas..." /> : null}
         <table className="table">
           <thead>
             <tr>
-              <th>Aluno</th>
-              <th>E-mail</th>
+              <th>Nome</th>
+              <th>Código</th>
+              <th>Início</th>
+              <th>Fim</th>
               <th>Status</th>
+              <th>Alunos</th>
               <th>ID</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {getArray(turmaDetails, "alunos").map((aluno) => (
-              <tr key={aluno.id}>
-                <td>{aluno.name}</td>
-                <td>{aluno.email}</td>
-                <td>{aluno.status}</td>
+            {turmas.map((turma) => (
+              <tr key={turma.id}>
+                <td>{turma.name}</td>
+                <td>{turma.code || "-"}</td>
+                <td>{formatDate(turma.startDate || turma.data_inicio)}</td>
+                <td>{formatDate(turma.endDate || turma.data_fim)}</td>
+                <td>{turma.status}</td>
+                <td>{formatNumber(turma.quantidadeAlunos)}</td>
                 <td>
-                  <code>{aluno.id}</code>
+                  <code>{turma.id}</code>
+                </td>
+                <td>
+                  <div className="actions table-actions">
+                    <IconButton icon="edit" label={`Editar ${turma.name}`} onClick={() => setEditing(turma)} />
+                    <IconButton className="button ghost" icon="delete" label={`Excluir ${turma.name}`} onClick={() => deleteTurma(turma)} />
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <PaginationControls label="Paginação de turmas" onPageChange={goToPage} pagination={pagination} />
+        {!loading && turmas.length === 0 ? <Notice message="Nenhuma turma encontrada para o filtro informado." /> : null}
       </section>
     </div>
   );
@@ -1429,25 +1574,51 @@ function AdminTurmasView({ apiClient }) {
 function AdminPilaresView({ apiClient }) {
   const [pilares, setPilares] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [filters, setFilters] = useState({ search: "" });
+  const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  async function load() {
+  function buildPilaresPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/pilares", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      status: "todos",
+      search: nextFilters.search,
+    });
+  }
+
+  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
     setError("");
+    setLoading(true);
     try {
-      const [activeResult, inactiveResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: "/pilares?status=ativo" }),
-        apiClient.request({ method: "GET", path: "/pilares?status=inativo" }),
-      ]);
-      setPilares([...getArray(activeResult, "pilares"), ...getArray(inactiveResult, "pilares")]);
+      const result = await apiClient.request({ method: "GET", path: buildPilaresPath(nextFilters, nextPage) });
+      setPilares(getArray(result, "pilares"));
+      setPagination(getPagination(result));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
   }, [apiClient]);
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyFilters(event) {
+    event.preventDefault();
+    await load(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await load(filters, page);
+  }
 
   async function createPilar(event) {
     event.preventDefault();
@@ -1466,7 +1637,7 @@ function AdminPilaresView({ apiClient }) {
       );
       event.currentTarget.reset();
       setFeedback("Pilar cadastrado com sucesso.");
-      await load();
+      await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
     }
@@ -1522,7 +1693,7 @@ function AdminPilaresView({ apiClient }) {
             <h2>Pilares</h2>
             <p className="muted">Cadastre, edite e exclua pilares do método quando necessário.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar pilares" onClick={load} />
+          <IconButton icon="refresh" label="Atualizar pilares" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1568,6 +1739,14 @@ function AdminPilaresView({ apiClient }) {
 
       <section className="panel">
         <h2>Pilares cadastrados</h2>
+        <form className="toolbar" onSubmit={applyFilters}>
+          <label className="field">
+            <span>Filtrar por nome do pilar</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Digite parte do nome" />
+          </label>
+          <IconButton icon="filter_alt" label="Filtrar pilares" type="submit" />
+        </form>
+        {loading ? <Notice message="Carregando pilares..." /> : null}
         <table className="table">
           <thead>
             <tr>
@@ -1600,6 +1779,8 @@ function AdminPilaresView({ apiClient }) {
             ))}
           </tbody>
         </table>
+        <PaginationControls label="Paginação de pilares" onPageChange={goToPage} pagination={pagination} />
+        {!loading && pilares.length === 0 ? <Notice message="Nenhum pilar encontrado para o filtro informado." /> : null}
       </section>
     </div>
   );
@@ -1609,27 +1790,54 @@ function AdminDesafiosView({ apiClient }) {
   const [pilares, setPilares] = useState([]);
   const [desafios, setDesafios] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [filters, setFilters] = useState({ search: "" });
+  const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  async function load() {
+  function buildDesafiosPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/desafios", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      search: nextFilters.search,
+    });
+  }
+
+  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
     setError("");
+    setLoading(true);
     try {
       const [pilaresResult, desafiosResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: "/pilares" }),
-        apiClient.request({ method: "GET", path: "/desafios?limit=100&status=inativo" }),
+        apiClient.request({ method: "GET", path: "/pilares?limit=100&status=ativo" }),
+        apiClient.request({ method: "GET", path: buildDesafiosPath(nextFilters, nextPage) }),
       ]);
-      const activeResult = await apiClient.request({ method: "GET", path: "/desafios?limit=100&status=ativo" });
       setPilares(getArray(pilaresResult, "pilares"));
-      setDesafios([...getArray(desafiosResult, "desafios"), ...getArray(activeResult, "desafios")]);
+      setDesafios(getArray(desafiosResult, "desafios"));
+      setPagination(getPagination(desafiosResult));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
   }, [apiClient]);
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyFilters(event) {
+    event.preventDefault();
+    await load(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await load(filters, page);
+  }
 
   async function createDesafio(event) {
     event.preventDefault();
@@ -1656,7 +1864,7 @@ function AdminDesafiosView({ apiClient }) {
       );
       event.currentTarget.reset();
       setFeedback("Desafio cadastrado com sucesso.");
-      await load();
+      await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
     }
@@ -1728,7 +1936,7 @@ function AdminDesafiosView({ apiClient }) {
             <h2>Desafios</h2>
             <p className="muted">Cadastre desafios e ative quando estiverem prontos para alunos.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar desafios" onClick={load} />
+          <IconButton icon="refresh" label="Atualizar desafios" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -1844,6 +2052,14 @@ function AdminDesafiosView({ apiClient }) {
 
       <section className="panel">
         <h2>Desafios cadastrados</h2>
+        <form className="toolbar" onSubmit={applyFilters}>
+          <label className="field">
+            <span>Filtrar por título</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Digite parte do título" />
+          </label>
+          <IconButton icon="filter_alt" label="Filtrar desafios" type="submit" />
+        </form>
+        {loading ? <Notice message="Carregando desafios..." /> : null}
         <table className="table">
           <thead>
             <tr>
@@ -1886,6 +2102,8 @@ function AdminDesafiosView({ apiClient }) {
             ))}
           </tbody>
         </table>
+        <PaginationControls label="Paginação de desafios" onPageChange={goToPage} pagination={pagination} />
+        {!loading && desafios.length === 0 ? <Notice message="Nenhum desafio encontrado para o filtro informado." /> : null}
       </section>
     </div>
   );
@@ -1893,22 +2111,52 @@ function AdminDesafiosView({ apiClient }) {
 
 function AdminApprovalsView({ apiClient }) {
   const [envios, setEnvios] = useState([]);
+  const [filters, setFilters] = useState({ search: "", status: "pendente" });
+  const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  async function load() {
+  function buildApprovalsPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/envios-desafios/aprovacoes", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      sort: "desc",
+      status: nextFilters.status,
+      search: nextFilters.search,
+    });
+  }
+
+  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
     setError("");
+    setLoading(true);
     try {
-      const result = await apiClient.request({ method: "GET", path: "/envios-desafios/aprovacoes?limit=100&sort=desc" });
+      const result = await apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) });
       setEnvios(getArray(result, "envios"));
+      setPagination(getPagination(result));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
   }, [apiClient]);
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyFilters(event) {
+    event.preventDefault();
+    await load(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await load(filters, page);
+  }
 
   async function evaluateEnvio(event, envio) {
     event.preventDefault();
@@ -1947,15 +2195,33 @@ function AdminApprovalsView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Aprovações</h2>
-            <p className="muted">Revise os envios pendentes, confira evidências e aprove ou reprove.</p>
+            <p className="muted">Revise envios, filtre por nome ou título e consulte aprovados quando necessário.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar aprovações" onClick={load} />
+          <IconButton icon="refresh" label="Atualizar aprovações" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
+        <form className="form-grid" onSubmit={applyFilters}>
+          <label className="field">
+            <span>Filtrar por nome ou título</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Aluno, participante ou desafio" />
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}>
+              <option value="pendente">Pendentes</option>
+              <option value="aprovado">Aprovados</option>
+              <option value="reprovado">Reprovados</option>
+              <option value="ajuste">Ajuste solicitado</option>
+              <option value="todos">Todos</option>
+            </select>
+          </label>
+          <IconButton icon="filter_alt" label="Filtrar aprovações" type="submit" />
+        </form>
       </section>
 
-      {envios.length === 0 ? <Notice message="Nenhum envio pendente no momento." /> : null}
+      {loading ? <Notice message="Carregando aprovações..." /> : null}
+      {!loading && envios.length === 0 ? <Notice message="Nenhum envio encontrado para o filtro informado." /> : null}
       {envios.map((envio) => (
         <section className="panel" key={envio.id}>
           <div className="panel-header">
@@ -1992,28 +2258,33 @@ function AdminApprovalsView({ apiClient }) {
               <strong>{formatAttachmentList(envio && envio.anexos)}</strong>
             </div>
           </div>
-          <form className="form-grid" onSubmit={(event) => evaluateEnvio(event, envio)}>
-            <label className="field span-2">
-              <span>Feedback</span>
-              <textarea name="feedback" placeholder="Obrigatório para reprovar." />
-            </label>
-            <label className="checkbox-field span-2">
-              <input name="apresentacaoAoVivo" type="checkbox" />
-              <span>Este grupo apresentou o desafio em evento ao vivo</span>
-            </label>
-            <div className="actions span-2">
-              <button className="button with-icon" type="submit" name="decision" value="aprovado">
-                <ButtonIcon name="check_circle" />
-                Aprovar
-              </button>
-              <button className="button secondary with-icon" type="submit" name="decision" value="reprovado">
-                <ButtonIcon name="cancel" />
-                Reprovar
-              </button>
-            </div>
-          </form>
+          {envio.status === "pendente" ? (
+            <form className="form-grid" onSubmit={(event) => evaluateEnvio(event, envio)}>
+              <label className="field span-2">
+                <span>Feedback</span>
+                <textarea name="feedback" placeholder="Obrigatório para reprovar." />
+              </label>
+              <label className="checkbox-field span-2">
+                <input name="apresentacaoAoVivo" type="checkbox" />
+                <span>Este grupo apresentou o desafio em evento ao vivo</span>
+              </label>
+              <div className="actions span-2">
+                <button className="button with-icon" type="submit" name="decision" value="aprovado">
+                  <ButtonIcon name="check_circle" />
+                  Aprovar
+                </button>
+                <button className="button secondary with-icon" type="submit" name="decision" value="reprovado">
+                  <ButtonIcon name="cancel" />
+                  Reprovar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <Notice message="Envio já avaliado. Use o filtro de status para consultar outros registros." />
+          )}
         </section>
       ))}
+      <PaginationControls label="Paginação de aprovações" onPageChange={goToPage} pagination={pagination} />
     </div>
   );
 }
