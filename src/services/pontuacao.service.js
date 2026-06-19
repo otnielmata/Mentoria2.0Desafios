@@ -168,6 +168,40 @@ function getLivePresentationBonusPoints(desafio, enabled) {
   return Number.isFinite(pontos) && pontos > 0 ? pontos : 0;
 }
 
+function getChallengePillarPoints(desafio = {}) {
+  const configured = Array.isArray(desafio.pilares)
+    ? desafio.pilares
+        .map((item) => {
+          const pilar = item && (item.pilar || item.pilarId || item.id);
+          const pontos = Number(item && (item.points || item.pontos || item.pontuacao || item.pontuação));
+          return pilar && Number.isFinite(pontos) && pontos > 0
+            ? {
+                pilar: getEntityId(pilar),
+                pontos,
+              }
+            : null;
+        })
+        .filter(Boolean)
+    : [];
+
+  if (configured.length > 0) return configured;
+
+  const legacyPilar = desafio.pilar || desafio.pilarId;
+  const legacyPoints = Number(desafio.points || desafio.pontos || 0);
+  if (!legacyPilar || !Number.isFinite(legacyPoints) || legacyPoints <= 0) return [];
+
+  return [{ pilar: getEntityId(legacyPilar), pontos: legacyPoints }];
+}
+
+function getChallengeBasePoints(desafio = {}) {
+  const pontosPorPilar = getChallengePillarPoints(desafio);
+  const total = pontosPorPilar.reduce((sum, item) => sum + Number(item.pontos || 0), 0);
+  if (total > 0) return total;
+
+  const legacyPoints = Number(desafio.points || desafio.pontos || 0);
+  return Number.isFinite(legacyPoints) && legacyPoints > 0 ? legacyPoints : 0;
+}
+
 async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate = new Date(), options = {}) {
   const recurrence = getRecurrenceLimit(desafio);
   if (!recurrence) {
@@ -176,7 +210,7 @@ async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate =
 
   const envioId = getEntityId(envio);
   const desafioId = getEntityId(desafio);
-  const pontos = Number(options.pontosSolicitados ?? desafio.points);
+  const pontos = Number(options.pontosSolicitados ?? getChallengeBasePoints(desafio));
   const { start, end } = getPeriodBounds(referenceDate, recurrence.periodo);
   const existingPontuacoes = await Pontuacao.find({
     envio: { $ne: envioId },
@@ -237,7 +271,8 @@ async function logPontuacoesGeradas(envio, desafio, pontuacoes) {
           pontos: pontuacao.pontos,
           motivo: pontuacao.motivo,
           source: pontuacao.source,
-          desafioPoints: desafio.points,
+          desafioPoints: getChallengeBasePoints(desafio),
+          pontosPorPilar: pontuacao.pilares || [],
           livePresentationPoints: desafio.livePresentationPoints || 0,
         },
       })
@@ -250,7 +285,8 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
 
   const envioId = getEntityId(envio);
   const desafioId = getEntityId(desafio);
-  const pontos = Number(desafio.points);
+  const pontosPorPilar = getChallengePillarPoints(desafio);
+  const pontos = getChallengeBasePoints(desafio);
   if (!Number.isFinite(pontos) || pontos <= 0) throw createHttpError("Desafio não possui pontuação válida.", 400);
   const bonusApresentacaoAoVivo = getLivePresentationBonusPoints(desafio, options.apresentacaoAoVivo);
   const pontosTotais = pontos + bonusApresentacaoAoVivo;
@@ -270,6 +306,7 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
       desafio: desafioId,
       aluno: alunoId,
       pontos: pontosTotais,
+      pilares: pontosPorPilar.map((item) => ({ pilar: item.pilar, pontos: item.pontos })),
       motivo:
         bonusApresentacaoAoVivo > 0
           ? `desafio_${desafio.difficulty || "pontuacao_fixa"}_apresentacao_ao_vivo`
@@ -283,6 +320,7 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
   }
   return {
     pontos: pontosTotais,
+    pontosPorPilar,
     ...(bonusApresentacaoAoVivo > 0 ? { pontosBase: pontos, bonusApresentacaoAoVivo } : {}),
     geradas: pontuacoesToCreate.length,
     ignoradas: alunos.length - pontuacoesToCreate.length,
@@ -295,6 +333,8 @@ module.exports = {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
   generatePontuacoesForApprovedEnvio,
+  getChallengeBasePoints,
+  getChallengePillarPoints,
   getLivePresentationBonusPoints,
   getPeriodBounds,
   getScoreRecipients,

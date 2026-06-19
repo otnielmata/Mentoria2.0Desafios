@@ -81,6 +81,7 @@ describe("pontuacao.service MR-94", () => {
     ]);
     expect(result).toEqual({
       pontos: 30,
+      pontosPorPilar: [],
       geradas: 1,
       ignoradas: 0,
       alunos: [OWNER_ID],
@@ -123,6 +124,40 @@ describe("pontuacao.service MR-94", () => {
       ignoradas: 0,
       alunos: [OWNER_ID, PARTICIPANT_ID, LEGACY_PARTICIPANT_ID],
       bonusLiderancaAplicado: false,
+    });
+  });
+
+  it("gera pontuação mantendo a distribuição por pilar do desafio", async () => {
+    const result = await generatePontuacoesForApprovedEnvio(
+      { _id: ENVIO_ID, aluno: OWNER_ID, status: "aprovado", type: "individual" },
+      {
+        _id: DESAFIO_ID,
+        difficulty: "medio",
+        pilares: [
+          { pilar: "6814f12ab3f34872f7558f51", points: 10 },
+          { pilar: "6814f12ab3f34872f7558f52", points: 15 },
+        ],
+      }
+    );
+
+    expect(Pontuacao.create).toHaveBeenCalledWith([
+      expect.objectContaining({
+        aluno: OWNER_ID,
+        pontos: 25,
+        pilares: [
+          { pilar: "6814f12ab3f34872f7558f51", pontos: 10 },
+          { pilar: "6814f12ab3f34872f7558f52", pontos: 15 },
+        ],
+      }),
+    ]);
+    expect(result).toMatchObject({
+      pontos: 25,
+      pontosPorPilar: [
+        { pilar: "6814f12ab3f34872f7558f51", pontos: 10 },
+        { pilar: "6814f12ab3f34872f7558f52", pontos: 15 },
+      ],
+      geradas: 1,
+      alunos: [OWNER_ID],
     });
   });
 

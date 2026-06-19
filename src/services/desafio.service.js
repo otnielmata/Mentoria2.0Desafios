@@ -35,17 +35,55 @@ function serializePilar(pilar) {
   };
 }
 
+function serializePilarPontuacao(item) {
+  if (!item) return null;
+  const pilar = item.pilar || item.pilarId || item.id;
+  const points = Number(item.points || item.pontos || 0);
+
+  return {
+    pilar: serializePilar(pilar),
+    pilarId: getEntityId(pilar),
+    points,
+    pontos: points,
+  };
+}
+
+function getPilaresPontuacao(desafio) {
+  const configuredPilares = Array.isArray(desafio.pilares) ? desafio.pilares.map(serializePilarPontuacao).filter((item) => item && item.pilarId) : [];
+  if (configuredPilares.length > 0) return configuredPilares;
+
+  const legacyPilar = desafio.pilar;
+  const legacyPoints = Number(desafio.points || 0);
+  if (!legacyPilar || !Number.isFinite(legacyPoints) || legacyPoints <= 0) return [];
+
+  return [
+    {
+      pilar: serializePilar(legacyPilar),
+      pilarId: getEntityId(legacyPilar),
+      points: legacyPoints,
+      pontos: legacyPoints,
+    },
+  ];
+}
+
 function serializeDesafio(desafio) {
+  const pilares = getPilaresPontuacao(desafio);
+  const points = Number(desafio.points || pilares.reduce((total, item) => total + Number(item.points || 0), 0));
+  const primaryPilar = desafio.pilar || (pilares[0] && pilares[0].pilar);
+
   return {
     id: getEntityId(desafio),
-    pilar: serializePilar(desafio.pilar),
-    pilarId: getEntityId(desafio.pilar),
+    pilar: serializePilar(primaryPilar),
+    pilarId: getEntityId(primaryPilar),
+    pilares,
+    pontosPorPilar: pilares,
     title: desafio.title,
     description: desafio.description,
     deliveryDate: toIsoDate(desafio.deliveryDate),
     dataEntrega: toIsoDate(desafio.deliveryDate),
     difficulty: desafio.difficulty,
-    points: desafio.points,
+    points,
+    pontos: points,
     livePresentationPoints: Number(desafio.livePresentationPoints || 0),
     pontosApresentacaoAoVivo: Number(desafio.livePresentationPoints || 0),
     type: desafio.type,
@@ -112,12 +150,97 @@ function parsePoints(payload, difficulty, { required = false } = {}) {
   return points;
 }
 
+function parsePilarPoints(value, index) {
+  const points = Number(value);
+  if (!Number.isFinite(points) || points <= 0) {
+    throw createHttpError(`Pontuação do pilar ${index + 1} deve ser maior que zero.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "pilares.points", message: "Informe uma pontuação maior que zero para cada pilar selecionado." }],
+    });
+  }
+
+  return points;
+}
+
 function parseNonNegativePoints(payload, fields, fieldName) {
   const rawPoints = getFirstValue(payload, fields);
   if (rawPoints === undefined || rawPoints === null || rawPoints === "") return 0;
   const points = Number(rawPoints);
   if (!Number.isFinite(points) || points < 0) throw createHttpError(`${fieldName} deve ser maior ou igual a zero.`, 400);
   return points;
+}
+
+function getPilaresPayload(payload = {}) {
+  return getFirstValue(payload, ["pilares", "pontosPorPilar", "pontos_por_pilar", "pillarPoints", "pilarPoints"]);
+}
+
+function hasPilaresPayload(payload = {}) {
+  return getPilaresPayload(payload) !== undefined;
+}
+
+function normalizePilaresPayload(rawPilares) {
+  if (Array.isArray(rawPilares)) return rawPilares;
+
+  if (rawPilares && typeof rawPilares === "object") {
+    return Object.entries(rawPilares).map(([pilarId, points]) => ({ pilarId, points }));
+  }
+
+  throw createHttpError("pilares deve ser uma lista de pilares com pontuação.", 400, {
+    code: "VALIDATION_ERROR",
+    details: [{ field: "pilares", message: "Informe uma lista de pilares selecionados com pontuação." }],
+  });
+}
+
+async function parsePilaresPontuacao(payload = {}, difficulty, { required = false } = {}) {
+  const rawPilares = getPilaresPayload(payload);
+
+  if (rawPilares === undefined) {
+    if (!required && !(payload.pilarId || payload.pilar_id || payload.pilar)) return null;
+
+    const pilarId = parseObjectId(getEntityId(getFirstValue(payload, ["pilarId", "pilar_id", "pilar"])), "Pilar deve ser um identificador válido.");
+    await assertActivePilar(pilarId);
+    return [{ pilar: pilarId, points: parsePoints(payload, difficulty, { required }) }];
+  }
+
+  const normalizedPilares = normalizePilaresPayload(rawPilares);
+  if (normalizedPilares.length === 0) {
+    throw createHttpError("Selecione ao menos um pilar para o desafio.", 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "pilares", message: "Selecione ao menos um pilar." }],
+    });
+  }
+
+  const seenPilares = new Set();
+  const pilares = normalizedPilares.map((item, index) => {
+    if (!item || typeof item !== "object") {
+      throw createHttpError("Cada pilar selecionado deve conter pilarId e points.", 400);
+    }
+
+    const pilarId = parseObjectId(getEntityId(getFirstValue(item, ["pilarId", "pilar_id", "pilar", "id", "_id"])), "Pilar deve ser um identificador válido.");
+    if (seenPilares.has(pilarId)) {
+      throw createHttpError("Não é permitido repetir o mesmo pilar no desafio.", 400, {
+        code: "VALIDATION_ERROR",
+        details: [{ field: "pilares", message: "Remova pilares duplicados." }],
+      });
+    }
+    seenPilares.add(pilarId);
+
+    return {
+      pilar: pilarId,
+      points: parsePilarPoints(getFirstValue(item, ["points", "pontos", "pontuacao", "pontuação"]), index),
+    };
+  });
+
+  await Promise.all(pilares.map((item) => assertActivePilar(item.pilar)));
+  return pilares;
+}
+
+function sumPilaresPoints(pilares) {
+  return (pilares || []).reduce((total, item) => total + Number(item.points || 0), 0);
+}
+
+function addAndFilter(filters, condition) {
+  filters.$and = [...(filters.$and || []), condition];
 }
 
 function parseStatus(value) {
@@ -249,18 +372,19 @@ async function assertActivePilar(pilarId) {
 
 async function createDesafio(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode cadastrar desafios.");
-  const pilarId = parseObjectId(getFirstValue(payload, ["pilarId", "pilar_id", "pilar"]), "Pilar deve ser um identificador válido.");
-  await assertActivePilar(pilarId);
   const difficulty = parseDifficulty(getFirstValue(payload, ["difficulty", "dificuldade"]), "facil");
+  const pilares = await parsePilaresPontuacao(payload, difficulty, { required: true });
+  const points = sumPilaresPoints(pilares);
   const type = parseType(getFirstValue(payload, ["type", "tipo"]));
 
   const desafio = await Desafio.create({
-    pilar: pilarId,
+    pilar: pilares[0].pilar,
+    pilares,
     title: parseRequiredText(payload.title || payload.titulo, "Título"),
     description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
     deliveryDate: parseOptionalDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega"),
     difficulty,
-    points: parsePoints(payload, difficulty, { required: true }),
+    points,
     livePresentationPoints: parseNonNegativePoints(
       payload,
       ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
@@ -280,7 +404,7 @@ async function listDesafios(authenticatedUserId, query = {}) {
   const isAdmin = isAdminUser(user);
   const filters = {};
   const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
-  if (pilarId) filters.pilar = pilarId;
+  if (pilarId) addAndFilter(filters, { $or: [{ pilar: pilarId }, { "pilares.pilar": pilarId }] });
 
   if (query.type || query.tipo) filters.type = parseType(query.type || query.tipo);
   if (isAdmin) {
@@ -296,13 +420,13 @@ async function listDesafios(authenticatedUserId, query = {}) {
   const search = parseOptionalText(query.search || query.q || query.titulo || query.title, "Busca");
   if (search) {
     const searchRegex = new RegExp(escapeRegex(search), "i");
-    filters.$or = [{ title: searchRegex }];
+    addAndFilter(filters, { title: searchRegex });
   }
 
   const { page, limit, skip } = parsePagination(query);
   const [total, desafios] = await Promise.all([
     Desafio.countDocuments(filters),
-    Desafio.find(filters).populate("pilar").sort({ title: 1 }).skip(skip).limit(limit).lean(),
+    Desafio.find(filters).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).sort({ title: 1 }).skip(skip).limit(limit).lean(),
   ]);
 
   return {
@@ -317,7 +441,7 @@ async function getDesafio(authenticatedUserId, desafioId) {
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
   const filters = { _id: id };
   if (!isAdminUser(user)) filters.status = ACTIVE_STATUS;
-  const desafio = await Desafio.findOne(filters).populate("pilar").lean();
+  const desafio = await Desafio.findOne(filters).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   return serializeDesafio(desafio);
 }
@@ -327,10 +451,6 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
   const updates = {};
 
-  if (payload.pilarId || payload.pilar_id || payload.pilar) {
-    updates.pilar = parseObjectId(payload.pilarId || payload.pilar_id || payload.pilar, "Pilar deve ser um identificador válido.");
-    await assertActivePilar(updates.pilar);
-  }
   if (payload.title || payload.titulo) updates.title = parseRequiredText(payload.title || payload.titulo, "Título");
   if (payload.description || payload.descricao) updates.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
   if (
@@ -344,7 +464,18 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   if (payload.difficulty || payload.dificuldade) updates.difficulty = parseDifficulty(payload.difficulty || payload.dificuldade);
 
   const difficulty = updates.difficulty || "facil";
-  if (payload.points !== undefined || payload.pontos !== undefined || updates.difficulty) updates.points = parsePoints(payload, difficulty);
+  if (hasPilaresPayload(payload)) {
+    const pilares = await parsePilaresPontuacao(payload, difficulty, { required: true });
+    updates.pilar = pilares[0].pilar;
+    updates.pilares = pilares;
+    updates.points = sumPilaresPoints(pilares);
+  } else {
+    if (payload.pilarId || payload.pilar_id || payload.pilar) {
+      updates.pilar = parseObjectId(payload.pilarId || payload.pilar_id || payload.pilar, "Pilar deve ser um identificador válido.");
+      await assertActivePilar(updates.pilar);
+    }
+    if (payload.points !== undefined || payload.pontos !== undefined || updates.difficulty) updates.points = parsePoints(payload, difficulty);
+  }
   if (
     payload.livePresentationPoints !== undefined ||
     payload.pontosApresentacaoAoVivo !== undefined ||
@@ -363,7 +494,7 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   if (hasRecorrenciaFields(payload)) updates.recorrencia = parseRecorrencia(payload);
   if (payload.status || payload.situacao) updates.status = parseStatus(payload.status || payload.situacao);
 
-  const desafio = await Desafio.findByIdAndUpdate(id, updates, { new: true }).populate("pilar").lean();
+  const desafio = await Desafio.findByIdAndUpdate(id, updates, { new: true }).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   return serializeDesafio(desafio);
 }
@@ -371,7 +502,7 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
 async function disableDesafio(authenticatedUserId, desafioId) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode apagar desafios.");
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
-  const desafio = await Desafio.findByIdAndUpdate(id, { status: "apagado" }, { new: true }).populate("pilar").lean();
+  const desafio = await Desafio.findByIdAndUpdate(id, { status: "apagado" }, { new: true }).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   return serializeDesafio(desafio);
 }

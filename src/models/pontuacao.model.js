@@ -6,6 +6,12 @@ const pontuacaoSchema = new mongoose.Schema(
     desafio: { type: mongoose.Schema.Types.ObjectId, ref: "Desafio", required: true, index: true },
     aluno: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     pontos: { type: Number, required: true, min: 0 },
+    pilares: [
+      {
+        pilar: { type: mongoose.Schema.Types.ObjectId, ref: "Pilar", required: true },
+        pontos: { type: Number, required: true, min: 0 },
+      },
+    ],
     motivo: { type: String, default: "envio_desafio_aprovado", trim: true },
     source: { type: String, default: "envio_desafio", trim: true },
   },
@@ -16,5 +22,6 @@ const pontuacaoSchema = new mongoose.Schema(
 );
 
 pontuacaoSchema.index({ envio: 1, aluno: 1 }, { unique: true });
+pontuacaoSchema.index({ "pilares.pilar": 1 });
 
 module.exports = mongoose.model("Pontuacao", pontuacaoSchema);

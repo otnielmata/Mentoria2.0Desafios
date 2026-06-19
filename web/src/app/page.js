@@ -9,17 +9,6 @@ const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 const LIST_PAGE_SIZE = 10;
 
-const TEST_USERS = {
-  admin: {
-    email: "admin.manual@mentoria.local",
-    password: "Teste@123",
-  },
-  aluno: {
-    email: "aluno.manual@mentoria.local",
-    password: "Teste@123",
-  },
-};
-
 const MENU_BY_ROLE = {
   aluno: [
     { key: "inicio", label: "Início", icon: "home", supported: true },
@@ -71,6 +60,62 @@ function getEntityId(entity) {
   if (!entity) return "";
   if (typeof entity === "string") return entity;
   return entity.id || entity._id || "";
+}
+
+function getPilarPointsItems(desafio) {
+  const configured = getArray(desafio && (desafio.pilares || desafio.pontosPorPilar))
+    .map((item) => {
+      const pilar = item.pilar || item;
+      const pilarId = getEntityId(item.pilarId || item.pilar_id || pilar);
+      const points = Number(item.points || item.pontos || item.pontuacao || 0);
+
+      return pilarId
+        ? {
+            pilar,
+            pilarId,
+            points,
+          }
+        : null;
+    })
+    .filter(Boolean);
+
+  if (configured.length > 0) return configured;
+
+  const legacyPilar = desafio && desafio.pilar;
+  const legacyPilarId = getEntityId(legacyPilar || (desafio && desafio.pilarId));
+  const legacyPoints = Number((desafio && desafio.points) || 0);
+
+  return legacyPilarId ? [{ pilar: legacyPilar, pilarId: legacyPilarId, points: legacyPoints }] : [];
+}
+
+function formatPilarPoints(desafio) {
+  const items = getPilarPointsItems(desafio);
+  if (items.length === 0) return "-";
+
+  return items
+    .map((item) => {
+      const name = item.pilar && typeof item.pilar === "object" ? item.pilar.name || item.pilar.id : item.pilarId;
+      return `${name}: ${formatNumber(item.points)} pts`;
+    })
+    .join(", ");
+}
+
+function getPilarPointValue(desafio, pilarId, fallback = 0) {
+  const item = getPilarPointsItems(desafio).find((current) => current.pilarId === pilarId);
+  return item ? Number(item.points || 0) : fallback;
+}
+
+function isPilarSelected(desafio, pilarId) {
+  return getPilarPointsItems(desafio).some((item) => item.pilarId === pilarId);
+}
+
+function buildPilaresPayloadFromForm(data, fieldPrefix = "") {
+  const selectedIds = data.getAll(`${fieldPrefix}PilarIds`).map(String);
+
+  return selectedIds.map((pilarId) => ({
+    pilarId,
+    points: Number(data.get(`${fieldPrefix}PilarPoints_${pilarId}`) || 0),
+  }));
 }
 
 function formatTurmaName(turma) {
@@ -219,8 +264,8 @@ function PaginationControls({ label, onPageChange, pagination }) {
 
 function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
   const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState(TEST_USERS.admin.email);
-  const [password, setPassword] = useState(TEST_USERS.admin.password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -249,12 +294,6 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
     } finally {
       setLoading(false);
     }
-  }
-
-  function fillUser(type) {
-    setMode("login");
-    setEmail(TEST_USERS[type].email);
-    setPassword(TEST_USERS[type].password);
   }
 
   return (
@@ -335,14 +374,6 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
         )}
 
         <div className="actions">
-          <button className="button secondary with-icon" type="button" onClick={() => fillUser("admin")}>
-            <ButtonIcon name="admin_panel_settings" />
-            Admin teste
-          </button>
-          <button className="button secondary with-icon" type="button" onClick={() => fillUser("aluno")}>
-            <ButtonIcon name="school" />
-            Aluno teste
-          </button>
           <IconButton className="button ghost" icon={theme === "dark" ? "light_mode" : "dark_mode"} label={`Tema ${theme === "dark" ? "claro" : "escuro"}`} onClick={onThemeChange} />
         </div>
       </section>
@@ -1850,11 +1881,10 @@ function AdminDesafiosView({ apiClient }) {
         { method: "POST", path: "/desafios" },
         {
           body: {
-            pilarId: data.get("pilarId"),
+            pilares: buildPilaresPayloadFromForm(data),
             title: data.get("title"),
             description: data.get("description"),
             deliveryDate: data.get("deliveryDate") || undefined,
-            points: Number(data.get("points")),
             livePresentationPoints: Number(data.get("livePresentationPoints") || 0),
             type: maxParticipantes > 1 ? "grupo" : "individual",
             maxParticipantes,
@@ -1895,11 +1925,10 @@ function AdminDesafiosView({ apiClient }) {
         { method: "PATCH", path: `/desafios/${editing.id}` },
         {
           body: {
-            pilarId: data.get("editPilarId"),
+            pilares: buildPilaresPayloadFromForm(data, "edit"),
             title: data.get("editTitle"),
             description: data.get("editDescription"),
             deliveryDate: data.get("editDeliveryDate") || null,
-            points: Number(data.get("editPoints")),
             livePresentationPoints: Number(data.get("editLivePresentationPoints") || 0),
             type: maxParticipantes > 1 ? "grupo" : "individual",
             maxParticipantes,
@@ -1942,28 +1971,27 @@ function AdminDesafiosView({ apiClient }) {
         <Notice message={error} type="error" />
         <form className="form-grid" onSubmit={createDesafio}>
           <label className="field">
-            <span>Pilar</span>
-            <select name="pilarId" required defaultValue="">
-              <option value="">Selecione</option>
-              {pilares.map((pilar) => (
-                <option key={pilar.id} value={pilar.id}>
-                  {pilar.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
             <span>Título</span>
             <input name="title" required placeholder={`Desafio ${todaySuffix()}`} />
-          </label>
-          <label className="field">
-            <span>Pontos</span>
-            <input name="points" required type="number" min="1" defaultValue="10" />
           </label>
           <label className="field">
             <span>Pontos apresentação ao vivo</span>
             <input name="livePresentationPoints" required type="number" min="0" defaultValue="0" />
           </label>
+          <div className="field span-2">
+            <span>Pilares e pontuação</span>
+            <div className="pillar-points-grid">
+              {pilares.map((pilar) => (
+                <div className="pillar-point-row" key={pilar.id}>
+                  <label className="checkbox-field">
+                    <input name="PilarIds" type="checkbox" value={pilar.id} />
+                    {pilar.name}
+                  </label>
+                  <input aria-label={`Pontos para ${pilar.name}`} name={`PilarPoints_${pilar.id}`} type="number" min="1" defaultValue="10" />
+                </div>
+              ))}
+            </div>
+          </div>
           <label className="field">
             <span>Data limite de entrega</span>
             <input name="deliveryDate" type="date" />
@@ -1998,23 +2026,8 @@ function AdminDesafiosView({ apiClient }) {
           </div>
           <form className="form-grid" key={editing.id} onSubmit={updateDesafio}>
             <label className="field">
-              <span>Pilar</span>
-              <select name="editPilarId" required defaultValue={getEntityId(editing.pilar)}>
-                <option value="">Selecione</option>
-                {pilares.map((pilar) => (
-                  <option key={pilar.id} value={pilar.id}>
-                    {pilar.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
               <span>Título</span>
               <input name="editTitle" required defaultValue={editing.title} />
-            </label>
-            <label className="field">
-              <span>Pontos</span>
-              <input name="editPoints" required type="number" min="1" defaultValue={editing.points || 10} />
             </label>
             <label className="field">
               <span>Pontos apresentação ao vivo</span>
@@ -2026,6 +2039,26 @@ function AdminDesafiosView({ apiClient }) {
                 defaultValue={editing.livePresentationPoints || editing.pontosApresentacaoAoVivo || 0}
               />
             </label>
+            <div className="field span-2">
+              <span>Pilares e pontuação</span>
+              <div className="pillar-points-grid">
+                {pilares.map((pilar) => (
+                  <div className="pillar-point-row" key={pilar.id}>
+                    <label className="checkbox-field">
+                      <input name="editPilarIds" type="checkbox" value={pilar.id} defaultChecked={isPilarSelected(editing, pilar.id)} />
+                      {pilar.name}
+                    </label>
+                    <input
+                      aria-label={`Pontos para ${pilar.name}`}
+                      name={`editPilarPoints_${pilar.id}`}
+                      type="number"
+                      min="1"
+                      defaultValue={getPilarPointValue(editing, pilar.id, 10)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
             <label className="field">
               <span>Data limite de entrega</span>
               <input name="editDeliveryDate" type="date" defaultValue={formatDateInputValue(editing.deliveryDate || editing.dataEntrega)} />
@@ -2064,7 +2097,7 @@ function AdminDesafiosView({ apiClient }) {
           <thead>
             <tr>
               <th>Título</th>
-              <th>Pilar</th>
+              <th>Pilares</th>
               <th>Pontos</th>
               <th>Apresentação</th>
               <th>Entrega até</th>
@@ -2078,7 +2111,7 @@ function AdminDesafiosView({ apiClient }) {
             {desafios.map((desafio) => (
               <tr key={desafio.id}>
                 <td>{desafio.title}</td>
-                <td>{desafio.pilar && desafio.pilar.name}</td>
+                <td>{formatPilarPoints(desafio)}</td>
                 <td>{desafio.points}</td>
                 <td>{formatNumber(desafio.livePresentationPoints || desafio.pontosApresentacaoAoVivo)}</td>
                 <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
@@ -2241,6 +2274,7 @@ function AdminApprovalsView({ apiClient }) {
             <div className="status-item">
               <span className="muted">Pontuação</span>
               <strong>{formatNumber(envio.desafio && envio.desafio.points)} pontos do desafio</strong>
+              <span className="muted">{envio.desafio ? formatPilarPoints(envio.desafio) : "-"}</span>
               <span className="muted">
                 +{formatNumber(envio.desafio && envio.desafio.livePresentationPoints)} apresentação somente se marcar o checkbox ao aprovar
               </span>
@@ -2438,7 +2472,7 @@ function StudentChallengesView({ apiClient }) {
           <thead>
             <tr>
               <th>Desafio</th>
-              <th>Pilar</th>
+              <th>Pilares</th>
               <th>Pontos</th>
               <th>Entrega até</th>
               <th>Grupo</th>
@@ -2454,7 +2488,7 @@ function StudentChallengesView({ apiClient }) {
                     <strong>{desafio.title}</strong>
                     <p className="muted">{desafio.description}</p>
                   </td>
-                  <td>{desafio.pilar ? desafio.pilar.name : "-"}</td>
+                  <td>{formatPilarPoints(desafio)}</td>
                   <td>{formatNumber(desafio.points)}</td>
                   <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
                   <td>{formatNumber(desafio.maxParticipantes)} participantes</td>
@@ -2609,7 +2643,7 @@ function StudentScoreView({ apiClient }) {
           <thead>
             <tr>
               <th>Desafio</th>
-              <th>Pilar</th>
+              <th>Pilares</th>
               <th>Pontos</th>
               <th>Turma</th>
             </tr>
@@ -2618,7 +2652,7 @@ function StudentScoreView({ apiClient }) {
             {historico.map((item) => (
               <tr key={item.id}>
                 <td>{item.desafio ? item.desafio.title : item.envioId}</td>
-                <td>{item.pilar ? item.pilar.name : "-"}</td>
+                <td>{formatPilarPoints(item)}</td>
                 <td>{formatNumber(item.pontos)}</td>
                 <td>{item.turma ? item.turma.name : "-"}</td>
               </tr>

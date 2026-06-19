@@ -79,6 +79,7 @@ describe("admin-envio-desafio.service participantes_envio", () => {
     ]);
     expect(result.pontuacao).toEqual({
       pontos: 20,
+      pontosPorPilar: [],
       geradas: 2,
       ignoradas: 0,
       alunos: [OWNER_ID, PARTICIPANT_ID],

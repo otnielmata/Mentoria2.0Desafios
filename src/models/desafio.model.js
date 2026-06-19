@@ -3,6 +3,12 @@ const mongoose = require("mongoose");
 const desafioSchema = new mongoose.Schema(
   {
     pilar: { type: mongoose.Schema.Types.ObjectId, ref: "Pilar", required: true, index: true },
+    pilares: [
+      {
+        pilar: { type: mongoose.Schema.Types.ObjectId, ref: "Pilar", required: true },
+        points: { type: Number, required: true, min: 1 },
+      },
+    ],
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     deliveryDate: { type: Date, default: null, index: true },
@@ -45,5 +51,7 @@ const desafioSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+desafioSchema.index({ "pilares.pilar": 1 });
 
 module.exports = mongoose.model("Desafio", desafioSchema);

@@ -115,7 +115,7 @@ async function getPilar(authenticatedUserId, pilarId) {
   if (!isAdmin) filters.status = ACTIVE_STATUS;
   const pilar = await Pilar.findOne(filters).lean();
   if (!pilar) throw createHttpError("Pilar não encontrado.", 404);
-  const desafioFilters = { pilar: id };
+  const desafioFilters = { $or: [{ pilar: id }, { "pilares.pilar": id }] };
   if (!isAdmin) desafioFilters.status = ACTIVE_STATUS;
   const desafios = await Desafio.find(desafioFilters).sort({ title: 1 }).lean();
   return {

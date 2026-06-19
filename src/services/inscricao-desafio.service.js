@@ -46,6 +46,25 @@ function serializePilar(pilar) {
   });
 }
 
+function serializePilarPontuacao(item) {
+  if (!item) return null;
+  const pilar = item.pilar || item.pilarId || item.id;
+  const points = Number(item.points || item.pontos || 0);
+  return omitUndefined({
+    pilar: serializePilar(pilar),
+    pilarId: getEntityId(pilar),
+    points,
+    pontos: points,
+  });
+}
+
+function getPilaresPontuacao(desafio) {
+  const configured = Array.isArray(desafio.pilares) ? desafio.pilares.map(serializePilarPontuacao).filter((item) => item && item.pilarId) : [];
+  if (configured.length > 0) return configured;
+  const points = Number(desafio.points || 0);
+  return desafio.pilar && points > 0 ? [{ pilar: serializePilar(desafio.pilar), pilarId: getEntityId(desafio.pilar), points, pontos: points }] : [];
+}
+
 function serializeTurma(turma) {
   if (!turma) return null;
   if (typeof turma !== "object") return { id: getEntityId(turma) };
@@ -60,10 +79,13 @@ function serializeTurma(turma) {
 function serializeDesafio(desafio) {
   if (!desafio) return null;
   if (typeof desafio !== "object") return { id: getEntityId(desafio) };
+  const pilares = getPilaresPontuacao(desafio);
   return omitUndefined({
     id: getEntityId(desafio),
     pilar: serializePilar(desafio.pilar),
     pilarId: getEntityId(desafio.pilar),
+    pilares,
+    pontosPorPilar: pilares,
     title: desafio.title,
     description: desafio.description,
     points: desafio.points,
@@ -130,7 +152,7 @@ async function findStudentTurma(student) {
 }
 
 async function getActiveDesafio(desafioId) {
-  const desafio = await Desafio.findById(desafioId).populate("pilar").lean();
+  const desafio = await Desafio.findById(desafioId).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   if (normalizeText(desafio.status) !== ACTIVE_STATUS) {
     throw createHttpError("Apenas desafios ativos aceitam inscrição.", 400);
@@ -174,7 +196,7 @@ async function populateInscricao(inscricaoId) {
   return InscricaoDesafio.findById(inscricaoId)
     .populate({
       path: "desafio",
-      populate: { path: "pilar" },
+      populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
     })
     .populate("turma")
     .populate({
@@ -182,7 +204,7 @@ async function populateInscricao(inscricaoId) {
       populate: [
         {
           path: "desafio",
-          populate: { path: "pilar" },
+          populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
         },
         { path: "turma" },
         { path: "participantes", select: "name email role status" },
@@ -218,7 +240,7 @@ async function listMySubscriptions(authenticatedUserId) {
     .sort({ createdAt: -1 })
     .populate({
       path: "desafio",
-      populate: { path: "pilar" },
+      populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
     })
     .populate("turma")
     .populate({
@@ -226,7 +248,7 @@ async function listMySubscriptions(authenticatedUserId) {
       populate: [
         {
           path: "desafio",
-          populate: { path: "pilar" },
+          populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
         },
         { path: "turma" },
         { path: "participantes", select: "name email role status" },
@@ -258,7 +280,7 @@ async function listGroups(authenticatedUserId, query = {}) {
     .sort({ createdAt: -1 })
     .populate({
       path: "desafio",
-      populate: { path: "pilar" },
+      populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
     })
     .populate("turma")
     .populate("participantes", "name email role status")
@@ -311,7 +333,7 @@ async function updateGroupContact(authenticatedUserId, grupoId, payload = {}) {
   const result = await GrupoDesafio.findById(id)
     .populate({
       path: "desafio",
-      populate: { path: "pilar" },
+      populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
     })
     .populate("turma")
     .populate("participantes", "name email role status")

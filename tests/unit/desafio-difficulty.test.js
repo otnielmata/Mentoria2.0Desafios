@@ -20,6 +20,7 @@ const { createDesafio, disableDesafio, listDesafios } = require("../../src/servi
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const PILAR_ID = "6814f12ab3f34872f7558f41";
+const PILAR_2_ID = "6814f12ab3f34872f7558f46";
 
 describe("desafio.service difficulty", () => {
   beforeEach(() => {
@@ -49,6 +50,37 @@ describe("desafio.service difficulty", () => {
       })
     );
     expect(desafio.points).toBe(30);
+  });
+
+  it("cadastra desafio com múltiplos pilares e pontuação por pilar", async () => {
+    const desafio = await createDesafio(ADMIN_ID, {
+      pilares: [
+        { pilarId: PILAR_ID, points: 10 },
+        { pilarId: PILAR_2_ID, points: 15 },
+      ],
+      title: "Entrega integrada",
+      description: "Desafio que pontua prática e visibilidade.",
+      status: "ativo",
+      type: "grupo",
+      maxParticipantes: 4,
+    });
+
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pilar: PILAR_ID,
+        pilares: [
+          { pilar: PILAR_ID, points: 10 },
+          { pilar: PILAR_2_ID, points: 15 },
+        ],
+        points: 25,
+        maxParticipantes: 4,
+      })
+    );
+    expect(desafio.points).toBe(25);
+    expect(desafio.pilares).toEqual([
+      expect.objectContaining({ pilarId: PILAR_ID, points: 10 }),
+      expect.objectContaining({ pilarId: PILAR_2_ID, points: 15 }),
+    ]);
   });
 
   it("rejeita cadastro de desafio sem pontuação fixa", async () => {

@@ -212,12 +212,13 @@ async function findPontuacoes(filters) {
     })
     .populate({
       path: "desafio",
-      select: "title description points type pilar",
-      populate: {
-        path: "pilar",
-        select: "name description status",
-      },
+      select: "title description points type pilar pilares",
+      populate: [
+        { path: "pilar", select: "name description status" },
+        { path: "pilares.pilar", select: "name description status" },
+      ],
     })
+    .populate({ path: "pilares.pilar", select: "name description status" })
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -255,7 +256,7 @@ function matchesFilters(pontuacao, filters) {
     return false;
   }
 
-  if (filters.pilarId && getEntityId(pontuacao.desafio.pilar) !== filters.pilarId) {
+  if (filters.pilarId && !pontuacaoHasPilar(pontuacao, filters.pilarId)) {
     return false;
   }
 
@@ -284,6 +285,17 @@ function serializeAluno(aluno) {
     role: aluno.role,
     status: aluno.status,
   });
+}
+
+function pontuacaoHasPilar(pontuacao, pilarId) {
+  const configured = Array.isArray(pontuacao && pontuacao.pilares)
+    ? pontuacao.pilares
+        .map((item) => getEntityId(item && (item.pilar || item.pilarId || item.id)))
+        .filter(Boolean)
+    : [];
+  if (configured.length > 0) return configured.includes(pilarId);
+
+  return getEntityId(pontuacao.desafio && pontuacao.desafio.pilar) === pilarId;
 }
 
 function buildRankingRows(pontuacoes) {

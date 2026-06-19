@@ -125,7 +125,7 @@ Em `Pilares`, professor/admin pode cadastrar, editar, inativar e reativar pilare
 
 Em `Dashboard`, a Web exibe alunos ativos, quantidade de desafios enviados, aprovações pendentes, ranking dos 10 primeiros alunos e gráfico de pizza com o percentual de desafios aprovados por pilar.
 
-Em `Desafios`, o cadastro inclui pontuação base, limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. A lista exibe 10 registros por página, permite filtrar por parte do título e oferece `Editar`, `Ativar`/`Desativar` e `Apagar` o desafio pela ação administrativa.
+Em `Desafios`, o cadastro permite selecionar um ou mais pilares do Método do Alavanque, informando a pontuação de cada pilar selecionado. Também inclui limite de entrega, quantidade de participantes do grupo e `Pontos apresentação ao vivo`. A lista exibe 10 registros por página, permite filtrar por parte do título e oferece `Editar`, `Ativar`/`Desativar` e `Apagar` o desafio pela ação administrativa.
 
 Em `Aprovações`, professor/admin visualiza descrição, evidências, anexos, desafio, turma e participantes do envio. A lista exibe 10 registros por página, permite filtrar por nome de aluno/participante ou título do desafio e consultar pendentes, aprovados, reprovados, ajustes ou todos. Ao aprovar, a API lança a pontuação para todos os integrantes do grupo. Se a opção de apresentação ao vivo for marcada, a pontuação extra cadastrada no desafio é somada para todos os participantes aprovados.
 
@@ -163,11 +163,11 @@ Ao conectar no MongoDB, a API executa um seed idempotente dos 7 pilares do Méto
 
 ## Pontuação
 
-O modelo inicial usa pontuação fixa por desafio. Ao cadastrar ou editar um desafio, professor/admin deve informar `points` ou `pontos` com valor maior que zero; esse valor é usado quando um envio é aprovado.
+O modelo usa pontuação fixa por desafio, distribuída por pilar. Ao cadastrar ou editar um desafio, professor/admin deve informar `pilares` como lista de itens `{ pilarId, points }`, com valor maior que zero para cada pilar selecionado. A API soma esses valores em `points` para manter compatibilidade com ranking, aprovação e telas existentes.
 
 O campo `difficulty` pode existir como metadado legado, mas não substitui a pontuação fixa obrigatória do cadastro administrativo.
 
-A pontuação nunca é criada manualmente pela Web. Ela é gerada somente pelo fluxo de aprovação de envio válido, no serviço de pontuação da API, e é registrada na coleção `pontuacoes` com referência ao aluno, desafio e envio aprovado.
+A pontuação nunca é criada manualmente pela Web. Ela é gerada somente pelo fluxo de aprovação de envio válido, no serviço de pontuação da API, e é registrada na coleção `pontuacoes` com referência ao aluno, desafio, envio aprovado e distribuição de pontos por pilar.
 
 Em envios individuais, o aluno responsável recebe os pontos fixos do desafio. Em envios em grupo, o responsável e todos os participantes ativos recebem a mesma pontuação. Bônus de liderança é tratado como configuração futura/opcional e não é aplicado implicitamente.
 
@@ -200,7 +200,7 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - `turmas`: turmas da mentoria
 - `alunos_turmas`: vínculo histórico entre alunos e turmas
 - `pilares`: tópicos do Método do Alavanque
-- `desafios`: desafios cadastrados com pilar, pontos fixos, tipo, limite de participantes e status
+- `desafios`: desafios cadastrados com um ou mais pilares, pontos por pilar, tipo, limite de participantes e status
 - `inscricoes_desafios`: inscrição do aluno em desafio ativo e vínculo com grupo
 - `grupos_desafios`: grupos automáticos formados por desafio/turma com contato do grupo
 - `envios_desafios`: registros enviados pelos alunos
@@ -211,7 +211,7 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 
 - Apenas alunos registram envios de desafios.
 - Antes de enviar uma entrega, o aluno deve estar inscrito no desafio e vinculado a um grupo automático.
-- O professor/admin cadastra descrição, pilar, pontos, data limite de entrega e quantidade de participantes por grupo.
+- O professor/admin cadastra descrição, um ou mais pilares com pontuação individual, data limite de entrega e quantidade de participantes por grupo.
 - Ao se inscrever, o aluno entra em um grupo aberto do mesmo desafio/turma ou inicia um novo grupo automaticamente.
 - O grupo é marcado como completo quando atinge a quantidade de participantes definida no desafio.
 - Participantes do grupo podem atualizar o link de contato do grupo para WhatsApp, Telegram ou Discord.
@@ -222,7 +222,7 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - Grupo registra o aluno responsável como líder do envio e aceita até 5 participantes, respeitando o limite definido no desafio.
 - Participantes de grupo não podem ser duplicados e devem estar ativos na mesma turma.
 - Professor/admin pode aprovar, reprovar ou solicitar ajuste.
-- Ao aprovar, a API gera pontuação para responsável e participantes ativos, usando a pontuação fixa do desafio.
+- Ao aprovar, a API gera pontuação para responsável e participantes ativos, usando a soma dos pontos dos pilares selecionados no desafio.
 - A aprovação bloqueia pontuação duplicada quando a mesma evidência já pontuou o mesmo desafio para o mesmo aluno.
 - Rankings geral, por pilar, por turma, por período e por tipo usam a mesma origem de pontuações aprovadas.
 - Desafios recorrentes podem limitar a soma de pontos por aluno dentro de um período diário, semanal ou mensal.

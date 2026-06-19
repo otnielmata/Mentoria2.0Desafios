@@ -162,12 +162,13 @@ async function findPontuacoes(alunoId, filters) {
     })
     .populate({
       path: "desafio",
-      select: "title description points pilar",
-      populate: {
-        path: "pilar",
-        select: "name description status",
-      },
+      select: "title description points pilar pilares",
+      populate: [
+        { path: "pilar", select: "name description status" },
+        { path: "pilares.pilar", select: "name description status" },
+      ],
     })
+    .populate({ path: "pilares.pilar", select: "name description status" })
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -196,7 +197,7 @@ function matchesFilters(pontuacao, filters) {
     return false;
   }
 
-  if (filters.pilarId && getEntityId(pontuacao.desafio.pilar) !== filters.pilarId) {
+  if (filters.pilarId && !pontuacaoHasPilar(pontuacao, filters.pilarId)) {
     return false;
   }
 
@@ -228,6 +229,46 @@ function serializePilar(pilar) {
     description: pilar.description,
     status: pilar.status,
   });
+}
+
+function serializePilarPontuacao(item) {
+  if (!item) return null;
+  const pilar = item.pilar || item.pilarId || item.id;
+  const pontos = Number(item.pontos || item.points || 0);
+  return omitUndefined({
+    pilar: serializePilar(pilar),
+    pilarId: getEntityId(pilar),
+    pontos,
+    points: pontos,
+  });
+}
+
+function getDesafioPilares(desafio) {
+  const configured = Array.isArray(desafio && desafio.pilares)
+    ? desafio.pilares.map(serializePilarPontuacao).filter((item) => item && item.pilarId)
+    : [];
+  if (configured.length > 0) return configured;
+
+  const points = Number((desafio && desafio.points) || 0);
+  return desafio && desafio.pilar && points > 0
+    ? [{ pilar: serializePilar(desafio.pilar), pilarId: getEntityId(desafio.pilar), pontos: points, points }]
+    : [];
+}
+
+function getPontuacaoPilares(pontuacao) {
+  const configured = Array.isArray(pontuacao && pontuacao.pilares)
+    ? pontuacao.pilares.map(serializePilarPontuacao).filter((item) => item && item.pilarId)
+    : [];
+  if (configured.length > 0) return configured;
+
+  const pilar = pontuacao.desafio && pontuacao.desafio.pilar;
+  return pilar
+    ? [{ pilar: serializePilar(pilar), pilarId: getEntityId(pilar), pontos: Number(pontuacao.pontos || 0), points: Number(pontuacao.pontos || 0) }]
+    : [];
+}
+
+function pontuacaoHasPilar(pontuacao, pilarId) {
+  return getPontuacaoPilares(pontuacao).some((item) => item.pilarId === pilarId);
 }
 
 function serializeTurma(turma) {
@@ -263,6 +304,8 @@ function serializeDesafio(desafio) {
     description: desafio.description,
     points: desafio.points,
     pilar: serializePilar(desafio.pilar),
+    pilares: getDesafioPilares(desafio),
+    pontosPorPilar: getDesafioPilares(desafio),
   });
 }
 
@@ -272,6 +315,8 @@ function serializeHistoricoItem(pontuacao) {
     envioId: getEntityId(pontuacao.envio),
     desafio: serializeDesafio(pontuacao.desafio),
     pilar: serializePilar(pontuacao.desafio.pilar),
+    pilares: getPontuacaoPilares(pontuacao),
+    pontosPorPilar: getPontuacaoPilares(pontuacao),
     turma: serializeTurma(pontuacao.envio.turma),
     pontos: Number(pontuacao.pontos),
     createdAt: pontuacao.createdAt ? toDateString(pontuacao.createdAt) : undefined,
@@ -283,17 +328,18 @@ function buildPontosPorPilar(pontuacoes) {
   const groupedByPilar = new Map();
 
   pontuacoes.forEach((pontuacao) => {
-    const pilar = pontuacao.desafio.pilar;
-    const pilarId = getEntityId(pilar) || "sem-pilar";
-    const current = groupedByPilar.get(pilarId) || {
-      pilar: serializePilar(pilar),
-      pontos: 0,
-      envioIds: new Set(),
-    };
+    getPontuacaoPilares(pontuacao).forEach((item) => {
+      const pilarId = item.pilarId || "sem-pilar";
+      const current = groupedByPilar.get(pilarId) || {
+        pilar: item.pilar,
+        pontos: 0,
+        envioIds: new Set(),
+      };
 
-    current.pontos += Number(pontuacao.pontos);
-    current.envioIds.add(getEntityId(pontuacao.envio));
-    groupedByPilar.set(pilarId, current);
+      current.pontos += Number(item.pontos || 0);
+      current.envioIds.add(getEntityId(pontuacao.envio));
+      groupedByPilar.set(pilarId, current);
+    });
   });
 
   return Array.from(groupedByPilar.values()).map((item) => ({

@@ -19,6 +19,7 @@ const {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
   generatePontuacoesForApprovedEnvio,
+  getChallengeBasePoints,
   getLivePresentationBonusPoints,
   getScoreRecipients,
 } = require("./pontuacao.service");
@@ -101,13 +102,36 @@ function serializePilar(pilar) {
   };
 }
 
+function serializePilarPontuacao(item) {
+  if (!item) return null;
+  const pilar = item.pilar || item.pilarId || item.id;
+  const points = Number(item.points || item.pontos || 0);
+  return {
+    pilar: serializePilar(pilar),
+    pilarId: getEntityId(pilar),
+    points,
+    pontos: points,
+  };
+}
+
+function getPilaresPontuacao(desafio) {
+  const configured = Array.isArray(desafio.pilares) ? desafio.pilares.map(serializePilarPontuacao).filter((item) => item && item.pilarId) : [];
+  if (configured.length > 0) return configured;
+  const points = Number(desafio.points || 0);
+  return desafio.pilar && points > 0 ? [{ pilar: serializePilar(desafio.pilar), pilarId: getEntityId(desafio.pilar), points, pontos: points }] : [];
+}
+
 function serializeDesafio(desafio) {
   if (!desafio || typeof desafio !== "object") return desafio ? { id: getEntityId(desafio) } : null;
+  const pilares = getPilaresPontuacao(desafio);
   return {
     id: getEntityId(desafio),
     title: desafio.title,
     description: desafio.description,
     points: desafio.points,
+    pontos: desafio.points,
+    pilares,
+    pontosPorPilar: pilares,
     livePresentationPoints: Number(desafio.livePresentationPoints || 0),
     type: desafio.type,
     difficulty: desafio.difficulty,
@@ -168,7 +192,7 @@ async function listPending(authenticatedUserId, query = {}) {
   const desafioId = parseOptionalObjectId(query.desafioId || query.desafio_id || query.desafio, "Desafio deve ser um identificador válido.");
   const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
   if (pilarId) {
-    const desafios = await Desafio.find({ pilar: pilarId }).select("_id").lean();
+    const desafios = await Desafio.find({ $or: [{ pilar: pilarId }, { "pilares.pilar": pilarId }] }).select("_id").lean();
     const desafioIds = (desafios || []).map(getEntityId);
     filters.desafio = desafioId ? (desafioIds.includes(desafioId) ? desafioId : { $in: [] }) : { $in: desafioIds };
   } else if (desafioId) {
@@ -203,8 +227,11 @@ async function listPending(authenticatedUserId, query = {}) {
       .populate("turma", "name code status")
       .populate({
         path: "desafio",
-        select: "title description points livePresentationPoints difficulty type pilar",
-        populate: { path: "pilar", select: "name description status" },
+        select: "title description points livePresentationPoints difficulty type pilar pilares",
+        populate: [
+          { path: "pilar", select: "name description status" },
+          { path: "pilares.pilar", select: "name description status" },
+        ],
       })
       .sort({ createdAt: sortDirection })
       .skip(skip)
@@ -282,7 +309,7 @@ async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
   const bonusApresentacaoAoVivo = getLivePresentationBonusPoints(desafio, parsedEvaluation.apresentacaoAoVivo);
   await assertNoDuplicateEvidenceScore(envio, desafio, scoreRecipients);
   await assertRecurringScoreLimit(envio, desafio, scoreRecipients, new Date(), {
-    pontosSolicitados: Number(desafio.points) + bonusApresentacaoAoVivo,
+    pontosSolicitados: getChallengeBasePoints(desafio) + bonusApresentacaoAoVivo,
   });
   applyEvaluation(envio, reviewer, parsedEvaluation);
   const updated = await envio.save();

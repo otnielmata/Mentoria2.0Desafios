@@ -173,6 +173,26 @@ h3 {
   font-weight: 700;
 }
 
+.pillar-points-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.pillar-point-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.pillar-point-row input[type="number"] {
+  min-height: 38px;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

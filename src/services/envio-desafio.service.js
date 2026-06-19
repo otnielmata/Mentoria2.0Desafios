@@ -52,6 +52,28 @@ function serializePilar(pilar) {
   };
 }
 
+function serializePilarPontuacao(item) {
+  if (!item) return null;
+  const pilar = item.pilar || item.pilarId || item.id;
+  const points = Number(item.points || item.pontos || 0);
+  return {
+    pilar: serializePilar(pilar),
+    pilarId: getEntityId(pilar),
+    points,
+    pontos: points,
+  };
+}
+
+function getPilaresPontuacao(desafio) {
+  const configured = Array.isArray(desafio.pilares) ? desafio.pilares.map(serializePilarPontuacao).filter((item) => item && item.pilarId) : [];
+  if (configured.length > 0) return configured;
+  if (!desafio.pilar) return [];
+  const points = Number(desafio.points || 0);
+  return Number.isFinite(points) && points > 0
+    ? [{ pilar: serializePilar(desafio.pilar), pilarId: getEntityId(desafio.pilar), points, pontos: points }]
+    : [];
+}
+
 function serializeTurma(turma) {
   if (!turma || typeof turma !== "object") return turma ? { id: getEntityId(turma) } : null;
   return {
@@ -65,11 +87,14 @@ function serializeTurma(turma) {
 
 function serializeDesafio(desafio) {
   if (!desafio || typeof desafio !== "object") return desafio ? { id: getEntityId(desafio) } : null;
+  const pilares = getPilaresPontuacao(desafio);
   return {
     id: getEntityId(desafio),
     title: desafio.title,
     description: desafio.description,
     pilar: serializePilar(desafio.pilar),
+    pilares,
+    pontosPorPilar: pilares,
     points: desafio.points,
     difficulty: desafio.difficulty,
     type: desafio.type,
@@ -223,7 +248,7 @@ async function getGroupForSubmission(grupoId, authenticatedUserId) {
   const grupo = await GrupoDesafio.findById(id)
     .populate({
       path: "desafio",
-      populate: { path: "pilar" },
+      populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
     })
     .populate("turma")
     .populate("participantes", "name email role status")
@@ -369,7 +394,7 @@ async function listMine(authenticatedUserId, query = {}) {
   if (turmaId) filters.turma = turmaId;
   const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
   if (pilarId) {
-    const desafios = await Desafio.find({ pilar: pilarId }).select("_id").lean();
+    const desafios = await Desafio.find({ $or: [{ pilar: pilarId }, { "pilares.pilar": pilarId }] }).select("_id").lean();
     filters.desafio = { $in: (desafios || []).map(getEntityId) };
   }
 
@@ -379,7 +404,7 @@ async function listMine(authenticatedUserId, query = {}) {
     EnvioDesafio.find(filters)
       .populate({
         path: "desafio",
-        populate: { path: "pilar" },
+        populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
       })
       .populate("turma")
       .sort({ createdAt: -1 })
@@ -401,7 +426,7 @@ async function getEnvio(authenticatedUserId, envioId) {
   const envio = await EnvioDesafio.findById(id)
     .populate({
       path: "desafio",
-      populate: { path: "pilar" },
+      populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
     })
     .populate("turma")
     .populate("aluno", "name email role status")
