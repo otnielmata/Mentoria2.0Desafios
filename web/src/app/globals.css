@@ -173,20 +173,37 @@ h3 {
   font-weight: 700;
 }
 
+.checkbox-field input[type="checkbox"] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  flex: 0 0 16px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
 .pillar-points-grid {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .pillar-point-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
+  grid-template-columns: minmax(0, 1fr) 96px;
   gap: 10px;
   align-items: center;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-soft);
+}
+
+.pillar-point-row .checkbox-field {
+  min-width: 0;
+  align-items: flex-start;
+  line-height: 1.25;
 }
 
 .pillar-point-row input[type="number"] {
@@ -646,5 +663,9 @@ h3 {
 
   .actions {
     justify-content: start;
+  }
+
+  .pillar-points-grid {
+    grid-template-columns: 1fr;
   }
 }
