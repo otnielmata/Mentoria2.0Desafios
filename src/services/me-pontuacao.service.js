@@ -8,6 +8,7 @@ const User = require("../models/user.model");
 
 const STUDENT_ROLE = "aluno";
 const APPROVED_STATUS = "aprovado";
+const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -152,6 +153,7 @@ function buildPontuacaoFilters(alunoId, filters) {
 
 async function findPontuacoes(alunoId, filters) {
   return Pontuacao.find(buildPontuacaoFilters(alunoId, filters))
+    .populate({ path: "aluno", select: "turmas" })
     .populate({
       path: "envio",
       select: "status turma approvedAt createdAt",
@@ -183,6 +185,14 @@ function getPontuacaoCreatedAt(pontuacao) {
 }
 
 function isValidApprovedPontuacao(pontuacao) {
+  if (
+    pontuacao &&
+    normalizeText(pontuacao.source) === EXTRA_POINTS_SOURCE &&
+    Number.isFinite(Number(pontuacao.pontos))
+  ) {
+    return true;
+  }
+
   return (
     pontuacao &&
     pontuacao.envio &&
@@ -192,8 +202,14 @@ function isValidApprovedPontuacao(pontuacao) {
   );
 }
 
+function alunoHasTurma(pontuacao, turmaId) {
+  const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+  return turmas.some((turma) => getEntityId(turma) === turmaId);
+}
+
 function matchesFilters(pontuacao, filters) {
-  if (filters.turmaId && getEntityId(pontuacao.envio.turma) !== filters.turmaId) {
+  const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
+  if (filters.turmaId && envioTurmaId !== filters.turmaId && !alunoHasTurma(pontuacao, filters.turmaId)) {
     return false;
   }
 
@@ -314,13 +330,15 @@ function serializeHistoricoItem(pontuacao) {
     id: getEntityId(pontuacao),
     envioId: getEntityId(pontuacao.envio),
     desafio: serializeDesafio(pontuacao.desafio),
-    pilar: serializePilar(pontuacao.desafio.pilar),
+    pilar: serializePilar(pontuacao.desafio && pontuacao.desafio.pilar),
     pilares: getPontuacaoPilares(pontuacao),
     pontosPorPilar: getPontuacaoPilares(pontuacao),
-    turma: serializeTurma(pontuacao.envio.turma),
+    turma: serializeTurma(pontuacao.envio && pontuacao.envio.turma),
     pontos: Number(pontuacao.pontos),
+    motivo: pontuacao.motivo,
+    source: pontuacao.source,
     createdAt: pontuacao.createdAt ? toDateString(pontuacao.createdAt) : undefined,
-    approvedAt: pontuacao.envio.approvedAt ? toDateString(pontuacao.envio.approvedAt) : undefined,
+    approvedAt: pontuacao.envio && pontuacao.envio.approvedAt ? toDateString(pontuacao.envio.approvedAt) : undefined,
   };
 }
 
@@ -337,7 +355,8 @@ function buildPontosPorPilar(pontuacoes) {
       };
 
       current.pontos += Number(item.pontos || 0);
-      current.envioIds.add(getEntityId(pontuacao.envio));
+      const envioId = getEntityId(pontuacao.envio);
+      if (envioId) current.envioIds.add(envioId);
       groupedByPilar.set(pilarId, current);
     });
   });
@@ -366,7 +385,7 @@ async function getMyPontuacoes(authenticatedUserId, query = {}) {
   const validPontuacoes = (pontuacoes || [])
     .filter(isValidApprovedPontuacao)
     .filter((pontuacao) => matchesFilters(pontuacao, filters));
-  const approvedEnvioIds = new Set(validPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)));
+  const approvedEnvioIds = new Set(validPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
 
   return {
     totalPontos: validPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos), 0),

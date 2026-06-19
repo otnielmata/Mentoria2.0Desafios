@@ -11,18 +11,34 @@ jest.mock("../../src/models/pontuacao.model", () => ({
   find: jest.fn(),
 }));
 
+jest.mock("../../src/models/pilar.model", () => ({
+  findById: jest.fn(),
+}));
+
+jest.mock("../../src/models/user.model", () => ({
+  findById: jest.fn(),
+  userRoles: {
+    admin: "admin",
+    student: "aluno",
+    teacher: "professor",
+  },
+}));
+
 jest.mock("../../src/services/audit.service", () => ({
   logDomainEvent: jest.fn(),
 }));
 
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
+const Pilar = require("../../src/models/pilar.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
+const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
 const {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
   generatePontuacoesForApprovedEnvio,
+  grantExtraPoints,
   shouldApplyLeadershipBonus,
 } = require("../../src/services/pontuacao.service");
 
@@ -31,6 +47,7 @@ const DESAFIO_ID = "6814f12ab3f34872f7558f42";
 const OWNER_ID = "6814f12ab3f34872f7558f43";
 const PARTICIPANT_ID = "6814f12ab3f34872f7558f44";
 const LEGACY_PARTICIPANT_ID = "6814f12ab3f34872f7558f45";
+const PILAR_ID = "6814f12ab3f34872f7558f51";
 
 function mockLean(modelMethod, value) {
   modelMethod.mockReturnValue({
@@ -45,6 +62,10 @@ describe("pontuacao.service MR-94", () => {
     mockLean(ParticipanteEnvio.find, []);
     mockLean(Pontuacao.find, []);
     Pontuacao.create.mockResolvedValue([]);
+    User.findById.mockImplementation((id) =>
+      Promise.resolve(id === OWNER_ID ? { _id: OWNER_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" } : { _id: id, role: "professor" })
+    );
+    Pilar.findById.mockResolvedValue({ _id: PILAR_ID, name: "Prática", status: "ativo" });
   });
 
   it("não gera pontuação para envio pendente, reprovado ou em ajuste", async () => {
@@ -192,6 +213,50 @@ describe("pontuacao.service MR-94", () => {
 
   it("não aplica bônus de liderança enquanto a configuração do MVP estiver desligada", () => {
     expect(shouldApplyLeadershipBonus()).toBe(false);
+  });
+
+  it("cadastra pontuação extra manual para aluno e pilar ativos", async () => {
+    Pontuacao.create.mockResolvedValue({
+      _id: "6814f12ab3f34872f7558f61",
+      aluno: OWNER_ID,
+      pontos: 12,
+      pilares: [{ pilar: PILAR_ID, pontos: 12 }],
+      motivo: "Participação ao vivo",
+      source: "pontuacao_extra",
+      createdAt: "2026-01-20T10:00:00.000Z",
+    });
+
+    const result = await grantExtraPoints("6814f12ab3f34872f7558f40", {
+      alunoId: OWNER_ID,
+      pilarId: PILAR_ID,
+      pontos: 12,
+      motivo: "Participação ao vivo",
+    });
+
+    expect(Pontuacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aluno: OWNER_ID,
+        desafio: null,
+        pontos: 12,
+        pilares: [{ pilar: PILAR_ID, pontos: 12 }],
+        motivo: "Participação ao vivo",
+        source: "pontuacao_extra",
+      })
+    );
+    expect(Pontuacao.create.mock.calls[0][0].envio).toBeDefined();
+    expect(result.pontuacao).toMatchObject({
+      aluno: expect.objectContaining({ id: OWNER_ID, name: "Ana" }),
+      pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }),
+      pontos: 12,
+      source: "pontuacao_extra",
+    });
+    expect(logDomainEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "pontuacao_extra_cadastrada",
+        aluno: OWNER_ID,
+        metadata: expect.objectContaining({ pilar: PILAR_ID, pontos: 12 }),
+      })
+    );
   });
 
   it("bloqueia nova pontuação quando a mesma evidência já pontuou o aluno no desafio", async () => {

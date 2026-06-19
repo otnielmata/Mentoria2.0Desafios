@@ -14,7 +14,7 @@ jest.mock("../../src/models/user.model", () => ({
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
-const { getParticipationReport } = require("../../src/services/admin-relatorio-participacao.service");
+const { getParticipationReport, getStudentPillarReport } = require("../../src/services/admin-relatorio-participacao.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const ALUNO_1_ID = "6814f12ab3f34872f7558f41";
@@ -137,5 +137,48 @@ describe("admin-relatorio-participacao.service MR-95", () => {
       statusCode: 403,
       message: "Apenas professor ou admin pode consultar relatório de participação.",
     });
+  });
+
+  it("retorna relatório paginado de pontos por aluno e pilar incluindo pontos extras", async () => {
+    mockFindChain(User, [
+      { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" },
+      { _id: ALUNO_2_ID, name: "Bruno", email: "bruno@email.com", role: "aluno", status: "ativo" },
+    ]);
+    mockFindChain(Pontuacao, [
+      {
+        _id: "6814f12ab3f34872f7558f4b",
+        aluno: { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", turmas: [] },
+        pontos: 15,
+        source: "pontuacao_extra",
+        pilares: [{ pilar: { _id: PILAR_ID, name: "Prática" }, pontos: 15 }],
+        createdAt: new Date("2026-01-20T10:00:00.000Z"),
+      },
+      {
+        _id: "6814f12ab3f34872f7558f4c",
+        aluno: { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", turmas: [] },
+        pontos: 25,
+        envio: {
+          _id: "6814f12ab3f34872f7558f45",
+          status: "aprovado",
+          turma: { _id: TURMA_ID, name: "Turma 1" },
+          createdAt: new Date("2026-01-21T10:00:00.000Z"),
+        },
+        desafio: { _id: "6814f12ab3f34872f7558f46", pilar: { _id: PILAR_ID, name: "Prática" } },
+        createdAt: new Date("2026-01-21T10:00:00.000Z"),
+      },
+    ]);
+
+    const result = await getStudentPillarReport(ADMIN_ID, { search: "Ana", page: "1", limit: "10" });
+
+    expect(result.pagination).toMatchObject({ page: 1, limit: 10, total: 1, totalPages: 1 });
+    expect(result.alunos).toEqual([
+      expect.objectContaining({
+        aluno: expect.objectContaining({ id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" }),
+        totalPontos: 40,
+        pontosPorPilar: [expect.objectContaining({ pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }), pontos: 40 })],
+      }),
+    ]);
+    expect(JSON.stringify(result)).not.toContain("secret");
+    expect(JSON.stringify(result)).not.toContain("password");
   });
 });

@@ -10,6 +10,7 @@ const ALLOWED_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
 const INACTIVE_STATUS = "inativo";
 const APPROVED_STATUS = "aprovado";
+const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 const PENDING_STATUS = "pendente";
 const TOP_RANKING_LIMIT = 10;
 
@@ -82,7 +83,7 @@ async function findEnvios() {
 
 async function findPontuacoes() {
   return Pontuacao.find({})
-    .populate({ path: "aluno", select: "name email role status" })
+    .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "envio", select: "status turma approvedAt createdAt" })
     .populate({
       path: "desafio",
@@ -102,6 +103,15 @@ function isActiveStudent(user) {
 }
 
 function isApprovedPontuacao(pontuacao) {
+  if (
+    pontuacao &&
+    pontuacao.aluno &&
+    normalizeText(pontuacao.source) === EXTRA_POINTS_SOURCE &&
+    Number.isFinite(Number(pontuacao.pontos))
+  ) {
+    return true;
+  }
+
   return (
     pontuacao &&
     pontuacao.aluno &&
@@ -193,7 +203,8 @@ function buildStudentRanking(pontuacoes) {
     };
 
     current.totalPontos += Number(pontuacao.pontos);
-    current.envioIds.add(getEntityId(pontuacao.envio));
+    const envioId = getEntityId(pontuacao.envio);
+    if (envioId) current.envioIds.add(envioId);
     groupedByAluno.set(alunoId, current);
   });
 
@@ -240,19 +251,24 @@ function buildRankingPorTurma(pontuacoes) {
   const groupedByTurma = new Map();
 
   pontuacoes.forEach((pontuacao) => {
-    const turma = pontuacao.envio.turma;
-    const turmaId = getEntityId(turma) || "sem-turma";
-    const current = groupedByTurma.get(turmaId) || {
-      turma: serializeTurma(turma),
-      totalPontos: 0,
-      alunoIds: new Set(),
-      envioIds: new Set(),
-    };
+    const turmas = pontuacao.envio && pontuacao.envio.turma ? [pontuacao.envio.turma] : pontuacao.aluno && Array.isArray(pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+    const turmasToScore = turmas.length > 0 ? turmas : [null];
 
-    current.totalPontos += Number(pontuacao.pontos);
-    current.alunoIds.add(getEntityId(pontuacao.aluno));
-    current.envioIds.add(getEntityId(pontuacao.envio));
-    groupedByTurma.set(turmaId, current);
+    turmasToScore.forEach((turma) => {
+      const turmaId = getEntityId(turma) || "sem-turma";
+      const current = groupedByTurma.get(turmaId) || {
+        turma: serializeTurma(turma),
+        totalPontos: 0,
+        alunoIds: new Set(),
+        envioIds: new Set(),
+      };
+
+      current.totalPontos += Number(pontuacao.pontos);
+      current.alunoIds.add(getEntityId(pontuacao.aluno));
+      const envioId = getEntityId(pontuacao.envio);
+      if (envioId) current.envioIds.add(envioId);
+      groupedByTurma.set(turmaId, current);
+    });
   });
 
   return Array.from(groupedByTurma.values())
@@ -280,7 +296,8 @@ function buildRankingPorPilar(pontuacoes) {
 
       current.totalPontos += Number(item.pontos || 0);
       current.alunoIds.add(getEntityId(pontuacao.aluno));
-      current.envioIds.add(getEntityId(pontuacao.envio));
+      const envioId = getEntityId(pontuacao.envio);
+      if (envioId) current.envioIds.add(envioId);
       groupedByPilar.set(pilarId, current);
     });
   });
@@ -348,7 +365,7 @@ async function getAdminDashboard(authenticatedUserId) {
   const [users, envios, pontuacoes] = await Promise.all([findUsers(), findEnvios(), findPontuacoes()]);
   const activeStudents = (users || []).filter(isActiveStudent);
   const approvedPontuacoes = (pontuacoes || []).filter(isApprovedPontuacao);
-  const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)));
+  const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
   const pendingApprovals = (envios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS);
   const ranking = assignPositions(buildStudentRanking(approvedPontuacoes));
   const rankingPorPilar = buildRankingPorPilar(approvedPontuacoes);

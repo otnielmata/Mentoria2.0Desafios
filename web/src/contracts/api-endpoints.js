@@ -310,6 +310,15 @@ const WEB_API_ENDPOINTS = [
     roles: ["professor", "admin"],
   },
   {
+    key: "admin.approvals.extraPoints",
+    feature: "Aprovações",
+    screen: "Aprovações",
+    menu: "Aprovações",
+    method: "POST",
+    path: "/pontuacoes/extras",
+    roles: ["professor", "admin"],
+  },
+  {
     key: "admin.groups",
     feature: "Grupos",
     screen: "Grupos",
@@ -334,6 +343,15 @@ const WEB_API_ENDPOINTS = [
     menu: "Relatórios",
     method: "GET",
     path: "/relatorios/participacao",
+    roles: ["professor", "admin"],
+  },
+  {
+    key: "admin.reports.studentPillars",
+    feature: "Relatórios",
+    screen: "Relatório por aluno",
+    menu: "Relatórios",
+    method: "GET",
+    path: "/relatorios/alunos/pilares",
     roles: ["professor", "admin"],
   },
   {

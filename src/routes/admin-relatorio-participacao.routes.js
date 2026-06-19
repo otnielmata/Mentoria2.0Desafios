@@ -8,6 +8,8 @@ const router = express.Router();
 const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 
 router.get("/relatorios/participacao", authMiddleware, authorizeRoles(adminRoles), adminRelatorioParticipacaoController.list);
+router.get("/relatorios/alunos/pilares", authMiddleware, authorizeRoles(adminRoles), adminRelatorioParticipacaoController.listStudentPillars);
 router.get("/admin/relatorios/participacao", authMiddleware, authorizeRoles(adminRoles), adminRelatorioParticipacaoController.list);
+router.get("/admin/relatorios/alunos/pilares", authMiddleware, authorizeRoles(adminRoles), adminRelatorioParticipacaoController.listStudentPillars);
 
 module.exports = router;

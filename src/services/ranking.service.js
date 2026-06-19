@@ -7,6 +7,7 @@ const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 
 const APPROVED_STATUS = "aprovado";
+const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 const STUDENT_ROLE = "aluno";
 const GLOBAL_ROLES = ["professor", "admin"];
 const ALLOWED_TYPES = ["individual", "grupo"];
@@ -201,7 +202,7 @@ function buildPontuacaoFilters(filters) {
 
 async function findPontuacoes(filters) {
   return Pontuacao.find(buildPontuacaoFilters(filters))
-    .populate({ path: "aluno", select: "name email role status" })
+    .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({
       path: "envio",
       select: "status turma type approvedAt createdAt",
@@ -233,6 +234,15 @@ function getPontuacaoCreatedAt(pontuacao) {
 }
 
 function isValidApprovedPontuacao(pontuacao) {
+  if (
+    pontuacao &&
+    pontuacao.aluno &&
+    normalizeText(pontuacao.source) === EXTRA_POINTS_SOURCE &&
+    Number.isFinite(Number(pontuacao.pontos))
+  ) {
+    return true;
+  }
+
   return (
     pontuacao &&
     pontuacao.aluno &&
@@ -243,16 +253,27 @@ function isValidApprovedPontuacao(pontuacao) {
   );
 }
 
+function alunoHasTurma(pontuacao, turmaId) {
+  const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+  return turmas.some((turma) => getEntityId(turma) === turmaId);
+}
+
 function matchesScope(pontuacao, scope) {
   if (scope.allowedTurmaIds === null) {
     return true;
   }
 
-  return scope.allowedTurmaIds.includes(getEntityId(pontuacao.envio.turma));
+  const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
+  if (envioTurmaId) {
+    return scope.allowedTurmaIds.includes(envioTurmaId);
+  }
+
+  return scope.allowedTurmaIds.some((turmaId) => alunoHasTurma(pontuacao, turmaId));
 }
 
 function matchesFilters(pontuacao, filters) {
-  if (filters.turmaId && getEntityId(pontuacao.envio.turma) !== filters.turmaId) {
+  const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
+  if (filters.turmaId && envioTurmaId !== filters.turmaId && !alunoHasTurma(pontuacao, filters.turmaId)) {
     return false;
   }
 
@@ -260,7 +281,7 @@ function matchesFilters(pontuacao, filters) {
     return false;
   }
 
-  if (filters.type && normalizeText(pontuacao.envio.type) !== filters.type) {
+  if (filters.type && normalizeText(pontuacao.envio && pontuacao.envio.type) !== filters.type) {
     return false;
   }
 
@@ -310,7 +331,8 @@ function buildRankingRows(pontuacoes) {
     };
 
     current.totalPontos += Number(pontuacao.pontos);
-    current.envioIds.add(getEntityId(pontuacao.envio));
+    const envioId = getEntityId(pontuacao.envio);
+    if (envioId) current.envioIds.add(envioId);
     groupedByAluno.set(alunoId, current);
   });
 

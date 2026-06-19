@@ -4,6 +4,7 @@ const path = require("path");
 const routeModules = [
   { base: "", router: require("../../src/routes/admin-dashboard.routes") },
   { base: "", router: require("../../src/routes/admin-envio-desafio.routes") },
+  { base: "", router: require("../../src/routes/admin-pontuacao.routes") },
   { base: "", router: require("../../src/routes/admin-relatorio-participacao.routes") },
   { base: "", router: require("../../src/routes/auditoria.routes") },
   { base: "", router: require("../../src/routes/desafio.routes") },
@@ -43,6 +44,7 @@ const webContractRouteKeys = [
   "GET /envios-desafios/meus",
   "GET /envios-desafios/aprovacoes",
   "PATCH /envios-desafios/aprovacoes",
+  "POST /pontuacoes/extras",
   "GET /grupos",
   "GET /grupos/meus",
   "PATCH /grupos/:id/contato",
@@ -52,6 +54,7 @@ const webContractRouteKeys = [
   "GET /ranking",
   "GET /ranking/admin",
   "GET /relatorios/participacao",
+  "GET /relatorios/alunos/pilares",
   "GET /auditorias",
   "GET /configuracoes",
 ];
@@ -89,6 +92,7 @@ describe("api route contract MR-91", () => {
     expect(source).toContain('router.use("/configuracoes", configurationRoutes)');
     expect(source).toContain("router.use(adminDashboardRoutes)");
     expect(source).toContain("router.use(adminEnvioDesafioRoutes)");
+    expect(source).toContain("router.use(adminPontuacaoRoutes)");
     expect(source).toContain("router.use(meDashboardRoutes)");
     expect(source).toContain("router.use(mePontuacaoRoutes)");
     expect(source).toContain("router.use(rankingRoutes)");
@@ -132,10 +136,12 @@ describe("api route contract MR-91", () => {
       "POST /desafios",
       "GET /envios-desafios/aprovacoes",
       "PATCH /envios-desafios/aprovacoes",
+      "POST /pontuacoes/extras",
       "GET /grupos",
       "GET /dashboard/admin",
       "GET /ranking/admin",
       "GET /relatorios/participacao",
+      "GET /relatorios/alunos/pilares",
       "GET /auditorias",
       "GET /configuracoes",
     ];
@@ -171,6 +177,8 @@ describe("api route contract MR-91", () => {
       "/api/ranking",
       "/api/ranking/admin",
       "/api/relatorios/participacao",
+      "/api/relatorios/alunos/pilares",
+      "/api/pontuacoes/extras",
       "/api/auditorias",
       "/api/configuracoes",
     ].forEach((endpoint) => {

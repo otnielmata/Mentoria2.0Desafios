@@ -556,6 +556,36 @@ paths:
           description: Pontuação aprovada retornada
         "403":
           description: Perfil sem permissão
+  /api/pontuacoes/extras:
+    post:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Cadastra pontos extras para um aluno em um pilar do método
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [alunoId, pilarId, pontos]
+              properties:
+                alunoId:
+                  type: string
+                pilarId:
+                  type: string
+                pontos:
+                  type: number
+                  minimum: 1
+                motivo:
+                  type: string
+      responses:
+        "201":
+          description: Pontuação extra cadastrada
+        "400":
+          description: Aluno, pilar ou pontos inválidos
+        "403":
+          description: Perfil sem permissão
   /api/me/pontuacoes:
     get:
       tags: [Perfil]
@@ -740,6 +770,43 @@ paths:
           description: Retorna participação por aluno, turma, período, distribuição de pontos e baixa participação quando aplicável
         "403":
           description: Perfil sem permissão
+  /api/relatorios/alunos/pilares:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Relatório de pontos conquistados por aluno e por pilar
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Filtra por nome ou e-mail do aluno
+        - in: query
+          name: pilarId
+          schema:
+            type: string
+          description: Filtra pontuação por pilar
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra alunos por turma
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Lista paginada de alunos com total e pontos por pilar
+        "403":
+          description: Perfil sem permissão
   /api/admin/relatorios/participacao:
     get:
       tags: [Relatórios]
@@ -749,6 +816,15 @@ paths:
       responses:
         "200":
           description: Relatório consolidado retornado
+  /api/admin/relatorios/alunos/pilares:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Alias do relatório de pontos por aluno e pilar
+      responses:
+        "200":
+          description: Relatório retornado
   /api/admin/relatorios/baixa-participacao:
     get:
       tags: [Relatórios]

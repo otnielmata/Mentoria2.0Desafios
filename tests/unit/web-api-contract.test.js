@@ -14,6 +14,7 @@ const routeModules = [
   { base: "", router: require("../../src/routes/admin-baixa-participacao.routes") },
   { base: "", router: require("../../src/routes/admin-dashboard.routes") },
   { base: "", router: require("../../src/routes/admin-envio-desafio.routes") },
+  { base: "", router: require("../../src/routes/admin-pontuacao.routes") },
   { base: "", router: require("../../src/routes/admin-relatorio-participacao.routes") },
   { base: "", router: require("../../src/routes/auditoria.routes") },
   { base: "", router: require("../../src/routes/desafio.routes") },

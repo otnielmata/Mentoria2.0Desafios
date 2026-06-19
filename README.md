@@ -86,10 +86,10 @@ npm install
 - `GET /api/envios-desafios/aprovacoes`, `PATCH /api/envios-desafios/aprovacoes`, `GET /api/admin/envios-desafios/pendentes`
 - `PATCH /api/admin/envios-desafios/:id/avaliacao`
 - `GET /api/grupos`, `GET /api/grupos/meus` e `PATCH /api/grupos/:id/contato`
-- `GET /api/pontuacoes/minha` e `GET /api/me/pontuacoes`
+- `GET /api/pontuacoes/minha`, `GET /api/me/pontuacoes` e `POST /api/pontuacoes/extras`
 - `GET /api/ranking`, `GET /api/ranking/admin`, `GET /api/rankings` e `GET /api/rankings/geral`
 - `GET /api/dashboard/aluno`, `GET /api/me/dashboard`, `GET /api/dashboard/admin` e `GET /api/admin/dashboard`
-- `GET /api/relatorios/participacao` e `GET /api/admin/relatorios/participacao`
+- `GET /api/relatorios/participacao`, `GET /api/admin/relatorios/participacao`, `GET /api/relatorios/alunos/pilares` e `GET /api/admin/relatorios/alunos/pilares`
 - `GET /api/admin/relatorios/baixa-participacao`
 - `GET /api/auditorias` e `GET /api/admin/auditorias`
 - `GET /api/configuracoes`
@@ -167,11 +167,11 @@ O modelo usa pontuação fixa por desafio, distribuída por pilar. Ao cadastrar 
 
 O campo `difficulty` pode existir como metadado legado, mas não substitui a pontuação fixa obrigatória do cadastro administrativo.
 
-A pontuação nunca é criada manualmente pela Web. Ela é gerada somente pelo fluxo de aprovação de envio válido, no serviço de pontuação da API, e é registrada na coleção `pontuacoes` com referência ao aluno, desafio, envio aprovado e distribuição de pontos por pilar.
+A pontuação principal é gerada pelo fluxo de aprovação de envio válido, no serviço de pontuação da API, e é registrada na coleção `pontuacoes` com referência ao aluno, desafio, envio aprovado e distribuição de pontos por pilar. Professor/admin também pode lançar pontos extras em `POST /api/pontuacoes/extras`, vinculando aluno, pilar, quantidade de pontos e motivo.
 
 Em envios individuais, o aluno responsável recebe os pontos fixos do desafio. Em envios em grupo, o responsável e todos os participantes ativos recebem a mesma pontuação. Bônus de liderança é tratado como configuração futura/opcional e não é aplicado implicitamente.
 
-`GET /api/pontuacoes/minha`, `GET /api/ranking` e `GET /api/ranking/admin` consideram apenas pontuações vinculadas a envios com status `aprovado`; envios pendentes, reprovados ou em ajuste não somam pontos.
+`GET /api/pontuacoes/minha`, `GET /api/ranking` e `GET /api/ranking/admin` consideram pontuações vinculadas a envios com status `aprovado` e lançamentos extras cadastrados por professor/admin; envios pendentes, reprovados ou em ajuste não somam pontos.
 
 Desafios podem ser configurados como recorrentes por professor/admin usando `recorrencia.enabled`, `recorrencia.periodo` (`diario`, `semanal` ou `mensal`) e `recorrencia.limitePontos`. Quando a soma dos pontos já concedidos ao aluno naquele desafio e período ultrapassar o limite, a API bloqueia a aprovação com erro de integridade antes de gerar nova pontuação.
 
@@ -188,6 +188,7 @@ Os dashboards e relatórios são consolidados pela API para que a Web apenas exi
 - `GET /api/dashboard/aluno`: retorna pontos totais, ranking do aluno, resumo de desafios enviados por status, desafios aprovados, pendências, evolução por categoria/pilar e últimos envios.
 - `GET /api/dashboard/admin`: retorna alunos ativos, envios totais, aprovações pendentes, ranking, rankings por turma/pilar e métricas de participação.
 - `GET /api/relatorios/participacao`: retorna filtros/período, totais por status, distribuição de pontos aprovados, participação por aluno, participação por turma e baixa participação quando `diasSemEnvio` ou `pontuacaoMinima` forem informados.
+- `GET /api/relatorios/alunos/pilares`: retorna relatório paginado por aluno com total de pontos e quebra de pontos conquistados por pilar.
 
 As respostas não expõem senha, token, hash ou segredos; os serviços usam apenas campos públicos dos alunos.
 

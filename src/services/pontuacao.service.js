@@ -1,13 +1,28 @@
+const mongoose = require("mongoose");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
+const Pilar = require("../models/pilar.model");
 const Pontuacao = require("../models/pontuacao.model");
+const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
 const { isLeadershipBonusEnabled } = require("./configuration.service");
-const { createHttpError, getEntityId, normalizeText } = require("./domain-utils");
+const {
+  assertObjectPayload,
+  createHttpError,
+  getEntityId,
+  getFirstValue,
+  normalizeText,
+  parseObjectId,
+  parseOptionalText,
+} = require("./domain-utils");
 
 const APPROVED_STATUS = "aprovado";
+const ACTIVE_STATUS = "ativo";
+const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 const GROUP_TYPE = "grupo";
 const RECURRENCE_PERIODS = ["diario", "semanal", "mensal"];
+const REVIEWER_ROLES = ["professor", "admin"];
+const STUDENT_ROLE = "aluno";
 
 function shouldApplyLeadershipBonus() {
   // O MVP expõe a configuração, mas não aplica bônus até existir regra de edição segura.
@@ -202,6 +217,141 @@ function getChallengeBasePoints(desafio = {}) {
   return Number.isFinite(legacyPoints) && legacyPoints > 0 ? legacyPoints : 0;
 }
 
+function parsePositivePoints(value) {
+  const pontos = Number(value);
+
+  if (!Number.isFinite(pontos) || pontos <= 0) {
+    throw createHttpError("Pontos deve ser um número maior que zero.", 400);
+  }
+
+  return pontos;
+}
+
+function serializeUser(user) {
+  if (!user) return null;
+
+  return {
+    id: getEntityId(user),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+  };
+}
+
+function serializePilar(pilar) {
+  if (!pilar) return null;
+
+  return {
+    id: getEntityId(pilar),
+    name: pilar.name,
+    description: pilar.description,
+    status: pilar.status,
+  };
+}
+
+function serializeExtraPontuacao(pontuacao, aluno, pilar, reviewer) {
+  const pontos = Number(pontuacao.pontos || 0);
+
+  return {
+    id: getEntityId(pontuacao),
+    aluno: serializeUser(aluno),
+    pilar: serializePilar(pilar),
+    pontos,
+    points: pontos,
+    motivo: pontuacao.motivo,
+    source: pontuacao.source,
+    createdBy: serializeUser(reviewer),
+    createdAt: pontuacao.createdAt,
+  };
+}
+
+async function getAuthorizedReviewer(authenticatedUserId) {
+  const authenticatedUser = await User.findById(authenticatedUserId);
+
+  if (!authenticatedUser) {
+    throw createHttpError("Usuário autenticado não encontrado.", 404);
+  }
+
+  if (!REVIEWER_ROLES.includes(normalizeText(authenticatedUser.role))) {
+    throw createHttpError("Apenas professor ou admin pode cadastrar pontos extras.", 403);
+  }
+
+  return authenticatedUser;
+}
+
+async function getActiveStudent(alunoId) {
+  const aluno = await User.findById(alunoId);
+
+  if (!aluno) {
+    throw createHttpError("Aluno não encontrado.", 404);
+  }
+
+  if (normalizeText(aluno.role) !== STUDENT_ROLE) {
+    throw createHttpError("Pontuação extra só pode ser cadastrada para aluno.", 400);
+  }
+
+  if (normalizeText(aluno.status || ACTIVE_STATUS) !== ACTIVE_STATUS) {
+    throw createHttpError("Pontuação extra só pode ser cadastrada para aluno ativo.", 400);
+  }
+
+  return aluno;
+}
+
+async function getActivePilar(pilarId) {
+  const pilar = await Pilar.findById(pilarId);
+
+  if (!pilar) {
+    throw createHttpError("Pilar não encontrado.", 404);
+  }
+
+  if (normalizeText(pilar.status || ACTIVE_STATUS) !== ACTIVE_STATUS) {
+    throw createHttpError("Pontuação extra só pode ser vinculada a pilar ativo.", 400);
+  }
+
+  return pilar;
+}
+
+async function grantExtraPoints(authenticatedUserId, payload = {}) {
+  assertObjectPayload(payload);
+
+  const reviewer = await getAuthorizedReviewer(authenticatedUserId);
+  const alunoId = parseObjectId(getFirstValue(payload, ["alunoId", "aluno_id", "aluno", "userId", "user_id"]), "Aluno deve ser um identificador válido.");
+  const pilarId = parseObjectId(getFirstValue(payload, ["pilarId", "pilar_id", "pilar"]), "Pilar deve ser um identificador válido.");
+  const pontos = parsePositivePoints(getFirstValue(payload, ["pontos", "points", "pontuacao", "pontuação"]));
+  const motivo =
+    parseOptionalText(getFirstValue(payload, ["motivo", "reason", "observacao", "observação"]), "Motivo") || "pontuacao_extra_manual";
+  const [aluno, pilar] = await Promise.all([getActiveStudent(alunoId), getActivePilar(pilarId)]);
+  const pontuacao = await Pontuacao.create({
+    envio: new mongoose.Types.ObjectId(),
+    desafio: null,
+    aluno: alunoId,
+    pontos,
+    pilares: [{ pilar: pilarId, pontos }],
+    motivo,
+    source: EXTRA_POINTS_SOURCE,
+    createdBy: getEntityId(reviewer),
+  });
+
+  await logDomainEvent({
+    eventType: "pontuacao_extra_cadastrada",
+    actor: getEntityId(reviewer),
+    aluno: alunoId,
+    pontuacao: getEntityId(pontuacao),
+    statusNovo: "cadastrada",
+    metadata: {
+      pilar: pilarId,
+      pontos,
+      motivo,
+      source: EXTRA_POINTS_SOURCE,
+    },
+  });
+
+  return {
+    pontuacao: serializeExtraPontuacao(pontuacao, aluno, pilar, reviewer),
+  };
+}
+
 async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate = new Date(), options = {}) {
   const recurrence = getRecurrenceLimit(desafio);
   if (!recurrence) {
@@ -332,6 +482,7 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
 module.exports = {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
+  grantExtraPoints,
   generatePontuacoesForApprovedEnvio,
   getChallengeBasePoints,
   getChallengePillarPoints,

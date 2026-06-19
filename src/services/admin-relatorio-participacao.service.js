@@ -11,8 +11,10 @@ const ALLOWED_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
 const ACTIVE_STATUS = "ativo";
 const APPROVED_STATUS = "aprovado";
+const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 const REJECTED_STATUS = "reprovado";
 const PENDING_STATUS = "pendente";
+const DEFAULT_PAGE_LIMIT = 10;
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -132,6 +134,39 @@ function parseNumberFilter(query, fields, message, { integer = false } = {}) {
   return number;
 }
 
+function parsePositiveInteger(value, fallback) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw createHttpError("Paginação deve usar números inteiros maiores que zero.", 400);
+  }
+
+  return parsed;
+}
+
+function parsePagination(query = {}) {
+  const page = parsePositiveInteger(getFirstValue(query, ["page", "pagina"]), 1);
+  const limit = Math.min(parsePositiveInteger(getFirstValue(query, ["limit", "perPage", "per_page"]), DEFAULT_PAGE_LIMIT), 100);
+
+  return {
+    page,
+    limit,
+    skip: (page - 1) * limit,
+  };
+}
+
+function buildPagination(total, page, limit) {
+  return {
+    page,
+    limit,
+    total,
+    totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+  };
+}
+
 function parseFilters(query = {}) {
   const period = parsePeriodFilters(query);
 
@@ -193,7 +228,7 @@ async function findEnvios(filters) {
 
 async function findPontuacoes() {
   return Pontuacao.find({})
-    .populate({ path: "aluno", select: "name email role status" })
+    .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({
       path: "envio",
       select: "status turma createdAt approvedAt",
@@ -271,7 +306,25 @@ function matchesTurmaByEnvio(entity, filters) {
   return getEntityId(entity.turma) === filters.turmaId;
 }
 
+function alunoHasTurma(pontuacao, turmaId) {
+  const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+  return turmas.some((turma) => getEntityId(turma) === turmaId);
+}
+
 function matchesPontuacaoFilters(pontuacao, filters) {
+  if (
+    pontuacao &&
+    pontuacao.aluno &&
+    normalizeText(pontuacao.source) === EXTRA_POINTS_SOURCE &&
+    Number.isFinite(Number(pontuacao.pontos))
+  ) {
+    return (
+      matchesDate(pontuacao, filters) &&
+      matchesPilar(pontuacao, filters) &&
+      (!filters.turmaId || alunoHasTurma(pontuacao, filters.turmaId))
+    );
+  }
+
   return (
     pontuacao &&
     pontuacao.envio &&
@@ -576,7 +629,8 @@ function buildParticipationByStudent(students, envios, pontuacoes) {
 
     if (participation) {
       participation.totalPontos += Number(pontuacao.pontos) || 0;
-      participation.envioIdsAprovados.add(getEntityId(pontuacao.envio));
+      const envioId = getEntityId(pontuacao.envio);
+      if (envioId) participation.envioIdsAprovados.add(envioId);
     }
   });
 
@@ -623,10 +677,16 @@ function buildParticipationByTurma(envios, pontuacoes) {
   });
 
   pontuacoes.forEach((pontuacao) => {
-    const current = ensureTurmaParticipation(groupedByTurma, pontuacao.envio && pontuacao.envio.turma);
-    current.totalPontos += Number(pontuacao.pontos) || 0;
-    current.alunoIds.add(getEntityId(pontuacao.aluno));
-    current.envioIdsAprovados.add(getEntityId(pontuacao.envio));
+    const turmas = pontuacao.envio && pontuacao.envio.turma ? [pontuacao.envio.turma] : pontuacao.aluno && Array.isArray(pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+    const turmasToScore = turmas.length > 0 ? turmas : [null];
+
+    turmasToScore.forEach((turma) => {
+      const current = ensureTurmaParticipation(groupedByTurma, turma);
+      current.totalPontos += Number(pontuacao.pontos) || 0;
+      current.alunoIds.add(getEntityId(pontuacao.aluno));
+      const envioId = getEntityId(pontuacao.envio);
+      if (envioId) current.envioIdsAprovados.add(envioId);
+    });
   });
 
   return Array.from(groupedByTurma.values()).map((participation) => ({
@@ -813,6 +873,88 @@ async function getParticipationReport(authenticatedUserId, query = {}) {
   };
 }
 
+function matchesStudentSearch(student, search) {
+  if (!search) {
+    return true;
+  }
+
+  const needle = normalizeText(search);
+  return normalizeText(student.name).includes(needle) || normalizeText(student.email).includes(needle);
+}
+
+function buildStudentPillarRows(students, pontuacoes, filters) {
+  const groupedByStudent = new Map();
+
+  (students || []).forEach((student) => {
+    groupedByStudent.set(getEntityId(student), {
+      aluno: serializeAluno(student),
+      totalPontos: 0,
+      pilares: new Map(),
+    });
+  });
+
+  (pontuacoes || []).forEach((pontuacao) => {
+    const studentId = getEntityId(pontuacao.aluno);
+    const current = groupedByStudent.get(studentId);
+
+    if (!current) {
+      return;
+    }
+
+    getPontuacaoPilares(pontuacao)
+      .filter((item) => !filters.pilarId || item.pilarId === filters.pilarId)
+      .forEach((item) => {
+        const pilarId = item.pilarId || "sem-pilar";
+        const pilarPoints = Number(item.pontos || 0);
+        const pilarRow = current.pilares.get(pilarId) || {
+          pilar: item.pilar,
+          pilarId,
+          pontos: 0,
+          points: 0,
+        };
+
+        pilarRow.pontos += pilarPoints;
+        pilarRow.points += pilarPoints;
+        current.totalPontos += pilarPoints;
+        current.pilares.set(pilarId, pilarRow);
+      });
+  });
+
+  return Array.from(groupedByStudent.values())
+    .map((row) => ({
+      aluno: row.aluno,
+      totalPontos: row.totalPontos,
+      pontosPorPilar: Array.from(row.pilares.values()).sort((first, second) => second.pontos - first.pontos),
+    }))
+    .sort((first, second) => {
+      if (second.totalPontos !== first.totalPontos) return second.totalPontos - first.totalPontos;
+      return normalizeText(first.aluno.name).localeCompare(normalizeText(second.aluno.name), "pt-BR");
+    });
+}
+
+async function getStudentPillarReport(authenticatedUserId, query = {}) {
+  await getAuthorizedReviewer(authenticatedUserId);
+
+  const filters = parseFilters(query);
+  const pagination = parsePagination(query);
+  const search = String(getFirstValue(query, ["search", "busca", "nome", "aluno"]) || "").trim();
+  const [students, pontuacoes] = await Promise.all([findStudents(filters), findPontuacoes()]);
+  const filteredPontuacoes = (pontuacoes || []).filter((pontuacao) => matchesPontuacaoFilters(pontuacao, filters));
+  const rows = buildStudentPillarRows(students || [], filteredPontuacoes, filters).filter((row) => matchesStudentSearch(row.aluno, search));
+  const paginatedRows = rows.slice(pagination.skip, pagination.skip + pagination.limit);
+
+  return {
+    filtros: {
+      ...serializeFilters(filters),
+      search: search || undefined,
+    },
+    pagination: buildPagination(rows.length, pagination.page, pagination.limit),
+    alunos: paginatedRows,
+    relatorio: paginatedRows,
+  };
+}
+
 module.exports = {
   getParticipationReport,
+  getStudentPillarReport,
 };

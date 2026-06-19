@@ -26,7 +26,7 @@ const MENU_BY_ROLE = {
     { key: "desafios", label: "Desafios", icon: "emoji_events", supported: true },
     { key: "aprovacoes", label: "Aprovações", icon: "fact_check", supported: true },
     { key: "ranking", label: "Ranking", icon: "leaderboard", supported: true },
-    { key: "relatorios", label: "Relatórios", icon: "analytics", supported: false },
+    { key: "relatorios", label: "Relatórios", icon: "analytics", supported: true },
     { key: "configuracoes", label: "Configurações", icon: "manage_accounts", supported: true, roles: ["admin"] },
   ],
 };
@@ -62,6 +62,10 @@ function getEntityId(entity) {
   return entity.id || entity._id || "";
 }
 
+function looksLikeObjectId(value) {
+  return typeof value === "string" && /^[a-f\d]{24}$/i.test(value.trim());
+}
+
 function getPilarPointsItems(desafio) {
   const configured = getArray(desafio && (desafio.pilares || desafio.pontosPorPilar))
     .map((item) => {
@@ -94,7 +98,7 @@ function formatPilarPoints(desafio) {
 
   return items
     .map((item) => {
-      const name = item.pilar && typeof item.pilar === "object" ? item.pilar.name || item.pilar.id : item.pilarId;
+      const name = item.pilar && typeof item.pilar === "object" ? item.pilar.name || "Pilar não informado" : "Pilar não informado";
       return `${name}: ${formatNumber(item.points)} pts`;
     })
     .join(", ");
@@ -120,8 +124,8 @@ function buildPilaresPayloadFromForm(data, fieldPrefix = "") {
 
 function formatTurmaName(turma) {
   if (!turma) return "-";
-  if (typeof turma === "string") return turma;
-  return turma.name || turma.code || turma.id || "-";
+  if (typeof turma === "string") return looksLikeObjectId(turma) ? "-" : turma;
+  return turma.name || turma.code || "-";
 }
 
 function formatNumber(value) {
@@ -669,7 +673,6 @@ function ConfigurationView({ apiClient }) {
               <th>E-mail</th>
               <th>Perfil</th>
               <th>Status</th>
-              <th>ID</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -680,9 +683,6 @@ function ConfigurationView({ apiClient }) {
                 <td>{managedUser.email}</td>
                 <td>{managedUser.role}</td>
                 <td>{managedUser.status}</td>
-                <td>
-                  <code>{managedUser.id}</code>
-                </td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${managedUser.name}`} onClick={() => setEditing(managedUser)} />
@@ -1184,12 +1184,13 @@ function AdminStudentsView({ apiClient }) {
   function getStudentTurmaNames(student) {
     const ids = student && Array.isArray(student.turmas) ? student.turmas : [];
     if (ids.length === 0) return "Sem turma";
-    return ids
+    const names = ids
       .map((id) => {
         const turma = turmas.find((item) => item.id === id);
-        return turma ? turma.name : id;
+        return turma ? turma.name : null;
       })
-      .join(", ");
+      .filter(Boolean);
+    return names.length > 0 ? names.join(", ") : "Sem turma";
   }
 
   return (
@@ -1198,7 +1199,7 @@ function AdminStudentsView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Alunos</h2>
-            <p className="muted">Cadastre, edite e copie IDs para formar grupos em desafios.</p>
+            <p className="muted">Cadastre, edite e gerencie alunos da mentoria.</p>
           </div>
           <IconButton icon="refresh" label="Atualizar alunos" onClick={() => load()} />
         </div>
@@ -1319,7 +1320,6 @@ function AdminStudentsView({ apiClient }) {
               <th>Turma</th>
               <th>Discord</th>
               <th>Status</th>
-              <th>ID</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -1335,9 +1335,6 @@ function AdminStudentsView({ apiClient }) {
                   </span>
                 </td>
                 <td>{student.status}</td>
-                <td>
-                  <code>{student.id}</code>
-                </td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${student.name}`} onClick={() => setEditing(student)} />
@@ -1569,7 +1566,6 @@ function AdminTurmasView({ apiClient }) {
               <th>Fim</th>
               <th>Status</th>
               <th>Alunos</th>
-              <th>ID</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -1582,9 +1578,6 @@ function AdminTurmasView({ apiClient }) {
                 <td>{formatDate(turma.endDate || turma.data_fim)}</td>
                 <td>{turma.status}</td>
                 <td>{formatNumber(turma.quantidadeAlunos)}</td>
-                <td>
-                  <code>{turma.id}</code>
-                </td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${turma.name}`} onClick={() => setEditing(turma)} />
@@ -2103,7 +2096,6 @@ function AdminDesafiosView({ apiClient }) {
               <th>Entrega até</th>
               <th>Participantes</th>
               <th>Status</th>
-              <th>ID</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -2117,9 +2109,6 @@ function AdminDesafiosView({ apiClient }) {
                 <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
                 <td>{desafio.maxParticipantes}</td>
                 <td>{desafio.status}</td>
-                <td>
-                  <code>{desafio.id}</code>
-                </td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${desafio.title}`} onClick={() => setEditing(desafio)} />
@@ -2144,6 +2133,8 @@ function AdminDesafiosView({ apiClient }) {
 
 function AdminApprovalsView({ apiClient }) {
   const [envios, setEnvios] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [pilares, setPilares] = useState([]);
   const [filters, setFilters] = useState({ search: "", status: "pendente" });
   const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
@@ -2164,9 +2155,15 @@ function AdminApprovalsView({ apiClient }) {
     setError("");
     setLoading(true);
     try {
-      const result = await apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) });
+      const [result, studentsResult, pilaresResult] = await Promise.all([
+        apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) }),
+        apiClient.request({ method: "GET", path: "/alunos?limit=100" }),
+        apiClient.request({ method: "GET", path: "/pilares?limit=100&status=ativo" }),
+      ]);
       setEnvios(getArray(result, "envios"));
       setPagination(getPagination(result));
+      setStudents(getArray(studentsResult, "alunos"));
+      setPilares(getArray(pilaresResult, "pilares"));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -2216,6 +2213,30 @@ function AdminApprovalsView({ apiClient }) {
     }
   }
 
+  async function createExtraPoints(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "POST", path: "/pontuacoes/extras" },
+        {
+          body: {
+            alunoId: data.get("extraAlunoId"),
+            pilarId: data.get("extraPilarId"),
+            pontos: Number(data.get("extraPontos") || 0),
+            motivo: data.get("extraMotivo") || undefined,
+          },
+        }
+      );
+      event.currentTarget.reset();
+      setFeedback("Pontuação extra cadastrada para o aluno.");
+    } catch (extraPointsError) {
+      setError(getErrorMessage(extraPointsError));
+    }
+  }
+
   function getParticipantes(envio) {
     const participantes = getArray(envio, "participantes");
     if (participantes.length > 0) return participantes;
@@ -2253,6 +2274,52 @@ function AdminApprovalsView({ apiClient }) {
         </form>
       </section>
 
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Pontos extras</h2>
+            <p className="muted">Lance pontos manuais para um aluno em um pilar do método.</p>
+          </div>
+        </div>
+        <form className="form-grid" onSubmit={createExtraPoints}>
+          <label className="field">
+            <span>Aluno</span>
+            <select name="extraAlunoId" required defaultValue="">
+              <option value="" disabled>
+                Selecione um aluno
+              </option>
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {student.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Pilar</span>
+            <select name="extraPilarId" required defaultValue="">
+              <option value="" disabled>
+                Selecione um pilar
+              </option>
+              {pilares.map((pilar) => (
+                <option key={pilar.id} value={pilar.id}>
+                  {pilar.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Pontos</span>
+            <input name="extraPontos" required min="1" step="1" type="number" placeholder="10" />
+          </label>
+          <label className="field">
+            <span>Motivo</span>
+            <input name="extraMotivo" placeholder="Ex.: participação, mentoria, contribuição" />
+          </label>
+          <IconButton className="button" icon="add_circle" label="Cadastrar pontos extras" type="submit" />
+        </form>
+      </section>
+
       {loading ? <Notice message="Carregando aprovações..." /> : null}
       {!loading && envios.length === 0 ? <Notice message="Nenhum envio encontrado para o filtro informado." /> : null}
       {envios.map((envio) => (
@@ -2261,7 +2328,7 @@ function AdminApprovalsView({ apiClient }) {
             <div>
               <h2>{envio.desafio ? envio.desafio.title : "Envio de desafio"}</h2>
               <p className="muted">
-                Responsável: {envio.aluno ? envio.aluno.name : envio.alunoId} · Turma: {formatTurmaName(envio.turma)}
+                Responsável: {envio.aluno ? envio.aluno.name : "Aluno não informado"} · Turma: {formatTurmaName(envio.turma)}
               </p>
             </div>
             <span className="badge warn">{envio.status}</span>
@@ -2281,7 +2348,7 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item">
               <span className="muted">Participantes</span>
-              <strong>{getParticipantes(envio).map((participante) => participante.name || participante.id).join(", ")}</strong>
+              <strong>{getParticipantes(envio).map((participante) => participante.name || "Participante sem nome").join(", ")}</strong>
             </div>
             <div className="status-item">
               <span className="muted">Evidências</span>
@@ -2372,6 +2439,110 @@ function AdminRankingView({ apiClient }) {
             ))}
           </tbody>
         </table>
+      </section>
+    </div>
+  );
+}
+
+function AdminReportsView({ apiClient }) {
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState({ search: "" });
+  const [pagination, setPagination] = useState(getPagination());
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  function buildReportsPath(nextFilters = filters, nextPage = pagination.page || 1) {
+    return buildListPath("/relatorios/alunos/pilares", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      search: nextFilters.search,
+    });
+  }
+
+  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await apiClient.request({ method: "GET", path: buildReportsPath(nextFilters, nextPage) });
+      setRows(getArray(result, "alunos").length > 0 ? getArray(result, "alunos") : getArray(result, "relatorio"));
+      setPagination(getPagination(result));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [apiClient]);
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyFilters(event) {
+    event.preventDefault();
+    await load(filters, 1);
+  }
+
+  async function goToPage(page) {
+    await load(filters, page);
+  }
+
+  function formatPillarBreakdown(row) {
+    const items = getArray(row, "pontosPorPilar");
+    if (items.length === 0) return "Sem pontuação por pilar";
+
+    return items
+      .map((item) => {
+        const pilar = item.pilar || {};
+        return `${pilar.name || "Pilar não informado"}: ${formatNumber(item.pontos)} pts`;
+      })
+      .join(" | ");
+  }
+
+  return (
+    <div className="content">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Relatórios</h2>
+            <p className="muted">Pontuação conquistada por aluno em cada pilar do Método do Alavanque.</p>
+          </div>
+          <IconButton icon="refresh" label="Atualizar relatório" onClick={() => load()} />
+        </div>
+        <Notice message={error} type="error" />
+        <form className="toolbar" onSubmit={applyFilters}>
+          <label className="field">
+            <span>Filtrar por aluno</span>
+            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Nome ou e-mail do aluno" />
+          </label>
+          <IconButton icon="filter_alt" label="Filtrar relatório" type="submit" />
+        </form>
+        {loading ? <Notice message="Carregando relatório..." /> : null}
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Aluno</th>
+              <th>E-mail</th>
+              <th>Total de pontos</th>
+              <th>Pontos por pilar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={(row.aluno && row.aluno.id) || row.alunoId}>
+                <td>{row.aluno && row.aluno.name}</td>
+                <td>{row.aluno && row.aluno.email}</td>
+                <td>{formatNumber(row.totalPontos)}</td>
+                <td>{formatPillarBreakdown(row)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <PaginationControls label="Paginação de relatórios" onPageChange={goToPage} pagination={pagination} />
+        {!loading && rows.length === 0 ? <Notice message="Nenhum aluno encontrado para o filtro informado." /> : null}
       </section>
     </div>
   );
@@ -2519,7 +2690,7 @@ function StudentChallengesView({ apiClient }) {
               <option value="">Selecione</option>
               {inscricoes.map((inscricao) => (
                 <option key={inscricao.id} value={inscricao.id}>
-                  {inscricao.desafio ? inscricao.desafio.title : inscricao.id}
+                  {inscricao.desafio ? inscricao.desafio.title : "Desafio sem título"}
                 </option>
               ))}
             </select>
@@ -2528,7 +2699,7 @@ function StudentChallengesView({ apiClient }) {
             <strong>Participantes do grupo</strong>
             <span className="muted">
               {selectedParticipants.length > 0
-                ? selectedParticipants.map((participante) => participante.name || participante.id).join(", ")
+                ? selectedParticipants.map((participante) => participante.name || "Participante sem nome").join(", ")
                 : "Nenhum grupo selecionado"}
             </span>
           </div>
@@ -2566,7 +2737,7 @@ function StudentChallengesView({ apiClient }) {
           <tbody>
             {envios.map((envio) => (
               <tr key={envio.id}>
-                <td>{envio.desafio ? envio.desafio.title : envio.desafioId}</td>
+                <td>{envio.desafio ? envio.desafio.title : "Desafio sem título"}</td>
                 <td>{envio.type}</td>
                 <td>{envio.status}</td>
                 <td>{getArray(envio, "participantes").length}</td>
@@ -2651,7 +2822,7 @@ function StudentScoreView({ apiClient }) {
           <tbody>
             {historico.map((item) => (
               <tr key={item.id}>
-                <td>{item.desafio ? item.desafio.title : item.envioId}</td>
+                <td>{item.desafio ? item.desafio.title : item.source === "pontuacao_extra" ? "Pontuação extra" : "Desafio sem título"}</td>
                 <td>{formatPilarPoints(item)}</td>
                 <td>{formatNumber(item.pontos)}</td>
                 <td>{item.turma ? item.turma.name : "-"}</td>
@@ -2722,7 +2893,7 @@ function StudentGroupsView({ apiClient }) {
             <article className="status-item" key={grupo.id}>
               <div className="panel-header">
                 <div>
-                  <strong>{grupo.desafio ? grupo.desafio.title : grupo.id}</strong>
+                  <strong>{grupo.desafio ? grupo.desafio.title : "Desafio sem título"}</strong>
                   <p className="muted">
                     {grupo.turma ? grupo.turma.name : "-"} | {formatNumber(grupo.totalParticipantes)} de {formatNumber(grupo.maxParticipantes)} participantes
                   </p>
@@ -2732,7 +2903,7 @@ function StudentGroupsView({ apiClient }) {
               <div className="participant-list">
                 {getArray(grupo, "participantes").map((participante) => (
                   <span className="badge" key={participante.id || participante.name}>
-                    {participante.name || participante.id}
+                    {participante.name || "Participante sem nome"}
                   </span>
                 ))}
               </div>
@@ -2810,6 +2981,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
         {activeView === "desafios" && role === "aluno" ? <StudentChallengesView apiClient={apiClient} /> : null}
         {activeView === "aprovacoes" ? <AdminApprovalsView apiClient={apiClient} /> : null}
         {activeView === "ranking" ? <AdminRankingView apiClient={apiClient} /> : null}
+        {activeView === "relatorios" ? <AdminReportsView apiClient={apiClient} /> : null}
         {activeView === "meus-grupos" ? <StudentGroupsView apiClient={apiClient} /> : null}
         {activeView === "pontuacao" ? <StudentScoreView apiClient={apiClient} /> : null}
         {activeView === "perfil" ? <ProfileView apiClient={apiClient} onUserChange={onUserChange} user={user} /> : null}
@@ -2823,6 +2995,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
           "desafios",
           "aprovacoes",
           "ranking",
+          "relatorios",
           "meus-grupos",
           "pontuacao",
           "perfil",
