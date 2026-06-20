@@ -2,6 +2,10 @@ jest.mock("../../src/models/envio-desafio.model", () => ({
   find: jest.fn(),
 }));
 
+jest.mock("../../src/models/grupo-desafio.model", () => ({
+  find: jest.fn(),
+}));
+
 jest.mock("../../src/models/pontuacao.model", () => ({
   find: jest.fn(),
 }));
@@ -12,9 +16,10 @@ jest.mock("../../src/models/user.model", () => ({
 }));
 
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
+const GrupoDesafio = require("../../src/models/grupo-desafio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
-const { getParticipationReport, getStudentPillarReport } = require("../../src/services/admin-relatorio-participacao.service");
+const { getChallengeGroupsReport, getParticipationReport, getStudentPillarReport } = require("../../src/services/admin-relatorio-participacao.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const ALUNO_1_ID = "6814f12ab3f34872f7558f41";
@@ -212,6 +217,66 @@ describe("admin-relatorio-participacao.service MR-95", () => {
             pontos: 25,
           }),
         ]),
+      }),
+    ]);
+    expect(JSON.stringify(result)).not.toContain("secret");
+    expect(JSON.stringify(result)).not.toContain("password");
+  });
+
+  it("retorna relatório paginado dos grupos formados por desafio e status do envio", async () => {
+    const GRUPO_ID = "6814f12ab3f34872f7558f4d";
+    const DESAFIO_ID = "6814f12ab3f34872f7558f4e";
+    mockFindChain(GrupoDesafio, [
+      {
+        _id: GRUPO_ID,
+        desafio: { _id: DESAFIO_ID, title: "Publicar artigo", pilar: { _id: PILAR_ID, name: "Compartilhamento" } },
+        turma: { _id: TURMA_ID, name: "Turma 1" },
+        participantes: [
+          { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", password: "secret" },
+          { _id: ALUNO_2_ID, name: "Bruno", email: "bruno@email.com", role: "aluno", status: "ativo", password: "secret" },
+        ],
+        maxParticipantes: 2,
+        status: "completo",
+        createdAt: new Date("2026-02-01T10:00:00.000Z"),
+      },
+    ]);
+    mockFindChain(EnvioDesafio, [
+      {
+        _id: "6814f12ab3f34872f7558f4f",
+        grupo: GRUPO_ID,
+        aluno: { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" },
+        participantes: [
+          { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" },
+          { _id: ALUNO_2_ID, name: "Bruno", email: "bruno@email.com" },
+        ],
+        status: "pendente",
+        createdAt: new Date("2026-02-02T10:00:00.000Z"),
+      },
+    ]);
+
+    const result = await getChallengeGroupsReport(ADMIN_ID, { search: "artigo", page: "1", limit: "10" });
+
+    expect(result.pagination).toMatchObject({ page: 1, limit: 10, total: 1, totalPages: 1 });
+    expect(result.resumo).toMatchObject({
+      totalGrupos: 1,
+      gruposFormados: 1,
+      enviosRealizados: 1,
+      pendentes: 1,
+      aprovados: 0,
+    });
+    expect(result.grupos).toEqual([
+      expect.objectContaining({
+        tituloDesafio: "Publicar artigo",
+        turma: expect.objectContaining({ id: TURMA_ID, name: "Turma 1" }),
+        grupoFormado: true,
+        enviadoParaAprovacao: true,
+        statusEnvio: "pendente",
+        pendente: true,
+        aprovado: false,
+        participantes: [
+          expect.objectContaining({ id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" }),
+          expect.objectContaining({ id: ALUNO_2_ID, name: "Bruno", email: "bruno@email.com" }),
+        ],
       }),
     ]);
     expect(JSON.stringify(result)).not.toContain("secret");

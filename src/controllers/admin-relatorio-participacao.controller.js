@@ -18,7 +18,17 @@ async function listStudentPillars(req, res, next) {
   }
 }
 
+async function listChallengeGroups(req, res, next) {
+  try {
+    const result = await adminRelatorioParticipacaoService.getChallengeGroupsReport(req.user.id, req.query);
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   list,
+  listChallengeGroups,
   listStudentPillars,
 };

@@ -4,6 +4,7 @@ require("../models/turma.model");
 require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
+const GrupoDesafio = require("../models/grupo-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 
@@ -211,6 +212,13 @@ function buildEnvioQuery(filters) {
   });
 }
 
+function buildGrupoQuery(filters) {
+  return omitUndefined({
+    turma: filters.turmaId,
+    createdAt: filters.createdAt,
+  });
+}
+
 async function findEnvios(filters) {
   return EnvioDesafio.find(buildEnvioQuery(filters))
     .populate({ path: "turma", select: "name code description status" })
@@ -222,6 +230,34 @@ async function findEnvios(filters) {
         { path: "pilares.pilar", select: "name description status" },
       ],
     })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
+async function findChallengeGroups(filters) {
+  return GrupoDesafio.find(buildGrupoQuery(filters))
+    .populate({ path: "turma", select: "name code description status" })
+    .populate({
+      path: "desafio",
+      select: "title description points type pilar pilares maxParticipantes status deliveryDate",
+      populate: [
+        { path: "pilar", select: "name description status" },
+        { path: "pilares.pilar", select: "name description status" },
+      ],
+    })
+    .populate({ path: "participantes", select: "name email role status" })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
+async function findEnviosByGroups(groupIds) {
+  if (groupIds.length === 0) {
+    return [];
+  }
+
+  return EnvioDesafio.find({ grupo: { $in: groupIds } })
+    .populate({ path: "aluno", select: "name email role status" })
+    .populate({ path: "participantes", select: "name email role status" })
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -1034,7 +1070,145 @@ async function getStudentPillarReport(authenticatedUserId, query = {}) {
   };
 }
 
+function serializeGroupSubmission(envio) {
+  if (!envio) {
+    return null;
+  }
+
+  return omitUndefined({
+    id: getEntityId(envio),
+    status: envio.status,
+    aluno: serializeAluno(envio.aluno),
+    participantes: Array.isArray(envio.participantes) ? envio.participantes.map(serializeAluno) : [],
+    enviadoEm: toIsoDate(envio.createdAt),
+    createdAt: toIsoDate(envio.createdAt),
+    avaliadoEm: toIsoDate(envio.evaluatedAt || envio.approvedAt),
+    aprovadoEm: toIsoDate(envio.approvedAt),
+  });
+}
+
+function isGroupFormed(grupo) {
+  const totalParticipantes = Array.isArray(grupo && grupo.participantes) ? grupo.participantes.length : 0;
+  const maxParticipantes = Number((grupo && grupo.maxParticipantes) || 0);
+
+  return normalizeText(grupo && grupo.status) === "completo" || (maxParticipantes > 0 && totalParticipantes >= maxParticipantes);
+}
+
+function buildLatestSubmissionByGroup(envios) {
+  const latestByGroup = new Map();
+
+  (envios || []).forEach((envio) => {
+    const groupId = getEntityId(envio && envio.grupo);
+    if (!groupId) {
+      return;
+    }
+
+    const current = latestByGroup.get(groupId);
+    const currentTime = getCreatedAt(current) ? getCreatedAt(current).getTime() : 0;
+    const nextTime = getCreatedAt(envio) ? getCreatedAt(envio).getTime() : 0;
+
+    if (!current || nextTime >= currentTime) {
+      latestByGroup.set(groupId, envio);
+    }
+  });
+
+  return latestByGroup;
+}
+
+function serializeChallengeGroupRow(grupo, envio) {
+  const participantes = Array.isArray(grupo && grupo.participantes) ? grupo.participantes.map(serializeAluno) : [];
+  const grupoFormado = isGroupFormed(grupo);
+  const statusEnvio = envio ? envio.status : "sem_envio";
+
+  return omitUndefined({
+    id: getEntityId(grupo),
+    desafio: serializeDesafioResumo(grupo && grupo.desafio),
+    tituloDesafio: (grupo && grupo.desafio && grupo.desafio.title) || "Desafio não informado",
+    turma: serializeTurma(grupo && grupo.turma),
+    participantes,
+    integrantes: participantes,
+    nomesIntegrantes: participantes.map((participante) => participante.name).filter(Boolean),
+    totalParticipantes: participantes.length,
+    maxParticipantes: Number((grupo && grupo.maxParticipantes) || 0),
+    grupoFormado,
+    statusGrupo: grupo && grupo.status,
+    enviadoParaAprovacao: Boolean(envio),
+    statusEnvio,
+    pendente: normalizeText(statusEnvio) === PENDING_STATUS,
+    aprovado: normalizeText(statusEnvio) === APPROVED_STATUS,
+    envio: serializeGroupSubmission(envio),
+    createdAt: toIsoDate(grupo && grupo.createdAt),
+    updatedAt: toIsoDate(grupo && grupo.updatedAt),
+  });
+}
+
+function matchesGroupReportSearch(row, search) {
+  if (!search) {
+    return true;
+  }
+
+  const needle = normalizeText(search);
+  const participantes = Array.isArray(row.participantes) ? row.participantes : [];
+  const values = [
+    row.tituloDesafio,
+    row.statusGrupo,
+    row.statusEnvio,
+    row.turma && row.turma.name,
+    row.turma && row.turma.code,
+    ...participantes.flatMap((participante) => [participante.name, participante.email]),
+  ];
+
+  return values.some((value) => normalizeText(value).includes(needle));
+}
+
+function buildChallengeGroupSummary(rows) {
+  return rows.reduce(
+    (summary, row) => {
+      summary.totalGrupos += 1;
+      if (row.grupoFormado) summary.gruposFormados += 1;
+      if (row.enviadoParaAprovacao) summary.enviosRealizados += 1;
+      if (row.pendente) summary.pendentes += 1;
+      if (row.aprovado) summary.aprovados += 1;
+      return summary;
+    },
+    {
+      totalGrupos: 0,
+      gruposFormados: 0,
+      enviosRealizados: 0,
+      pendentes: 0,
+      aprovados: 0,
+    }
+  );
+}
+
+async function getChallengeGroupsReport(authenticatedUserId, query = {}) {
+  await getAuthorizedReviewer(authenticatedUserId);
+
+  const filters = parseFilters(query);
+  const pagination = parsePagination(query);
+  const search = String(getFirstValue(query, ["search", "busca", "nome", "desafio"]) || "").trim();
+  const grupos = (await findChallengeGroups(filters)).filter((grupo) => matchesDate(grupo, filters) && matchesPilar({ desafio: grupo.desafio }, filters));
+  const groupIds = grupos.map(getEntityId).filter(Boolean);
+  const latestSubmissionByGroup = buildLatestSubmissionByGroup(await findEnviosByGroups(groupIds));
+  const rows = grupos
+    .map((grupo) => serializeChallengeGroupRow(grupo, latestSubmissionByGroup.get(getEntityId(grupo))))
+    .filter((row) => matchesGroupReportSearch(row, search));
+  const paginatedRows = rows.slice(pagination.skip, pagination.skip + pagination.limit);
+
+  return {
+    filtros: {
+      ...serializeFilters(filters),
+      search: search || undefined,
+    },
+    pagination: buildPagination(rows.length, pagination.page, pagination.limit),
+    resumo: buildChallengeGroupSummary(rows),
+    grupos: paginatedRows,
+    relatorio: paginatedRows,
+  };
+}
+
 module.exports = {
+  getChallengeGroupsReport,
   getParticipationReport,
   getStudentPillarReport,
 };

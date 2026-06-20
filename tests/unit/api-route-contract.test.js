@@ -56,6 +56,7 @@ const webContractRouteKeys = [
   "GET /ranking/admin",
   "GET /relatorios/participacao",
   "GET /relatorios/alunos/pilares",
+  "GET /relatorios/grupos-desafios",
   "GET /auditorias",
   "GET /configuracoes",
 ];
@@ -143,6 +144,7 @@ describe("api route contract MR-91", () => {
       "GET /ranking/admin",
       "GET /relatorios/participacao",
       "GET /relatorios/alunos/pilares",
+      "GET /relatorios/grupos-desafios",
       "GET /auditorias",
       "GET /configuracoes",
     ];
@@ -180,6 +182,7 @@ describe("api route contract MR-91", () => {
       "/api/ranking/admin",
       "/api/relatorios/participacao",
       "/api/relatorios/alunos/pilares",
+      "/api/relatorios/grupos-desafios",
       "/api/pontuacoes/extras",
       "/api/auditorias",
       "/api/configuracoes",

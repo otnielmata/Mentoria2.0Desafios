@@ -169,6 +169,60 @@ function formatAttachmentList(items) {
   return formattedItems.length > 0 ? formattedItems.join(", ") : "Sem anexo";
 }
 
+function isOpenableLink(value) {
+  return /^(https?:\/\/|data:|blob:)/i.test(String(value || "").trim());
+}
+
+function normalizeOpenableHref(value) {
+  const href = String(value || "").trim();
+  if (/^www\./i.test(href)) return `https://${href}`;
+  return isOpenableLink(href) ? href : "";
+}
+
+function getDisplayLinkLabel(item, fallback) {
+  if (!item) return "";
+  if (typeof item === "string") return item.trim();
+  if (typeof item !== "object") return String(item).trim();
+
+  return String(item.name || item.nome || item.filename || item.fileName || item.url || item.link || item.text || item.texto || fallback || "").trim();
+}
+
+function getDisplayLinkHref(item) {
+  if (!item) return "";
+  if (typeof item === "string") return normalizeOpenableHref(item);
+  if (typeof item !== "object") return "";
+
+  return normalizeOpenableHref(item.url || item.link || item.content || item.dataUrl || item.dataURL || item.text || item.texto);
+}
+
+function LinkList({ download = false, emptyMessage, items }) {
+  const links = getArray(items)
+    .map((item, index) => {
+      const href = getDisplayLinkHref(item);
+      const label = getDisplayLinkLabel(item, href ? "Abrir link" : `Item ${index + 1}`);
+      return label ? { href, label } : null;
+    })
+    .filter(Boolean);
+
+  if (links.length === 0) {
+    return <strong>{emptyMessage}</strong>;
+  }
+
+  return (
+    <div className="link-list">
+      {links.map((link, index) =>
+        link.href ? (
+          <a download={download ? link.label : undefined} href={link.href} key={`${link.label}-${index}`} rel="noreferrer" target="_blank">
+            {link.label}
+          </a>
+        ) : (
+          <span key={`${link.label}-${index}`}>{link.label}</span>
+        )
+      )}
+    </div>
+  );
+}
+
 function todaySuffix() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -2354,11 +2408,11 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item">
               <span className="muted">Evidências</span>
-              <strong>{getArray(envio, "evidencias").map(formatEvidenceItem).join(", ") || "-"}</strong>
+              <LinkList emptyMessage="Sem evidência" items={envio && envio.evidencias} />
             </div>
             <div className="status-item span-2">
               <span className="muted">Anexos</span>
-              <strong>{formatAttachmentList(envio && envio.anexos)}</strong>
+              <LinkList download emptyMessage="Sem anexo" items={envio && envio.anexos} />
             </div>
           </div>
           {envio.status === "pendente" ? (
@@ -2447,13 +2501,20 @@ function AdminRankingView({ apiClient }) {
 }
 
 function AdminReportsView({ apiClient }) {
-  const [rows, setRows] = useState([]);
-  const [filters, setFilters] = useState({ search: "" });
-  const [pagination, setPagination] = useState(getPagination());
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [activeReport, setActiveReport] = useState("studentPillars");
+  const [pointRows, setPointRows] = useState([]);
+  const [pointFilters, setPointFilters] = useState({ search: "" });
+  const [pointPagination, setPointPagination] = useState(getPagination());
+  const [pointError, setPointError] = useState("");
+  const [pointLoading, setPointLoading] = useState(true);
+  const [groupRows, setGroupRows] = useState([]);
+  const [groupFilters, setGroupFilters] = useState({ search: "" });
+  const [groupPagination, setGroupPagination] = useState(getPagination());
+  const [groupSummary, setGroupSummary] = useState({});
+  const [groupError, setGroupError] = useState("");
+  const [groupLoading, setGroupLoading] = useState(true);
 
-  function buildReportsPath(nextFilters = filters, nextPage = pagination.page || 1) {
+  function buildPointReportsPath(nextFilters = pointFilters, nextPage = pointPagination.page || 1) {
     return buildListPath("/relatorios/alunos/pilares", {
       limit: LIST_PAGE_SIZE,
       page: nextPage,
@@ -2461,35 +2522,81 @@ function AdminReportsView({ apiClient }) {
     });
   }
 
-  async function load(nextFilters = filters, nextPage = pagination.page || 1) {
-    setError("");
-    setLoading(true);
+  function buildGroupReportsPath(nextFilters = groupFilters, nextPage = groupPagination.page || 1) {
+    return buildListPath("/relatorios/grupos-desafios", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      search: nextFilters.search,
+    });
+  }
+
+  async function loadPointReport(nextFilters = pointFilters, nextPage = pointPagination.page || 1) {
+    setPointError("");
+    setPointLoading(true);
     try {
-      const result = await apiClient.request({ method: "GET", path: buildReportsPath(nextFilters, nextPage) });
-      setRows(getArray(result, "alunos").length > 0 ? getArray(result, "alunos") : getArray(result, "relatorio"));
-      setPagination(getPagination(result));
+      const result = await apiClient.request({ method: "GET", path: buildPointReportsPath(nextFilters, nextPage) });
+      setPointRows(getArray(result, "alunos").length > 0 ? getArray(result, "alunos") : getArray(result, "relatorio"));
+      setPointPagination(getPagination(result));
     } catch (loadError) {
-      setError(getErrorMessage(loadError));
+      setPointError(getErrorMessage(loadError));
     } finally {
-      setLoading(false);
+      setPointLoading(false);
+    }
+  }
+
+  async function loadGroupReport(nextFilters = groupFilters, nextPage = groupPagination.page || 1) {
+    setGroupError("");
+    setGroupLoading(true);
+    try {
+      const result = await apiClient.request({ method: "GET", path: buildGroupReportsPath(nextFilters, nextPage) });
+      setGroupRows(getArray(result, "grupos").length > 0 ? getArray(result, "grupos") : getArray(result, "relatorio"));
+      setGroupPagination(getPagination(result));
+      setGroupSummary(result && result.resumo ? result.resumo : {});
+    } catch (loadError) {
+      setGroupError(getErrorMessage(loadError));
+    } finally {
+      setGroupLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    loadPointReport();
+    loadGroupReport();
   }, [apiClient]);
 
-  function updateFilter(field, value) {
-    setFilters((current) => ({ ...current, [field]: value }));
+  function updatePointFilter(field, value) {
+    setPointFilters((current) => ({ ...current, [field]: value }));
   }
 
-  async function applyFilters(event) {
+  function updateGroupFilter(field, value) {
+    setGroupFilters((current) => ({ ...current, [field]: value }));
+  }
+
+  async function applyPointFilters(event) {
     event.preventDefault();
-    await load(filters, 1);
+    await loadPointReport(pointFilters, 1);
   }
 
-  async function goToPage(page) {
-    await load(filters, page);
+  async function applyGroupFilters(event) {
+    event.preventDefault();
+    await loadGroupReport(groupFilters, 1);
+  }
+
+  async function goToPointPage(page) {
+    await loadPointReport(pointFilters, page);
+  }
+
+  async function goToGroupPage(page) {
+    await loadGroupReport(groupFilters, page);
+  }
+
+  async function refreshActiveReport() {
+    if (activeReport === "challengeGroups") {
+      await loadGroupReport();
+      return;
+    }
+
+    await loadPointReport();
   }
 
   function formatReportOrigin(value) {
@@ -2532,47 +2639,177 @@ function AdminReportsView({ apiClient }) {
       .join(" | ");
   }
 
+  function formatParticipantNames(row) {
+    const participantes = getArray(row, "participantes").length > 0 ? getArray(row, "participantes") : getArray(row, "integrantes");
+    if (participantes.length === 0) return "Sem integrantes";
+
+    return participantes.map((participante) => participante.name || participante.email || "Aluno sem nome").join(", ");
+  }
+
+  function formatSubmissionStatus(status) {
+    const normalized = String(status || "sem_envio").trim().toLowerCase();
+    const labels = {
+      sem_envio: "Sem envio",
+      pendente: "Pendente",
+      aprovado: "Aprovado",
+      reprovado: "Reprovado",
+      ajuste: "Ajuste solicitado",
+      cancelado: "Cancelado",
+    };
+
+    return labels[normalized] || status || "Sem envio";
+  }
+
+  function getSubmissionBadgeClass(status) {
+    const normalized = String(status || "sem_envio").trim().toLowerCase();
+    if (normalized === "aprovado") return "ok";
+    if (normalized === "pendente" || normalized === "ajuste") return "warn";
+    return "off";
+  }
+
+  const currentError = activeReport === "challengeGroups" ? groupError : pointError;
+
   return (
     <div className="content">
       <section className="panel">
         <div className="panel-header">
           <div>
             <h2>Relatórios</h2>
-            <p className="muted">Pontuação conquistada por aluno em cada pilar do Método do Alavanque.</p>
+            <p className="muted">Pontuação por aluno e acompanhamento dos grupos formados para os desafios.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar relatório" onClick={() => load()} />
+          <IconButton icon="refresh" label="Atualizar relatório" onClick={refreshActiveReport} />
         </div>
-        <Notice message={error} type="error" />
-        <form className="toolbar" onSubmit={applyFilters}>
-          <label className="field">
-            <span>Filtrar por aluno</span>
-            <input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Nome ou e-mail do aluno" />
-          </label>
-          <IconButton icon="filter_alt" label="Filtrar relatório" type="submit" />
-        </form>
-        {loading ? <Notice message="Carregando relatório..." /> : null}
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Aluno</th>
-              <th>E-mail</th>
-              <th>Total de pontos</th>
-              <th>Pontos por pilar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={(row.aluno && row.aluno.id) || row.alunoId}>
-                <td>{row.aluno && row.aluno.name}</td>
-                <td>{row.aluno && row.aluno.email}</td>
-                <td>{formatNumber(row.totalPontos)}</td>
-                <td>{formatPillarBreakdown(row)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <PaginationControls label="Paginação de relatórios" onPageChange={goToPage} pagination={pagination} />
-        {!loading && rows.length === 0 ? <Notice message="Nenhum aluno encontrado para o filtro informado." /> : null}
+
+        <div className="report-switch" role="tablist" aria-label="Tipos de relatório">
+          <button
+            aria-selected={activeReport === "studentPillars"}
+            className={`button secondary with-icon${activeReport === "studentPillars" ? " active" : ""}`}
+            onClick={() => setActiveReport("studentPillars")}
+            role="tab"
+            type="button"
+          >
+            <ButtonIcon name="leaderboard" />
+            Pontos por aluno
+          </button>
+          <button
+            aria-selected={activeReport === "challengeGroups"}
+            className={`button secondary with-icon${activeReport === "challengeGroups" ? " active" : ""}`}
+            onClick={() => setActiveReport("challengeGroups")}
+            role="tab"
+            type="button"
+          >
+            <ButtonIcon name="groups_2" />
+            Grupos dos desafios
+          </button>
+        </div>
+
+        <Notice message={currentError} type="error" />
+
+        {activeReport === "studentPillars" ? (
+          <>
+            <form className="toolbar" onSubmit={applyPointFilters}>
+              <label className="field">
+                <span>Filtrar por aluno</span>
+                <input
+                  value={pointFilters.search}
+                  onChange={(event) => updatePointFilter("search", event.target.value)}
+                  placeholder="Nome ou e-mail do aluno"
+                />
+              </label>
+              <IconButton icon="filter_alt" label="Filtrar relatório" type="submit" />
+            </form>
+            {pointLoading ? <Notice message="Carregando relatório..." /> : null}
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Aluno</th>
+                  <th>E-mail</th>
+                  <th>Total de pontos</th>
+                  <th>Pontos por pilar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pointRows.map((row) => (
+                  <tr key={(row.aluno && row.aluno.id) || row.alunoId}>
+                    <td>{row.aluno && row.aluno.name}</td>
+                    <td>{row.aluno && row.aluno.email}</td>
+                    <td>{formatNumber(row.totalPontos)}</td>
+                    <td>{formatPillarBreakdown(row)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PaginationControls label="Paginação do relatório de pontos" onPageChange={goToPointPage} pagination={pointPagination} />
+            {!pointLoading && pointRows.length === 0 ? <Notice message="Nenhum aluno encontrado para o filtro informado." /> : null}
+          </>
+        ) : (
+          <>
+            <div className="metrics">
+              <div className="metric">
+                <span className="muted">Grupos</span>
+                <strong>{formatNumber(groupSummary.totalGrupos)}</strong>
+              </div>
+              <div className="metric">
+                <span className="muted">Formados</span>
+                <strong>{formatNumber(groupSummary.gruposFormados)}</strong>
+              </div>
+              <div className="metric">
+                <span className="muted">Enviados</span>
+                <strong>{formatNumber(groupSummary.enviosRealizados)}</strong>
+              </div>
+            </div>
+            <form className="toolbar" onSubmit={applyGroupFilters}>
+              <label className="field">
+                <span>Filtrar por desafio ou integrante</span>
+                <input
+                  value={groupFilters.search}
+                  onChange={(event) => updateGroupFilter("search", event.target.value)}
+                  placeholder="Título, aluno, turma ou status"
+                />
+              </label>
+              <IconButton icon="filter_alt" label="Filtrar grupos" type="submit" />
+            </form>
+            {groupLoading ? <Notice message="Carregando grupos dos desafios..." /> : null}
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Desafio</th>
+                  <th>Integrantes</th>
+                  <th>Grupo</th>
+                  <th>Envio</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupRows.map((row) => (
+                  <tr key={row.id || `${row.tituloDesafio}-${row.createdAt}`}>
+                    <td>
+                      <strong>{row.tituloDesafio || (row.desafio && row.desafio.title) || "Desafio não informado"}</strong>
+                      <div className="muted">{formatTurmaName(row.turma)}</div>
+                    </td>
+                    <td>{formatParticipantNames(row)}</td>
+                    <td>
+                      <span className={`badge ${row.grupoFormado ? "ok" : "warn"}`}>{row.grupoFormado ? "Formado" : "Em formação"}</span>
+                      <div className="muted">
+                        {formatNumber(row.totalParticipantes)} de {formatNumber(row.maxParticipantes)} integrantes
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${row.enviadoParaAprovacao ? "ok" : "off"}`}>
+                        {row.enviadoParaAprovacao ? "Enviado" : "Não enviado"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${getSubmissionBadgeClass(row.statusEnvio)}`}>{formatSubmissionStatus(row.statusEnvio)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PaginationControls label="Paginação do relatório de grupos" onPageChange={goToGroupPage} pagination={groupPagination} />
+            {!groupLoading && groupRows.length === 0 ? <Notice message="Nenhum grupo encontrado para o filtro informado." /> : null}
+          </>
+        )}
       </section>
     </div>
   );

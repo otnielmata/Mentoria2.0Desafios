@@ -833,6 +833,43 @@ paths:
           description: Lista paginada de alunos com total e pontos por pilar
         "403":
           description: Perfil sem permissão
+  /api/relatorios/grupos-desafios:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Relatório de grupos formados por desafio e status de envio
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Filtra por título do desafio, aluno, turma ou status
+        - in: query
+          name: turmaId
+          schema:
+            type: string
+          description: Filtra grupos por turma
+        - in: query
+          name: pilarId
+          schema:
+            type: string
+          description: Filtra grupos por pilar do desafio
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Lista paginada de grupos com desafio, integrantes, formação e status do envio
+        "403":
+          description: Perfil sem permissão
   /api/admin/relatorios/participacao:
     get:
       tags: [Relatórios]
@@ -848,6 +885,15 @@ paths:
       security:
         - bearerAuth: []
       summary: Alias do relatório de pontos por aluno e pilar
+      responses:
+        "200":
+          description: Relatório retornado
+  /api/admin/relatorios/grupos-desafios:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Alias do relatório de grupos formados por desafio
       responses:
         "200":
           description: Relatório retornado

@@ -364,6 +364,15 @@ const WEB_API_ENDPOINTS = [
     roles: ["professor", "admin"],
   },
   {
+    key: "admin.reports.challengeGroups",
+    feature: "Relatórios",
+    screen: "Relatório de grupos",
+    menu: "Relatórios",
+    method: "GET",
+    path: "/relatorios/grupos-desafios",
+    roles: ["professor", "admin"],
+  },
+  {
     key: "admin.reports.lowParticipation",
     feature: "Relatórios",
     screen: "Relatórios",

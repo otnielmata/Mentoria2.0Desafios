@@ -89,7 +89,7 @@ npm install
 - `GET /api/pontuacoes/minha`, `GET /api/me/pontuacoes` e `POST /api/pontuacoes/extras`
 - `GET /api/ranking`, `GET /api/ranking/admin`, `GET /api/rankings` e `GET /api/rankings/geral`
 - `GET /api/dashboard/aluno`, `GET /api/me/dashboard`, `GET /api/dashboard/admin` e `GET /api/admin/dashboard`
-- `GET /api/relatorios/participacao`, `GET /api/admin/relatorios/participacao`, `GET /api/relatorios/alunos/pilares` e `GET /api/admin/relatorios/alunos/pilares`
+- `GET /api/relatorios/participacao`, `GET /api/admin/relatorios/participacao`, `GET /api/relatorios/alunos/pilares`, `GET /api/admin/relatorios/alunos/pilares`, `GET /api/relatorios/grupos-desafios` e `GET /api/admin/relatorios/grupos-desafios`
 - `GET /api/admin/relatorios/baixa-participacao`
 - `GET /api/auditorias` e `GET /api/admin/auditorias`
 - `GET /api/configuracoes`
@@ -189,6 +189,7 @@ Os dashboards e relatórios são consolidados pela API para que a Web apenas exi
 - `GET /api/dashboard/admin`: retorna alunos ativos, quantidade de desafios ativos, envios totais, aprovações pendentes, ranking, rankings por turma/pilar e métricas de participação.
 - `GET /api/relatorios/participacao`: retorna filtros/período, totais por status, distribuição de pontos aprovados, participação por aluno, participação por turma e baixa participação quando `diasSemEnvio` ou `pontuacaoMinima` forem informados.
 - `GET /api/relatorios/alunos/pilares`: retorna relatório paginado por aluno com total de pontos, quebra por pilar e detalhes de cada lançamento, incluindo data, professor/admin responsável, origem e pontuação.
+- `GET /api/relatorios/grupos-desafios`: retorna relatório paginado dos grupos por desafio, com título do desafio, integrantes, turma, se o grupo está formado, se já foi enviado para aprovação e o status atual do envio.
 
 As respostas não expõem senha, token, hash ou segredos; os serviços usam apenas campos públicos dos alunos.
 

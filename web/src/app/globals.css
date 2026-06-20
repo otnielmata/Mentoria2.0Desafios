@@ -244,6 +244,12 @@ h3 {
   background: var(--surface-soft);
 }
 
+.button.secondary.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--primary);
+}
+
 .button.ghost {
   border-color: transparent;
   background: transparent;
@@ -485,6 +491,21 @@ h3 {
   gap: 12px;
 }
 
+.link-list {
+  display: grid;
+  gap: 6px;
+}
+
+.link-list a,
+.link-list span {
+  overflow-wrap: anywhere;
+}
+
+.link-list a {
+  color: var(--primary);
+  font-weight: 800;
+}
+
 .participant-list {
   grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
 }
@@ -504,6 +525,12 @@ h3 {
   grid-template-columns: minmax(220px, 320px) 1fr;
   gap: 12px;
   align-items: end;
+}
+
+.report-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .inline-form {
