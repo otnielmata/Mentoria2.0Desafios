@@ -111,6 +111,7 @@ describe("envio-desafio.service grupos", () => {
       liderId: STUDENT_ID,
       responsavelId: STUDENT_ID,
       status: "pendente",
+      totalParticipantes: 1,
     });
     expect(logDomainEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -289,6 +290,7 @@ describe("envio-desafio.service grupos", () => {
       grupoId: GRUPO_ID,
       participantes: [PARTICIPANT_ID],
       status: "pendente",
+      totalParticipantes: 2,
     });
   });
 
@@ -356,6 +358,7 @@ describe("envio-desafio.service grupos", () => {
       evidencias: [],
       anexos: [],
       status: "pendente",
+      totalParticipantes: 2,
     });
   });
 

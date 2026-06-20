@@ -107,6 +107,7 @@ function serializeDesafio(desafio) {
 function serializeEnvio(envio, participantes = []) {
   const participantesSource = participantes.length > 0 ? participantes : envio.participantes || [];
   const participantesIds = participantesSource.map(getEntityId);
+  const participantCountIds = new Set([getEntityId(envio.aluno), ...participantesIds].filter(Boolean));
   const participantesDetalhes = participantesSource
     .filter((participante) => participante && typeof participante === "object")
     .map(serializeUser);
@@ -131,6 +132,8 @@ function serializeEnvio(envio, participantes = []) {
     grupoId: envio.grupo ? getEntityId(envio.grupo) : null,
     participantes: participantesIds,
     participantesDetalhes,
+    totalParticipantes: participantCountIds.size,
+    quantidadeParticipantes: participantCountIds.size,
     status: envio.status,
     feedback: envio.feedback,
     approvedBy: envio.approvedBy ? getEntityId(envio.approvedBy) : null,

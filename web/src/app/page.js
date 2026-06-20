@@ -2875,10 +2875,49 @@ function StudentChallengesView({ apiClient }) {
     return envios.find((envio) => getEnvioGroupId(envio) === grupoId && String(envio.status || "").toLowerCase() !== "cancelado") || null;
   }
 
+  function findInscricaoForDesafio(desafio) {
+    const desafioId = getEntityId(desafio);
+    return inscricoes.find((inscricao) => getEntityId(inscricao.desafio) === desafioId) || null;
+  }
+
   function findInscricaoForEnvio(envio) {
     const grupoId = getEnvioGroupId(envio);
     if (!grupoId) return null;
     return inscricoes.find((inscricao) => getInscricaoGroupId(inscricao) === grupoId) || null;
+  }
+
+  function getGroupParticipantCount(grupo) {
+    const total = Number(grupo && grupo.totalParticipantes);
+    if (Number.isFinite(total) && total > 0) return total;
+    return getArray(grupo, "participantes").length;
+  }
+
+  function getGroupParticipantLimit(desafio, inscricao) {
+    const grupo = inscricao && inscricao.grupo;
+    const limit = Number((grupo && grupo.maxParticipantes) || (desafio && desafio.maxParticipantes) || 0);
+    return Number.isFinite(limit) && limit > 0 ? limit : 1;
+  }
+
+  function formatChallengeGroupSize(desafio, inscricao) {
+    const limit = getGroupParticipantLimit(desafio, inscricao);
+    if (inscricao && inscricao.grupo) {
+      return `${formatNumber(getGroupParticipantCount(inscricao.grupo))} de ${formatNumber(limit)} participantes`;
+    }
+
+    return `Até ${formatNumber(limit)} participantes`;
+  }
+
+  function getSubmissionParticipantCount(envio) {
+    const total = Number((envio && envio.totalParticipantes) || (envio && envio.quantidadeParticipantes));
+    if (Number.isFinite(total) && total > 0) return total;
+
+    const participantIds = new Set();
+    [envio && envio.aluno, envio && envio.responsavel, envio && envio.lider, ...getArray(envio, "participantesDetalhes"), ...getArray(envio, "participantes")]
+      .map(getEntityId)
+      .filter(Boolean)
+      .forEach((participantId) => participantIds.add(participantId));
+
+    return participantIds.size;
   }
 
   function getFirstEvidence(envio) {
@@ -2967,6 +3006,7 @@ function StudentChallengesView({ apiClient }) {
           </thead>
           <tbody>
             {desafios.map((desafio) => {
+              const inscricao = findInscricaoForDesafio(desafio);
               const isSubscribed = subscribedChallengeIds.has(desafio.id);
               return (
                 <tr key={desafio.id}>
@@ -2977,7 +3017,7 @@ function StudentChallengesView({ apiClient }) {
                   <td>{formatPilarPoints(desafio)}</td>
                   <td>{formatNumber(desafio.points)}</td>
                   <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
-                  <td>{formatNumber(desafio.maxParticipantes)} participantes</td>
+                  <td>{formatChallengeGroupSize(desafio, inscricao)}</td>
                   <td>
                     <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id)}>
                       <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
@@ -3020,7 +3060,9 @@ function StudentChallengesView({ apiClient }) {
             </select>
           </label>
           <div className="span-2 status-item">
-            <strong>Participantes do grupo</strong>
+            <strong>
+              Participantes do grupo{selectedInscricao ? ` (${formatChallengeGroupSize(selectedInscricao.desafio, selectedInscricao)})` : ""}
+            </strong>
             <span className="muted">
               {selectedParticipants.length > 0
                 ? selectedParticipants.map((participante) => participante.name || "Participante sem nome").join(", ")
@@ -3067,7 +3109,7 @@ function StudentChallengesView({ apiClient }) {
                 <td>{envio.aluno ? envio.aluno.name : "Integrante do grupo"}</td>
                 <td>{envio.type}</td>
                 <td>{envio.status}</td>
-                <td>{getArray(envio, "participantesDetalhes").length || getArray(envio, "participantes").length}</td>
+                <td>{formatNumber(getSubmissionParticipantCount(envio))}</td>
                 <td>
                   {isEditableSubmission(envio.status) && findInscricaoForEnvio(envio) ? (
                     <IconButton icon="edit" label="Editar envio do grupo" onClick={() => selectEnvioForEdit(envio)} />
