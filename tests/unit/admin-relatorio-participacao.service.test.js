@@ -150,6 +150,7 @@ describe("admin-relatorio-participacao.service MR-95", () => {
         aluno: { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", turmas: [] },
         pontos: 15,
         source: "pontuacao_extra",
+        createdBy: { _id: ADMIN_ID, name: "Professor Extra", email: "extra@email.com", role: "professor" },
         pilares: [{ pilar: { _id: PILAR_ID, name: "Prática" }, pontos: 15 }],
         createdAt: new Date("2026-01-20T10:00:00.000Z"),
       },
@@ -162,6 +163,8 @@ describe("admin-relatorio-participacao.service MR-95", () => {
           status: "aprovado",
           turma: { _id: TURMA_ID, name: "Turma 1" },
           createdAt: new Date("2026-01-21T10:00:00.000Z"),
+          approvedAt: new Date("2026-01-22T10:00:00.000Z"),
+          approvedBy: { _id: ADMIN_ID, name: "Professor Aprovador", email: "aprovador@email.com", role: "professor" },
         },
         desafio: { _id: "6814f12ab3f34872f7558f46", pilar: { _id: PILAR_ID, name: "Prática" } },
         createdAt: new Date("2026-01-21T10:00:00.000Z"),
@@ -175,7 +178,40 @@ describe("admin-relatorio-participacao.service MR-95", () => {
       expect.objectContaining({
         aluno: expect.objectContaining({ id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" }),
         totalPontos: 40,
-        pontosPorPilar: [expect.objectContaining({ pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }), pontos: 40 })],
+        pontosPorPilar: [
+          expect.objectContaining({
+            pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }),
+            pontos: 40,
+            lancamentos: expect.arrayContaining([
+              expect.objectContaining({
+                dataLancamento: "2026-01-20T10:00:00.000Z",
+                responsavel: expect.objectContaining({ name: "Professor Extra" }),
+                tipo: "ponto_extra",
+                pontos: 15,
+              }),
+              expect.objectContaining({
+                dataLancamento: "2026-01-22T10:00:00.000Z",
+                responsavel: expect.objectContaining({ name: "Professor Aprovador" }),
+                tipo: "desafio",
+                pontos: 25,
+              }),
+            ]),
+          }),
+        ],
+        detalhesPontosPorPilar: expect.arrayContaining([
+          expect.objectContaining({
+            pilar: expect.objectContaining({ name: "Prática" }),
+            responsavel: expect.objectContaining({ name: "Professor Extra" }),
+            tipo: "ponto_extra",
+            pontos: 15,
+          }),
+          expect.objectContaining({
+            pilar: expect.objectContaining({ name: "Prática" }),
+            responsavel: expect.objectContaining({ name: "Professor Aprovador" }),
+            tipo: "desafio",
+            pontos: 25,
+          }),
+        ]),
       }),
     ]);
     expect(JSON.stringify(result)).not.toContain("secret");

@@ -188,7 +188,7 @@ Os dashboards e relatórios são consolidados pela API para que a Web apenas exi
 - `GET /api/dashboard/aluno`: retorna pontos totais, ranking do aluno, resumo de desafios enviados por status, desafios aprovados, pendências, evolução por categoria/pilar e últimos envios.
 - `GET /api/dashboard/admin`: retorna alunos ativos, envios totais, aprovações pendentes, ranking, rankings por turma/pilar e métricas de participação.
 - `GET /api/relatorios/participacao`: retorna filtros/período, totais por status, distribuição de pontos aprovados, participação por aluno, participação por turma e baixa participação quando `diasSemEnvio` ou `pontuacaoMinima` forem informados.
-- `GET /api/relatorios/alunos/pilares`: retorna relatório paginado por aluno com total de pontos e quebra de pontos conquistados por pilar.
+- `GET /api/relatorios/alunos/pilares`: retorna relatório paginado por aluno com total de pontos, quebra por pilar e detalhes de cada lançamento, incluindo data, professor/admin responsável, origem e pontuação.
 
 As respostas não expõem senha, token, hash ou segredos; os serviços usam apenas campos públicos dos alunos.
 

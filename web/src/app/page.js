@@ -2490,7 +2490,35 @@ function AdminReportsView({ apiClient }) {
     await load(filters, page);
   }
 
+  function formatReportOrigin(value) {
+    return value === "ponto_extra" || value === "pontuacao_extra" ? "Ponto extra" : "Desafio";
+  }
+
   function formatPillarBreakdown(row) {
+    const details = getArray(row, "detalhesPontosPorPilar");
+    if (details.length > 0) {
+      return (
+        <div className="report-detail-list">
+          {details.map((item, index) => {
+            const pilar = item.pilar || {};
+            const responsavel = item.responsavel || item.professor || {};
+
+            return (
+              <div className="report-detail-item" key={`${item.dataLancamento || "sem-data"}-${index}`}>
+                <strong>
+                  {formatDate(item.dataLancamento)} · {pilar.name || "Pilar não informado"}
+                </strong>
+                <span>
+                  {formatReportOrigin(item.tipo || item.origem || item.source)} · {formatNumber(item.pontos)} pts
+                </span>
+                <span className="muted">Professor/admin: {responsavel.name || "Não informado"}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     const items = getArray(row, "pontosPorPilar");
     if (items.length === 0) return "Sem pontuação por pilar";
 

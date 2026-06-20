@@ -231,11 +231,15 @@ async function findPontuacoes() {
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({
       path: "envio",
-      select: "status turma createdAt approvedAt",
-      populate: {
-        path: "turma",
-        select: "name code description status",
-      },
+      select: "status turma createdAt approvedAt evaluatedAt approvedBy evaluatedBy",
+      populate: [
+        {
+          path: "turma",
+          select: "name code description status",
+        },
+        { path: "approvedBy", select: "name email role status" },
+        { path: "evaluatedBy", select: "name email role status" },
+      ],
     })
     .populate({
       path: "desafio",
@@ -246,6 +250,7 @@ async function findPontuacoes() {
       ],
     })
     .populate({ path: "pilares.pilar", select: "name description status" })
+    .populate({ path: "createdBy", select: "name email role status" })
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -417,6 +422,10 @@ function serializeTurma(turma) {
 }
 
 function serializeAluno(aluno) {
+  if (!aluno) {
+    return null;
+  }
+
   return omitUndefined({
     id: getEntityId(aluno),
     name: aluno.name,
@@ -541,7 +550,12 @@ function incrementStatus(totals, statusValue) {
 }
 
 function toIsoDate(date) {
-  return date ? date.toISOString() : null;
+  if (!date) {
+    return null;
+  }
+
+  const parsedDate = date instanceof Date ? date : new Date(date);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString();
 }
 
 function getStudentIdsFromEnvio(envio) {
@@ -882,6 +896,62 @@ function matchesStudentSearch(student, search) {
   return normalizeText(student.name).includes(needle) || normalizeText(student.email).includes(needle);
 }
 
+function serializeDesafioResumo(desafio) {
+  if (!desafio) {
+    return null;
+  }
+
+  if (typeof desafio !== "object" || desafio instanceof mongoose.Types.ObjectId) {
+    return { id: getEntityId(desafio) };
+  }
+
+  return omitUndefined({
+    id: getEntityId(desafio),
+    title: desafio.title,
+    description: desafio.description,
+    type: desafio.type,
+  });
+}
+
+function getPontuacaoOrigin(pontuacao) {
+  return normalizeText(pontuacao && pontuacao.source) === EXTRA_POINTS_SOURCE ? "ponto_extra" : "desafio";
+}
+
+function getPontuacaoResponsavel(pontuacao) {
+  if (getPontuacaoOrigin(pontuacao) === "ponto_extra") {
+    return pontuacao.createdBy || null;
+  }
+
+  return (pontuacao.envio && (pontuacao.envio.approvedBy || pontuacao.envio.evaluatedBy)) || pontuacao.createdBy || null;
+}
+
+function getPontuacaoLaunchDate(pontuacao) {
+  if (getPontuacaoOrigin(pontuacao) === "ponto_extra") {
+    return toIsoDate(pontuacao.createdAt);
+  }
+
+  return toIsoDate((pontuacao.envio && (pontuacao.envio.approvedAt || pontuacao.envio.evaluatedAt)) || pontuacao.createdAt);
+}
+
+function serializePontuacaoPilarDetail(pontuacao, pilarItem, pontos) {
+  const origem = getPontuacaoOrigin(pontuacao);
+
+  return omitUndefined({
+    dataLancamento: getPontuacaoLaunchDate(pontuacao),
+    professor: serializeAluno(getPontuacaoResponsavel(pontuacao)),
+    responsavel: serializeAluno(getPontuacaoResponsavel(pontuacao)),
+    pilar: pilarItem.pilar,
+    pilarId: pilarItem.pilarId,
+    origem,
+    tipo: origem,
+    source: pontuacao.source,
+    pontos,
+    points: pontos,
+    motivo: pontuacao.motivo,
+    desafio: serializeDesafioResumo(pontuacao.desafio),
+  });
+}
+
 function buildStudentPillarRows(students, pontuacoes, filters) {
   const groupedByStudent = new Map();
 
@@ -890,6 +960,7 @@ function buildStudentPillarRows(students, pontuacoes, filters) {
       aluno: serializeAluno(student),
       totalPontos: 0,
       pilares: new Map(),
+      detalhesPontosPorPilar: [],
     });
   });
 
@@ -911,10 +982,14 @@ function buildStudentPillarRows(students, pontuacoes, filters) {
           pilarId,
           pontos: 0,
           points: 0,
+          lancamentos: [],
         };
+        const detail = serializePontuacaoPilarDetail(pontuacao, item, pilarPoints);
 
         pilarRow.pontos += pilarPoints;
         pilarRow.points += pilarPoints;
+        pilarRow.lancamentos.push(detail);
+        current.detalhesPontosPorPilar.push(detail);
         current.totalPontos += pilarPoints;
         current.pilares.set(pilarId, pilarRow);
       });
@@ -925,6 +1000,11 @@ function buildStudentPillarRows(students, pontuacoes, filters) {
       aluno: row.aluno,
       totalPontos: row.totalPontos,
       pontosPorPilar: Array.from(row.pilares.values()).sort((first, second) => second.pontos - first.pontos),
+      detalhesPontosPorPilar: row.detalhesPontosPorPilar.sort((first, second) => {
+        const firstDate = first.dataLancamento ? new Date(first.dataLancamento).getTime() : 0;
+        const secondDate = second.dataLancamento ? new Date(second.dataLancamento).getTime() : 0;
+        return secondDate - firstDate;
+      }),
     }))
     .sort((first, second) => {
       if (second.totalPontos !== first.totalPontos) return second.totalPontos - first.totalPontos;

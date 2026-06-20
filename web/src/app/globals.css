@@ -597,6 +597,25 @@ h3 {
   font-size: 13px;
 }
 
+.report-detail-list {
+  display: grid;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.report-detail-item {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.report-detail-item strong {
+  font-size: 13px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
