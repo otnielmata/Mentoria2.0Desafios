@@ -411,11 +411,37 @@ paths:
       summary: Registra desafio executado pelo aluno
       responses:
         "201":
-          description: Envio criado com status pendente, responsável como líder e evidência obrigatória
+          description: Envio criado com status pendente; descrição é obrigatória e evidência/anexo são opcionais
         "400":
-          description: Evidência ausente, tipo inválido ou limite de participantes excedido
+          description: Descrição ausente, tipo inválido ou limite de participantes excedido
         "403":
           description: Perfil sem permissão
+  /api/envios-desafios/:id:
+    patch:
+      tags: [Envios]
+      security:
+        - bearerAuth: []
+      summary: Edita envio pendente ou em ajuste por integrante do grupo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Envio atualizado
+        "400":
+          description: Envio já aprovado/encerrado ou descrição inválida
+        "403":
+          description: Usuário não participa do grupo do envio
+  /api/envios-desafios/{id}:
+    patch:
+      tags: [Envios]
+      security:
+        - bearerAuth: []
+      summary: Alias documentado no formato OpenAPI para edição de envio
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Envio atualizado
   /api/envios-desafios/meus:
     get:
       tags: [Envios]

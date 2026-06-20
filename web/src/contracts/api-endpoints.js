@@ -92,6 +92,15 @@ const WEB_API_ENDPOINTS = [
     roles: ["aluno"],
   },
   {
+    key: "student.updateSubmission",
+    feature: "Registrar desafio",
+    screen: "Desafios",
+    menu: "Desafios",
+    method: "PATCH",
+    path: "/envios-desafios/:id",
+    roles: ["aluno"],
+  },
+  {
     key: "student.submitChallenge.pillars",
     feature: "Registrar desafio",
     screen: "Desafios",

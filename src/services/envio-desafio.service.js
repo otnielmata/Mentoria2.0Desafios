@@ -157,12 +157,11 @@ function parseEvidencias(payload) {
 
   if (Array.isArray(evidencias)) {
     const normalized = evidencias.map((item) => (typeof item === "string" ? item.trim() : item)).filter(Boolean);
-    if (normalized.length === 0) throw createHttpError("Evidência é obrigatória.", 400);
     return normalized;
   }
 
   if (typeof evidencias === "string" && evidencias.trim().length > 0) return [evidencias.trim()];
-  throw createHttpError("Evidência é obrigatória.", 400);
+  return [];
 }
 
 function parseAnexos(payload) {
@@ -407,6 +406,8 @@ async function listMine(authenticatedUserId, query = {}) {
         populate: [{ path: "pilar" }, { path: "pilares.pilar" }],
       })
       .populate("turma")
+      .populate("aluno", "name email role status")
+      .populate("participantes", "name email role status")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -446,12 +447,16 @@ async function updateEnvio(authenticatedUserId, envioId, payload = {}) {
   const id = parseObjectId(envioId, "Envio deve ser um identificador válido.");
   const envio = await EnvioDesafio.findById(id);
   if (!envio) throw createHttpError("Envio de desafio não encontrado.", 404);
-  if (getEntityId(envio.aluno) !== authenticatedUserId) throw createHttpError("Apenas o aluno responsável pode alterar este envio.", 403);
+  const isOwner = getEntityId(envio.aluno) === authenticatedUserId;
+  const isParticipant = (envio.participantes || []).some((participante) => getEntityId(participante) === authenticatedUserId);
+  if (!isOwner && !isParticipant) throw createHttpError("Apenas integrantes do grupo podem alterar este envio.", 403);
   if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser alterados.", 400);
 
-  if (payload.description || payload.descricao) envio.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
+  if (hasOwn(payload, "description") || hasOwn(payload, "descricao")) envio.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
   const hasEvidenceField = ["evidencias", "evidences", "evidence", "evidencia_url"].some((field) => hasOwn(payload, field));
   if (hasEvidenceField) envio.evidencias = parseEvidencias(payload);
+  const hasAttachmentField = ["anexos", "attachments", "attachment", "anexo"].some((field) => hasOwn(payload, field));
+  if (hasAttachmentField) envio.anexos = parseAnexos(payload);
   const updated = await envio.save();
   return serializeEnvio(updated);
 }

@@ -875,7 +875,9 @@ function HomeView({ apiClient, user }) {
 
   const chartItems = buildPilarChartItems(dashboard);
   const rankingPosition = dashboard && (dashboard.posicaoRanking || (dashboard.ranking && dashboard.ranking.posicao));
-  const totalDesafios = dashboard && dashboard.desafiosEnviados ? dashboard.desafiosEnviados.total : 0;
+  const totalDesafios = dashboard
+    ? dashboard.desafiosAtivos || dashboard.quantidadeDesafios || (dashboard.desafiosEnviados ? dashboard.desafiosEnviados.total : 0)
+    : 0;
 
   return (
     <div className="content">
@@ -2576,6 +2578,10 @@ function AdminReportsView({ apiClient }) {
   );
 }
 
+function isEditableSubmission(status) {
+  return ["pendente", "ajuste"].includes(String(status || "").trim().toLowerCase());
+}
+
 function StudentChallengesView({ apiClient }) {
   const [desafios, setDesafios] = useState([]);
   const [inscricoes, setInscricoes] = useState([]);
@@ -2618,11 +2624,47 @@ function StudentChallengesView({ apiClient }) {
     }
   }
 
+  function getInscricaoGroupId(inscricao) {
+    return getEntityId(inscricao && inscricao.grupo);
+  }
+
+  function getEnvioGroupId(envio) {
+    return getEntityId((envio && envio.grupoId) || (envio && envio.grupo));
+  }
+
+  function findEnvioForInscricao(inscricao) {
+    const grupoId = getInscricaoGroupId(inscricao);
+    if (!grupoId) return null;
+    return envios.find((envio) => getEnvioGroupId(envio) === grupoId && String(envio.status || "").toLowerCase() !== "cancelado") || null;
+  }
+
+  function findInscricaoForEnvio(envio) {
+    const grupoId = getEnvioGroupId(envio);
+    if (!grupoId) return null;
+    return inscricoes.find((inscricao) => getInscricaoGroupId(inscricao) === grupoId) || null;
+  }
+
+  function getFirstEvidence(envio) {
+    const evidencias = getArray(envio, "evidencias");
+    const first = evidencias.find((item) => typeof item === "string" && item.trim());
+    return first || "";
+  }
+
+  function selectEnvioForEdit(envio) {
+    const inscricao = findInscricaoForEnvio(envio);
+    if (inscricao) {
+      setSelectedInscricaoId(inscricao.id);
+      setFeedback("Envio selecionado para edição.");
+    }
+  }
+
   async function submitEnvio(event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId);
     const anexo = await readFileAsAttachment(data.get("anexo"));
+    const evidencia = String(data.get("evidencia") || "").trim();
+    const existingEnvio = findEnvioForInscricao(selectedInscricao);
     setFeedback("");
     setError("");
 
@@ -2631,20 +2673,26 @@ function StudentChallengesView({ apiClient }) {
       return;
     }
 
+    if (existingEnvio && !isEditableSubmission(existingEnvio.status)) {
+      setError("Este envio já foi aprovado ou encerrado e não pode mais ser editado.");
+      return;
+    }
+
+    const body = {
+      description: data.get("description"),
+      evidencias: evidencia ? [evidencia] : [],
+    };
+    if (anexo) body.anexos = [anexo];
+
     try {
-      await apiClient.request(
-        { method: "POST", path: "/envios-desafios" },
-        {
-          body: {
-            grupoId: selectedInscricao.grupo.id,
-            description: data.get("description"),
-            evidencias: [data.get("evidencia")],
-            anexos: anexo ? [anexo] : [],
-          },
-        }
-      );
+      if (existingEnvio) {
+        await apiClient.request({ method: "PATCH", path: `/envios-desafios/${existingEnvio.id}` }, { body });
+        setFeedback("Envio do grupo atualizado. Todos os integrantes continuam vendo a mesma versão.");
+      } else {
+        await apiClient.request({ method: "POST", path: "/envios-desafios" }, { body: { ...body, grupoId: getInscricaoGroupId(selectedInscricao) } });
+        setFeedback("Envio registrado e enviado para aprovação. Todos os integrantes do grupo podem acompanhar e editar até a aprovação.");
+      }
       event.currentTarget.reset();
-      setFeedback("Envio registrado e enviado para aprovação.");
       await load();
     } catch (submitError) {
       setError(getErrorMessage(submitError));
@@ -2653,7 +2701,9 @@ function StudentChallengesView({ apiClient }) {
 
   const subscribedChallengeIds = new Set(inscricoes.map((inscricao) => getEntityId(inscricao.desafio)).filter(Boolean));
   const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId) || inscricoes[0];
+  const selectedEnvio = findEnvioForInscricao(selectedInscricao);
   const selectedParticipants = getArray(selectedInscricao && selectedInscricao.grupo, "participantes");
+  const selectedEnvioEditable = !selectedEnvio || isEditableSubmission(selectedEnvio.status);
 
   return (
     <div className="content">
@@ -2711,7 +2761,16 @@ function StudentChallengesView({ apiClient }) {
             <p className="muted">Selecione uma inscrição. Os participantes vêm automaticamente do grupo.</p>
           </div>
         </div>
-        <form className="form-grid" onSubmit={submitEnvio}>
+        {selectedEnvio ? (
+          <Notice
+            message={
+              selectedEnvioEditable
+                ? "Este grupo já possui um envio. Você pode editar enquanto estiver pendente ou em ajuste."
+                : "Este grupo já teve o envio aprovado ou encerrado. A edição está bloqueada."
+            }
+          />
+        ) : null}
+        <form className="form-grid" key={(selectedEnvio && selectedEnvio.id) || selectedInscricaoId || "novo-envio"} onSubmit={submitEnvio}>
           <label className="field span-2">
             <span>Desafio inscrito</span>
             <select required value={selectedInscricaoId} onChange={(event) => setSelectedInscricaoId(event.target.value)}>
@@ -2733,19 +2792,19 @@ function StudentChallengesView({ apiClient }) {
           </div>
           <label className="field span-2">
             <span>Descrição</span>
-            <textarea name="description" required placeholder="Descreva o que foi feito." />
+            <textarea name="description" required defaultValue={(selectedEnvio && selectedEnvio.description) || ""} placeholder="Descreva o que foi feito." />
           </label>
           <label className="field span-2">
-            <span>Evidência/link/comprovante</span>
-            <input name="evidencia" required placeholder="https://..." />
+            <span>Evidência/link/comprovante opcional</span>
+            <input name="evidencia" defaultValue={getFirstEvidence(selectedEnvio)} placeholder="https://..." />
           </label>
           <label className="field span-2">
-            <span>Anexo</span>
+            <span>Anexo opcional</span>
             <input name="anexo" type="file" />
           </label>
-          <button className="button with-icon" type="submit">
-            <ButtonIcon name="send" />
-            Enviar para aprovação
+          <button className="button with-icon" type="submit" disabled={!selectedEnvioEditable}>
+            <ButtonIcon name={selectedEnvio ? "save" : "send"} />
+            {selectedEnvio ? "Atualizar envio" : "Enviar para aprovação"}
           </button>
         </form>
         {inscricoes.length === 0 ? <Notice message="Você ainda não está inscrito em nenhum desafio ativo." /> : null}
@@ -2757,18 +2816,28 @@ function StudentChallengesView({ apiClient }) {
           <thead>
             <tr>
               <th>Desafio</th>
+              <th>Enviado por</th>
               <th>Tipo</th>
               <th>Status</th>
               <th>Participantes</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {envios.map((envio) => (
               <tr key={envio.id}>
                 <td>{envio.desafio ? envio.desafio.title : "Desafio sem título"}</td>
+                <td>{envio.aluno ? envio.aluno.name : "Integrante do grupo"}</td>
                 <td>{envio.type}</td>
                 <td>{envio.status}</td>
-                <td>{getArray(envio, "participantes").length}</td>
+                <td>{getArray(envio, "participantesDetalhes").length || getArray(envio, "participantes").length}</td>
+                <td>
+                  {isEditableSubmission(envio.status) && findInscricaoForEnvio(envio) ? (
+                    <IconButton icon="edit" label="Editar envio do grupo" onClick={() => selectEnvioForEdit(envio)} />
+                  ) : (
+                    <span className="muted">Bloqueado</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

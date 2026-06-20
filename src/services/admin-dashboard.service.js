@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 require("../models/pilar.model");
-require("../models/desafio.model");
+const Desafio = require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
@@ -13,6 +13,7 @@ const APPROVED_STATUS = "aprovado";
 const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 const PENDING_STATUS = "pendente";
 const TOP_RANKING_LIMIT = 10;
+const ACTIVE_STATUS = "ativo";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -79,6 +80,10 @@ async function findEnvios() {
     })
     .sort({ createdAt: -1 })
     .lean();
+}
+
+async function countActiveDesafios() {
+  return Desafio.countDocuments({ status: ACTIVE_STATUS });
 }
 
 async function findPontuacoes() {
@@ -362,7 +367,7 @@ function buildEngajamento(activeStudents, envios, approvedEnvioIds) {
 async function getAdminDashboard(authenticatedUserId) {
   await getAuthorizedReviewer(authenticatedUserId);
 
-  const [users, envios, pontuacoes] = await Promise.all([findUsers(), findEnvios(), findPontuacoes()]);
+  const [users, envios, pontuacoes, activeChallengesCount] = await Promise.all([findUsers(), findEnvios(), findPontuacoes(), countActiveDesafios()]);
   const activeStudents = (users || []).filter(isActiveStudent);
   const approvedPontuacoes = (pontuacoes || []).filter(isApprovedPontuacao);
   const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
@@ -375,7 +380,8 @@ async function getAdminDashboard(authenticatedUserId) {
     indicadores: {
       alunosAtivos: activeStudents.length,
       totalEnvios: (envios || []).length,
-      quantidadeDesafios: (envios || []).length,
+      quantidadeDesafios: activeChallengesCount,
+      desafiosAtivos: activeChallengesCount,
       aprovacoesPendentes: pendingApprovals.length,
     },
     topRanking: ranking.slice(0, TOP_RANKING_LIMIT),

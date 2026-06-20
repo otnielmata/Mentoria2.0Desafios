@@ -1,3 +1,7 @@
+jest.mock("../../src/models/desafio.model", () => ({
+  countDocuments: jest.fn(),
+}));
+
 jest.mock("../../src/models/envio-desafio.model", () => ({
   find: jest.fn(),
 }));
@@ -15,6 +19,7 @@ jest.mock("../../src/models/user.model", () => ({
 }));
 
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
+const Desafio = require("../../src/models/desafio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
@@ -60,6 +65,7 @@ describe("me-dashboard.service MR-95", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno", status: "ativo" });
+    Desafio.countDocuments.mockResolvedValue(2);
     mockFindChain(Turma, [{ _id: TURMA_ID }]);
   });
 
@@ -110,6 +116,8 @@ describe("me-dashboard.service MR-95", () => {
       total: 3,
       totaisPorStatus: expect.objectContaining({ aprovado: 1, pendente: 1, ajuste: 1 }),
     });
+    expect(result.desafiosAtivos).toBe(2);
+    expect(result.quantidadeDesafios).toBe(2);
     expect(result.pendencias).toBe(1);
     expect(result.evolucaoPorCategoria).toEqual(result.pontosPorPilar);
     expect(result.ultimosEnvios).toHaveLength(3);

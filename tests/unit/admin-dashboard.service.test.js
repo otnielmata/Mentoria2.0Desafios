@@ -1,3 +1,7 @@
+jest.mock("../../src/models/desafio.model", () => ({
+  countDocuments: jest.fn(),
+}));
+
 jest.mock("../../src/models/envio-desafio.model", () => ({
   find: jest.fn(),
 }));
@@ -12,6 +16,7 @@ jest.mock("../../src/models/user.model", () => ({
 }));
 
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
+const Desafio = require("../../src/models/desafio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
 const { getAdminDashboard } = require("../../src/services/admin-dashboard.service");
@@ -47,6 +52,7 @@ describe("admin-dashboard.service MR-95", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
+    Desafio.countDocuments.mockResolvedValue(2);
   });
 
   it("retorna pendências, ranking, alunos ativos e métricas de participação sem segredos", async () => {
@@ -83,6 +89,8 @@ describe("admin-dashboard.service MR-95", () => {
     expect(result.indicadores).toMatchObject({
       alunosAtivos: 2,
       totalEnvios: 2,
+      quantidadeDesafios: 2,
+      desafiosAtivos: 2,
       aprovacoesPendentes: 1,
     });
     expect(result.topRanking.map((row) => [row.aluno.id, row.totalPontos])).toEqual([

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 require("../models/pilar.model");
-require("../models/desafio.model");
+const Desafio = require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
@@ -12,6 +12,7 @@ const APPROVED_STATUS = "aprovado";
 const EXTRA_POINTS_SOURCE = "pontuacao_extra";
 const PENDING_STATUS = "pendente";
 const LAST_SUBMISSIONS_LIMIT = 5;
+const ACTIVE_STATUS = "ativo";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
@@ -143,6 +144,10 @@ async function findStudentEnvios(authenticatedUserId, scope) {
     .populate({ path: "turma", select: "name code description status" })
     .sort({ createdAt: -1 })
     .lean();
+}
+
+async function countActiveDesafios() {
+  return Desafio.countDocuments({ status: ACTIVE_STATUS });
 }
 
 function isApprovedPontuacao(pontuacao) {
@@ -399,7 +404,7 @@ function getStudentRankingPosition(authenticatedUserId, scopePontuacoes) {
   };
 }
 
-function emptyDashboard(scope) {
+function emptyDashboard(scope, activeChallengesCount = 0) {
   return {
     totalPontos: 0,
     posicaoRanking: null,
@@ -410,6 +415,8 @@ function emptyDashboard(scope) {
       criterioDesempate: "posicao_compartilhada_id",
     },
     desafiosEnviados: buildDesafiosEnviados([]),
+    quantidadeDesafios: activeChallengesCount,
+    desafiosAtivos: activeChallengesCount,
     desafiosAprovados: 0,
     pendencias: 0,
     pontosPorPilar: [],
@@ -425,9 +432,10 @@ async function getMyDashboard(authenticatedUserId) {
   await getAuthenticatedStudent(authenticatedUserId);
 
   const scope = await buildScope(authenticatedUserId);
+  const activeChallengesCount = await countActiveDesafios();
 
   if (isEmptyScope(scope)) {
-    return emptyDashboard(scope);
+    return emptyDashboard(scope, activeChallengesCount);
   }
 
   const [studentPontuacoes, scopePontuacoes, studentEnvios] = await Promise.all([
@@ -451,6 +459,8 @@ async function getMyDashboard(authenticatedUserId) {
     totalParticipantesRanking: ranking.totalParticipantes,
     ranking,
     desafiosEnviados: buildDesafiosEnviados(studentEnvios || []),
+    quantidadeDesafios: activeChallengesCount,
+    desafiosAtivos: activeChallengesCount,
     desafiosAprovados: approvedEnvioIds.size,
     pendencias: (studentEnvios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS).length,
     pontosPorPilar,

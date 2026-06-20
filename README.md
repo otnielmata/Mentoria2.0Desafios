@@ -103,7 +103,7 @@ A tela inicial da Web permite login ou inscrição pública como aluno. A inscri
 
 O menu do aluno exibe `Início`, `Calendário`, `Desafios`, `Meus Grupos`, `Minha Pontuação` e `Meu Perfil`. No MVP, `Calendário` fica visível como funcionalidade futura; os demais itens consomem endpoints reais da API.
 
-No `Início`, a Web exibe nome do aluno, posição no ranking, pontuação total, quantidade de desafios enviados e gráfico de pizza com a distribuição percentual de desafios aprovados por pilar do Método do Alavanque, usando `GET /api/dashboard/aluno`.
+No `Início`, a Web exibe nome do aluno, posição no ranking, pontuação total, quantidade de desafios ativos e gráfico de pizza com a distribuição percentual de desafios aprovados por pilar do Método do Alavanque, usando `GET /api/dashboard/aluno`.
 
 Em `Meu Perfil`, o aluno pode alterar nome completo e senha. Turma, status e perfil aparecem apenas como dados de leitura para o aluno e só devem ser alterados por administrador/professor em rotas administrativas.
 
@@ -185,8 +185,8 @@ Professor/admin pode consultar o histórico em `GET /api/auditorias` ou `GET /ap
 
 Os dashboards e relatórios são consolidados pela API para que a Web apenas exiba os dados.
 
-- `GET /api/dashboard/aluno`: retorna pontos totais, ranking do aluno, resumo de desafios enviados por status, desafios aprovados, pendências, evolução por categoria/pilar e últimos envios.
-- `GET /api/dashboard/admin`: retorna alunos ativos, envios totais, aprovações pendentes, ranking, rankings por turma/pilar e métricas de participação.
+- `GET /api/dashboard/aluno`: retorna pontos totais, ranking do aluno, quantidade de desafios ativos, resumo de envios por status, desafios aprovados, pendências, evolução por categoria/pilar e últimos envios.
+- `GET /api/dashboard/admin`: retorna alunos ativos, quantidade de desafios ativos, envios totais, aprovações pendentes, ranking, rankings por turma/pilar e métricas de participação.
 - `GET /api/relatorios/participacao`: retorna filtros/período, totais por status, distribuição de pontos aprovados, participação por aluno, participação por turma e baixa participação quando `diasSemEnvio` ou `pontuacaoMinima` forem informados.
 - `GET /api/relatorios/alunos/pilares`: retorna relatório paginado por aluno com total de pontos, quebra por pilar e detalhes de cada lançamento, incluindo data, professor/admin responsável, origem e pontuação.
 
@@ -217,7 +217,9 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - O grupo é marcado como completo quando atinge a quantidade de participantes definida no desafio.
 - Participantes do grupo podem atualizar o link de contato do grupo para WhatsApp, Telegram ou Discord.
 - Envios começam com status `pendente`.
-- Evidência é obrigatória e pode ser URL, PDF, imagem ou texto.
+- Descrição é obrigatória; evidência/link e anexo são opcionais.
+- Quando um integrante do grupo envia o desafio, todos os integrantes passam a visualizar o envio em `Meus desafios enviados` e podem editar enquanto estiver pendente ou em ajuste.
+- Depois de aprovado, o envio fica bloqueado para edição e a pontuação é computada para os integrantes do grupo.
 - Anexos podem ser enviados junto da entrega e ficam registrados no envio.
 - Envios em grupo usam participantes em coleção própria e mantêm array legado para compatibilidade.
 - Grupo registra o aluno responsável como líder do envio e aceita até 5 participantes, respeitando o limite definido no desafio.
@@ -237,7 +239,7 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 
 ## Cobertura consolidada MR-1 a MR-49
 
-Esta branch consolida os contratos das User Stories MR-1 a MR-49 e os ajustes das MR-92/MR-98: autenticação, perfil, heurísticas, alunos, turmas, pilares fixos, desafios com pontuação fixa, recorrência com limite por período, envios com evidência obrigatória, grupos com líder, aprovações com bloqueio de duplicidade por evidência, pontuação automática somente após aprovação, auditoria de domínio, contrato Web/API, configurações funcionais somente leitura, rankings baseados em pontos aprovados, dashboards e relatórios consolidados pela API, coleções relacionais (`alunos_turmas` e `participantes_envio`) e seed idempotente dos 7 pilares padrão.
+Esta branch consolida os contratos das User Stories MR-1 a MR-49 e os ajustes das MR-92/MR-98: autenticação, perfil, heurísticas, alunos, turmas, pilares fixos, desafios com pontuação fixa, recorrência com limite por período, envios com descrição obrigatória e evidência/anexo opcionais, grupos com líder, aprovações com bloqueio de duplicidade quando houver evidência, pontuação automática somente após aprovação, auditoria de domínio, contrato Web/API, configurações funcionais somente leitura, rankings baseados em pontos aprovados, dashboards e relatórios consolidados pela API, coleções relacionais (`alunos_turmas` e `participantes_envio`) e seed idempotente dos 7 pilares padrão.
 
 ## Próximos passos planejados
 

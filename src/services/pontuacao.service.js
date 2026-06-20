@@ -80,7 +80,7 @@ async function assertNoDuplicateEvidenceScore(envio, desafio, alunos) {
   const evidencias = normalizeEvidenceList(envio.evidencias);
 
   if (evidencias.length === 0) {
-    throw createHttpError("Evidência é obrigatória para aprovação.", 400);
+    return;
   }
 
   const approvedEnvios = await EnvioDesafio.find({
