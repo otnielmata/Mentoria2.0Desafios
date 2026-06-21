@@ -2302,7 +2302,8 @@ function AdminApprovalsView({ apiClient }) {
 
   async function createExtraPoints(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const alunoId = selectedStudent ? selectedStudent.id : data.get("extraAlunoId");
     setFeedback("");
     setError("");
@@ -2324,7 +2325,7 @@ function AdminApprovalsView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setSelectedStudent(null);
       setStudentSearch("");
       setStudentOptionsOpen(false);
