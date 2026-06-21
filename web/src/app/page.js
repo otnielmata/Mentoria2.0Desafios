@@ -2190,6 +2190,10 @@ function AdminDesafiosView({ apiClient }) {
 function AdminApprovalsView({ apiClient }) {
   const [envios, setEnvios] = useState([]);
   const [students, setStudents] = useState([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentOptionsOpen, setStudentOptionsOpen] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
   const [pilares, setPilares] = useState([]);
   const [filters, setFilters] = useState({ search: "", status: "pendente" });
   const [pagination, setPagination] = useState(getPagination());
@@ -2213,7 +2217,7 @@ function AdminApprovalsView({ apiClient }) {
     try {
       const [result, studentsResult, pilaresResult] = await Promise.all([
         apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) }),
-        apiClient.request({ method: "GET", path: "/alunos?limit=100" }),
+        apiClient.request({ method: "GET", path: "/alunos?limit=10" }),
         apiClient.request({ method: "GET", path: "/pilares?limit=100&status=ativo" }),
       ]);
       setEnvios(getArray(result, "envios"));
@@ -2227,9 +2231,36 @@ function AdminApprovalsView({ apiClient }) {
     }
   }
 
+  async function loadStudentOptions(search = studentSearch) {
+    setStudentsLoading(true);
+    try {
+      const result = await apiClient.request({
+        method: "GET",
+        path: buildListPath("/alunos", {
+          limit: 10,
+          page: 1,
+          search,
+        }),
+      });
+      setStudents(getArray(result, "alunos"));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setStudentsLoading(false);
+    }
+  }
+
   useEffect(() => {
     load();
   }, [apiClient]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      loadStudentOptions(studentSearch);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [apiClient, studentSearch]);
 
   function updateFilter(field, value) {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -2272,14 +2303,21 @@ function AdminApprovalsView({ apiClient }) {
   async function createExtraPoints(event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const alunoId = selectedStudent ? selectedStudent.id : data.get("extraAlunoId");
     setFeedback("");
     setError("");
+
+    if (!alunoId) {
+      setError("Selecione um aluno na lista para lançar pontos extras.");
+      return;
+    }
+
     try {
       await apiClient.request(
         { method: "POST", path: "/pontuacoes/extras" },
         {
           body: {
-            alunoId: data.get("extraAlunoId"),
+            alunoId,
             pilarId: data.get("extraPilarId"),
             pontos: Number(data.get("extraPontos") || 0),
             motivo: data.get("extraMotivo") || undefined,
@@ -2287,10 +2325,27 @@ function AdminApprovalsView({ apiClient }) {
         }
       );
       event.currentTarget.reset();
+      setSelectedStudent(null);
+      setStudentSearch("");
+      setStudentOptionsOpen(false);
       setFeedback("Pontuação extra cadastrada para o aluno.");
     } catch (extraPointsError) {
       setError(getErrorMessage(extraPointsError));
     }
+  }
+
+  function updateStudentSearch(value) {
+    setStudentSearch(value);
+    if (!selectedStudent || value !== `${selectedStudent.name} - ${selectedStudent.email}`) {
+      setSelectedStudent(null);
+    }
+    setStudentOptionsOpen(true);
+  }
+
+  function selectExtraStudent(student) {
+    setSelectedStudent(student);
+    setStudentSearch(`${student.name} - ${student.email}`);
+    setStudentOptionsOpen(false);
   }
 
   function getParticipantes(envio) {
@@ -2338,18 +2393,35 @@ function AdminApprovalsView({ apiClient }) {
           </div>
         </div>
         <form className="form-grid" onSubmit={createExtraPoints}>
-          <label className="field">
+          <label className="field autocomplete-field">
             <span>Aluno</span>
-            <select name="extraAlunoId" required defaultValue="">
-              <option value="" disabled>
-                Selecione um aluno
-              </option>
-              {students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.name}
-                </option>
-              ))}
-            </select>
+            <input
+              autoComplete="off"
+              onBlur={() => window.setTimeout(() => setStudentOptionsOpen(false), 150)}
+              onChange={(event) => updateStudentSearch(event.target.value)}
+              onFocus={() => {
+                setStudentOptionsOpen(true);
+                if (students.length === 0) loadStudentOptions("");
+              }}
+              placeholder="Digite nome ou e-mail"
+              role="combobox"
+              value={studentSearch}
+            />
+            <input name="extraAlunoId" readOnly type="hidden" value={selectedStudent ? selectedStudent.id : ""} />
+            {studentOptionsOpen ? (
+              <div className="autocomplete-options">
+                {studentsLoading ? <span className="autocomplete-empty">Buscando alunos...</span> : null}
+                {!studentsLoading && students.length === 0 ? <span className="autocomplete-empty">Nenhum aluno encontrado</span> : null}
+                {!studentsLoading
+                  ? students.map((student) => (
+                      <button key={student.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectExtraStudent(student)} type="button">
+                        <strong>{student.name}</strong>
+                        <span>{student.email}</span>
+                      </button>
+                    ))
+                  : null}
+              </div>
+            ) : null}
           </label>
           <label className="field">
             <span>Pilar</span>
