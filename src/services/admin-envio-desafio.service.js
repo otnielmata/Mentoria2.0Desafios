@@ -1,5 +1,7 @@
 const Desafio = require("../models/desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
+require("../models/grupo-desafio.model");
+const ParticipanteEnvio = require("../models/participante-envio.model");
 const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
 const {
@@ -139,7 +141,27 @@ function serializeDesafio(desafio) {
   };
 }
 
-function serializeEnvio(envio) {
+function getRelatedParticipants(envio, relationalParticipants = []) {
+  const ownerId = getEntityId(envio && envio.aluno);
+  const participantsById = new Map();
+  const candidates = [
+    ...(envio && Array.isArray(envio.participantes) ? envio.participantes : []),
+    ...relationalParticipants,
+    ...(envio && envio.grupo && Array.isArray(envio.grupo.participantes) ? envio.grupo.participantes : []),
+  ];
+
+  candidates.forEach((candidate) => {
+    const participant = candidate && candidate.aluno ? candidate.aluno : candidate;
+    const participantId = getEntityId(participant);
+    if (!participantId || participantId === ownerId || participantsById.has(participantId)) return;
+    participantsById.set(participantId, participant);
+  });
+
+  return Array.from(participantsById.values());
+}
+
+function serializeEnvio(envio, relationalParticipants = []) {
+  const participantes = getRelatedParticipants(envio, relationalParticipants);
   return {
     id: getEntityId(envio),
     desafioId: getEntityId(envio.desafio),
@@ -152,9 +174,10 @@ function serializeEnvio(envio) {
     type: envio.type,
     evidencias: envio.evidencias,
     anexos: envio.anexos || [],
-    participantes: (envio.participantes || []).map((participante) =>
+    participantes: participantes.map((participante) =>
       typeof participante === "object" ? serializeUser(participante) : { id: getEntityId(participante) }
     ),
+    totalParticipantes: new Set([getEntityId(envio.aluno), ...participantes.map(getEntityId)].filter(Boolean)).size,
     status: envio.status,
     feedback: envio.feedback,
     avaliacao: envio.avaliacao || null,
@@ -224,6 +247,10 @@ async function listPending(authenticatedUserId, query = {}) {
     EnvioDesafio.find(filters)
       .populate("aluno", "name email role status")
       .populate("participantes", "name email role status")
+      .populate({
+        path: "grupo",
+        populate: { path: "participantes", select: "name email role status" },
+      })
       .populate("turma", "name code status")
       .populate({
         path: "desafio",
@@ -238,10 +265,22 @@ async function listPending(authenticatedUserId, query = {}) {
       .limit(limit)
       .lean(),
   ]);
+  const envioIds = envios.map(getEntityId).filter(Boolean);
+  const relationalLinks =
+    envioIds.length > 0
+      ? await ParticipanteEnvio.find({ envio: { $in: envioIds }, status: "ativo" }).populate("aluno", "name email role status").lean()
+      : [];
+  const participantsByEnvio = new Map();
+  relationalLinks.forEach((link) => {
+    const envioId = getEntityId(link.envio);
+    if (!envioId) return;
+    participantsByEnvio.set(envioId, [...(participantsByEnvio.get(envioId) || []), link.aluno]);
+  });
+
   return {
     total,
     pagination: buildPagination(total, page, limit),
-    envios: envios.map(serializeEnvio),
+    envios: envios.map((envio) => serializeEnvio(envio, participantsByEnvio.get(getEntityId(envio)) || [])),
   };
 }
 

@@ -3,6 +3,7 @@ jest.mock("../../src/models/desafio.model", () => ({
 }));
 
 jest.mock("../../src/models/envio-desafio.model", () => ({
+  countDocuments: jest.fn(),
   find: jest.fn(),
   findById: jest.fn(),
 }));
@@ -29,13 +30,14 @@ const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
-const { evaluateEnvio } = require("../../src/services/admin-envio-desafio.service");
+const { evaluateEnvio, listPending } = require("../../src/services/admin-envio-desafio.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const ENVIO_ID = "6814f12ab3f34872f7558f41";
 const DESAFIO_ID = "6814f12ab3f34872f7558f42";
 const OWNER_ID = "6814f12ab3f34872f7558f43";
 const PARTICIPANT_ID = "6814f12ab3f34872f7558f44";
+const SECOND_PARTICIPANT_ID = "6814f12ab3f34872f7558f46";
 
 describe("admin-envio-desafio.service participantes_envio", () => {
   beforeEach(() => {
@@ -95,6 +97,55 @@ describe("admin-envio-desafio.service participantes_envio", () => {
         statusNovo: "aprovado",
       })
     );
+  });
+
+  it("lista em Aprovações todos os integrantes relacionados ao envio e ao grupo", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, title: "Desafio em grupo", points: 20 },
+      turma: { _id: "6814f12ab3f34872f7558f45", name: "Turma 1" },
+      aluno: { _id: OWNER_ID, name: "Aline Rusisca", email: "aline@email.com" },
+      participantes: [],
+      grupo: {
+        participantes: [
+          { _id: OWNER_ID, name: "Aline Rusisca", email: "aline@email.com" },
+          { _id: SECOND_PARTICIPANT_ID, name: "Carla", email: "carla@email.com" },
+        ],
+      },
+      description: "Entrega coletiva",
+      type: "grupo",
+      status: "pendente",
+    };
+    const query = {
+      populate: jest.fn(() => query),
+      sort: jest.fn(() => query),
+      skip: jest.fn(() => query),
+      limit: jest.fn(() => query),
+      lean: jest.fn().mockResolvedValue([envio]),
+    };
+    EnvioDesafio.countDocuments.mockResolvedValue(1);
+    EnvioDesafio.find.mockReturnValue(query);
+    ParticipanteEnvio.find.mockReturnValue({
+      populate: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue([
+        {
+          envio: ENVIO_ID,
+          aluno: { _id: PARTICIPANT_ID, name: "Bruno", email: "bruno@email.com" },
+        },
+      ]),
+    });
+
+    const result = await listPending(ADMIN_ID, { status: "pendente" });
+
+    expect(result.envios[0]).toMatchObject({
+      aluno: { name: "Aline Rusisca" },
+      totalParticipantes: 3,
+      participantes: expect.arrayContaining([
+        expect.objectContaining({ name: "Bruno" }),
+        expect.objectContaining({ name: "Carla" }),
+      ]),
+    });
+    expect(result.envios[0].participantes).toHaveLength(2);
   });
 
   it("aprova envio com bônus de apresentação ao vivo para todos os integrantes", async () => {

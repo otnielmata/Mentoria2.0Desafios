@@ -2388,12 +2388,6 @@ function AdminApprovalsView({ apiClient }) {
     setStudentOptionsOpen(false);
   }
 
-  function getParticipantes(envio) {
-    const participantes = getArray(envio, "participantes");
-    if (participantes.length > 0) return participantes;
-    return envio.aluno ? [envio.aluno] : [];
-  }
-
   return (
     <div className="content">
       <section className="panel">
@@ -2516,7 +2510,11 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item">
               <span className="muted">Participantes</span>
-              <strong>{getParticipantes(envio).map((participante) => participante.name || "Participante sem nome").join(", ")}</strong>
+              <strong>
+                {getSubmissionParticipantNames(envio).length > 0
+                  ? getSubmissionParticipantNames(envio).join(", ")
+                  : "Participantes não informados"}
+              </strong>
             </div>
             <div className="status-item">
               <span className="muted">Evidências</span>
