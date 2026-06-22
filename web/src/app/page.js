@@ -203,17 +203,27 @@ function getDisplayLinkHref(item) {
   return normalizeOpenableHref(item.url || item.link || item.content || item.dataUrl || item.dataURL || item.text || item.texto);
 }
 
+function hasOpenableContent(href) {
+  if (!href) return false;
+  if (!/^data:/i.test(href)) return true;
+  const separatorIndex = href.indexOf(",");
+  return separatorIndex >= 0 && href.slice(separatorIndex + 1).trim().length > 0;
+}
+
 function LinkList({ download = false, emptyMessage, items }) {
   const links = getArray(items)
     .map((item, index) => {
       const href = getDisplayLinkHref(item);
-      const label = getDisplayLinkLabel(item, href ? "Abrir link" : `Item ${index + 1}`);
+      if (download && href && !hasOpenableContent(href)) return null;
+      const explicitLabel = getDisplayLinkLabel(item, "");
+      if (download && !href && !explicitLabel) return null;
+      const label = explicitLabel || (href ? "Abrir link" : `Item ${index + 1}`);
       return label ? { href, label } : null;
     })
     .filter(Boolean);
 
   if (links.length === 0) {
-    return <strong>{emptyMessage}</strong>;
+    return emptyMessage ? <strong>{emptyMessage}</strong> : null;
   }
 
   return (
@@ -236,7 +246,7 @@ function todaySuffix() {
 }
 
 function readFileAsAttachment(file) {
-  if (!file) return Promise.resolve(null);
+  if (!file || !file.name) return Promise.resolve(null);
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -2522,7 +2532,7 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item span-2">
               <span className="muted">Anexos</span>
-              <LinkList download emptyMessage="Sem anexo" items={envio && envio.anexos} />
+              <LinkList download items={envio && envio.anexos} />
             </div>
           </div>
           {envio.status === "pendente" ? (
