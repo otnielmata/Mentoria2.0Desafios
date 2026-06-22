@@ -2,6 +2,9 @@ const { API_BASE_PATH } = require("../contracts/api-endpoints");
 
 const ENDPOINT_UNAVAILABLE_CODE = "ENDPOINT_UNAVAILABLE";
 const ENDPOINT_UNAVAILABLE_MESSAGE = "Funcionalidade indisponível no momento. Tente novamente mais tarde.";
+const API_CONNECTION_ERROR_CODE = "API_CONNECTION_ERROR";
+const API_CONNECTION_ERROR_MESSAGE = "Não foi possível conectar à API. Aguarde alguns segundos e tente atualizar a tela.";
+const MUTATION_METHODS = ["POST", "PATCH", "PUT", "DELETE"];
 
 class ApiClientError extends Error {
   constructor(message, options = {}) {
@@ -51,6 +54,8 @@ function createApiClient(options = {}) {
     fetchImpl = globalThis.fetch,
     getToken = () => null,
     onUnauthorized = () => {},
+    onMutationSuccess = () => {},
+    retryDelayMs = 250,
   } = options;
 
   if (typeof fetchImpl !== "function") {
@@ -58,7 +63,7 @@ function createApiClient(options = {}) {
   }
 
   async function request(endpoint, requestOptions = {}) {
-    const method = requestOptions.method || (typeof endpoint === "object" ? endpoint.method : "GET");
+    const method = String(requestOptions.method || (typeof endpoint === "object" ? endpoint.method : "GET") || "GET").toUpperCase();
     const token = getToken();
     const headers = {
       Accept: "application/json",
@@ -66,12 +71,36 @@ function createApiClient(options = {}) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(requestOptions.headers || {}),
     };
-    const response = await fetchImpl(buildUrl(baseUrl, endpoint), {
+    const url = buildUrl(baseUrl, endpoint);
+    const fetchOptions = {
       ...requestOptions,
       method,
       headers,
       body: requestOptions.body && typeof requestOptions.body !== "string" ? JSON.stringify(requestOptions.body) : requestOptions.body,
-    });
+    };
+    let response;
+    try {
+      response = await fetchImpl(url, fetchOptions);
+    } catch (networkError) {
+      if (method === "GET") {
+        if (retryDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        try {
+          response = await fetchImpl(url, fetchOptions);
+        } catch {
+          throw new ApiClientError(API_CONNECTION_ERROR_MESSAGE, {
+            status: 0,
+            code: API_CONNECTION_ERROR_CODE,
+            endpoint: getEndpointPath(endpoint),
+          });
+        }
+      } else {
+        throw new ApiClientError(API_CONNECTION_ERROR_MESSAGE, {
+          status: 0,
+          code: API_CONNECTION_ERROR_CODE,
+          endpoint: getEndpointPath(endpoint),
+        });
+      }
+    }
     const body = await parseBody(response);
 
     if (response.status === 404) {
@@ -104,6 +133,10 @@ function createApiClient(options = {}) {
       });
     }
 
+    if (MUTATION_METHODS.includes(method)) {
+      onMutationSuccess({ endpoint: getEndpointPath(endpoint), method, result: body });
+    }
+
     return body;
   }
 
@@ -112,6 +145,8 @@ function createApiClient(options = {}) {
 
 module.exports = {
   ApiClientError,
+  API_CONNECTION_ERROR_CODE,
+  API_CONNECTION_ERROR_MESSAGE,
   ENDPOINT_UNAVAILABLE_CODE,
   ENDPOINT_UNAVAILABLE_MESSAGE,
   buildUrl,

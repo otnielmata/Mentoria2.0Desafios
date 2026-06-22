@@ -1,5 +1,7 @@
 const {
   ApiClientError,
+  API_CONNECTION_ERROR_CODE,
+  API_CONNECTION_ERROR_MESSAGE,
   ENDPOINT_UNAVAILABLE_CODE,
   ENDPOINT_UNAVAILABLE_MESSAGE,
   buildUrl,
@@ -79,5 +81,37 @@ describe("web api client MR-97", () => {
       status: 409,
       code: "CONFLICT",
     });
+  });
+
+  it("repete consulta GET uma vez quando a API reinicia durante a requisição", async () => {
+    const fetchImpl = jest.fn().mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValueOnce(jsonResponse(200, { envios: [] }));
+    const client = createApiClient({ fetchImpl, retryDelayMs: 0 });
+
+    await expect(client.request({ method: "GET", path: "/envios-desafios/aprovacoes" })).resolves.toEqual({ envios: [] });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("substitui Failed to fetch por mensagem amigável quando a API continua indisponível", async () => {
+    const fetchImpl = jest.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    const client = createApiClient({ fetchImpl, retryDelayMs: 0 });
+
+    await expect(client.request({ method: "GET", path: "/envios-desafios/aprovacoes" })).rejects.toMatchObject({
+      code: API_CONNECTION_ERROR_CODE,
+      message: API_CONNECTION_ERROR_MESSAGE,
+      status: 0,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("notifica sucesso após gravações e exclusões", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true }));
+    const onMutationSuccess = jest.fn();
+    const client = createApiClient({ fetchImpl, onMutationSuccess });
+
+    await client.request({ method: "PATCH", path: "/pilares/1" }, { body: { name: "Prática" } });
+    await client.request({ method: "DELETE", path: "/pilares/1" });
+
+    expect(onMutationSuccess).toHaveBeenNthCalledWith(1, expect.objectContaining({ method: "PATCH", endpoint: "/pilares/1" }));
+    expect(onMutationSuccess).toHaveBeenNthCalledWith(2, expect.objectContaining({ method: "DELETE", endpoint: "/pilares/1" }));
   });
 });

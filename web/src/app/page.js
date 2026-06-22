@@ -3553,6 +3553,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
 export default function Page() {
   const [theme, setTheme] = useState("light");
   const [session, setSession] = useState(null);
+  const [operationNotice, setOperationNotice] = useState("");
 
   useEffect(() => {
     const storedSession = window.localStorage.getItem("desafios.session");
@@ -3572,6 +3573,12 @@ export default function Page() {
     window.localStorage.setItem("desafios.theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!operationNotice) return undefined;
+    const timeoutId = window.setTimeout(() => setOperationNotice(""), 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [operationNotice]);
+
   const apiClient = useMemo(
     () =>
       createApiClient({
@@ -3580,6 +3587,10 @@ export default function Page() {
         onUnauthorized: () => {
           window.localStorage.removeItem("desafios.session");
           setSession(null);
+        },
+        onMutationSuccess: ({ endpoint, method }) => {
+          if (endpoint === "/auth/login") return;
+          setOperationNotice(method === "DELETE" ? "Registro excluído com sucesso." : "Alterações gravadas com sucesso.");
         },
       }),
     [session]
@@ -3619,6 +3630,12 @@ export default function Page() {
 
   return (
     <div className="app" data-theme={theme}>
+      {operationNotice ? (
+        <div className="operation-notice" role="status">
+          <Icon name="check_circle" />
+          {operationNotice}
+        </div>
+      ) : null}
       {session ? (
         <Workspace
           apiClient={apiClient}
