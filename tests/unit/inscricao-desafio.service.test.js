@@ -75,6 +75,7 @@ describe("inscricao-desafio.service", () => {
       turma: TURMA_ID,
       participantes: [STUDENT_ID],
       maxParticipantes: 3,
+      modalidade: "normal",
       status: "formando",
     });
     InscricaoDesafio.create.mockResolvedValue({ _id: INSCRICAO_ID });
@@ -95,11 +96,18 @@ describe("inscricao-desafio.service", () => {
 
     const result = await subscribeToChallenge(STUDENT_ID, DESAFIO_ID);
 
+    expect(GrupoDesafio.find).toHaveBeenCalledWith({
+      desafio: DESAFIO_ID,
+      turma: TURMA_ID,
+      modalidade: { $in: ["normal", null] },
+      status: "formando",
+    });
     expect(GrupoDesafio.create).toHaveBeenCalledWith({
       desafio: DESAFIO_ID,
       turma: TURMA_ID,
       participantes: [STUDENT_ID],
       maxParticipantes: 3,
+      modalidade: "normal",
       status: "formando",
     });
     expect(InscricaoDesafio.create).toHaveBeenCalledWith({
@@ -107,13 +115,64 @@ describe("inscricao-desafio.service", () => {
       aluno: STUDENT_ID,
       turma: TURMA_ID,
       grupo: GRUPO_ID,
+      modalidade: "normal",
       status: "inscrito",
     });
     expect(result.grupo).toMatchObject({
       id: GRUPO_ID,
       totalParticipantes: 1,
       maxParticipantes: 3,
+      modalidade: "normal",
       status: "formando",
+    });
+  });
+
+  it("forma grupo de ingles separado dos grupos normais", async () => {
+    GrupoDesafio.find.mockReturnValue({ sort: jest.fn().mockResolvedValue([]) });
+    GrupoDesafio.create.mockResolvedValue({
+      _id: GRUPO_ID,
+      desafio: DESAFIO_ID,
+      turma: TURMA_ID,
+      participantes: [STUDENT_ID],
+      maxParticipantes: 3,
+      modalidade: "ingles",
+      status: "formando",
+    });
+    InscricaoDesafio.create.mockResolvedValue({ _id: INSCRICAO_ID });
+    mockLeanChain(InscricaoDesafio.findById, {
+      _id: INSCRICAO_ID,
+      desafio: desafioPayload(),
+      turma: { _id: TURMA_ID, name: "Turma 1" },
+      grupo: {
+        _id: GRUPO_ID,
+        desafio: desafioPayload(),
+        turma: { _id: TURMA_ID, name: "Turma 1" },
+        participantes: [{ _id: STUDENT_ID, name: "Ana", role: "aluno", status: "ativo" }],
+        maxParticipantes: 3,
+        modalidade: "ingles",
+        status: "formando",
+      },
+      modalidade: "ingles",
+      status: "inscrito",
+    });
+
+    const result = await subscribeToChallenge(STUDENT_ID, DESAFIO_ID, { modalidade: "ingles" });
+
+    expect(GrupoDesafio.find).toHaveBeenCalledWith({
+      desafio: DESAFIO_ID,
+      turma: TURMA_ID,
+      modalidade: "ingles",
+      status: "formando",
+    });
+    expect(GrupoDesafio.create).toHaveBeenCalledWith(expect.objectContaining({ modalidade: "ingles" }));
+    expect(InscricaoDesafio.create).toHaveBeenCalledWith(expect.objectContaining({ modalidade: "ingles" }));
+    expect(result).toMatchObject({ modalidade: "ingles", grupo: { modalidade: "ingles" } });
+  });
+
+  it("rejeita modalidade de grupo desconhecida", async () => {
+    await expect(subscribeToChallenge(STUDENT_ID, DESAFIO_ID, { modalidade: "outra" })).rejects.toMatchObject({
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
     });
   });
 

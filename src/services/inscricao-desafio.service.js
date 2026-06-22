@@ -22,6 +22,24 @@ const SUBSCRIPTION_STATUS = "inscrito";
 const OPEN_GROUP_STATUS = "formando";
 const COMPLETE_GROUP_STATUS = "completo";
 const CONTACT_TYPES = ["whatsapp", "telegram", "discord"];
+const DEFAULT_GROUP_MODE = "normal";
+const ENGLISH_GROUP_MODE = "ingles";
+const GROUP_MODES = [DEFAULT_GROUP_MODE, ENGLISH_GROUP_MODE];
+
+function normalizeGroupMode(value) {
+  const modalidade = normalizeText(value) || DEFAULT_GROUP_MODE;
+  if (!GROUP_MODES.includes(modalidade)) {
+    throw createHttpError("Modalidade do grupo deve ser normal ou ingles.", 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "modalidade", message: "Escolha a modalidade normal ou ingles." }],
+    });
+  }
+  return modalidade;
+}
+
+function getStoredGroupMode(entity) {
+  return normalizeText(entity && entity.modalidade) === ENGLISH_GROUP_MODE ? ENGLISH_GROUP_MODE : DEFAULT_GROUP_MODE;
+}
 
 function serializeUser(user) {
   if (!user) return null;
@@ -113,6 +131,7 @@ function serializeGrupo(grupo) {
     participantes: (grupo.participantes || []).map(serializeUser),
     totalParticipantes: (grupo.participantes || []).length,
     maxParticipantes: grupo.maxParticipantes,
+    modalidade: getStoredGroupMode(grupo),
     vagasRestantes: Math.max(Number(grupo.maxParticipantes || 0) - (grupo.participantes || []).length, 0),
     contato: serializeContato(grupo.contato),
     status: grupo.status,
@@ -127,6 +146,7 @@ function serializeInscricao(inscricao) {
     desafio: serializeDesafio(inscricao.desafio),
     turma: serializeTurma(inscricao.turma),
     grupo: serializeGrupo(inscricao.grupo),
+    modalidade: getStoredGroupMode(inscricao.grupo || inscricao),
     status: inscricao.status,
     createdAt: inscricao.createdAt ? toIsoDate(inscricao.createdAt) : undefined,
   });
@@ -160,19 +180,20 @@ async function getActiveDesafio(desafioId) {
   return desafio;
 }
 
-async function findOpenGroup({ desafioId, turmaId, maxParticipantes }) {
+async function findOpenGroup({ desafioId, turmaId, maxParticipantes, modalidade }) {
   const grupos = await GrupoDesafio.find({
     desafio: desafioId,
     turma: turmaId,
+    modalidade: modalidade === ENGLISH_GROUP_MODE ? ENGLISH_GROUP_MODE : { $in: [DEFAULT_GROUP_MODE, null] },
     status: OPEN_GROUP_STATUS,
   }).sort({ createdAt: 1 });
 
   return (grupos || []).find((grupo) => (grupo.participantes || []).length < maxParticipantes) || null;
 }
 
-async function joinOrCreateGroup({ desafio, turmaId, alunoId }) {
+async function joinOrCreateGroup({ desafio, turmaId, alunoId, modalidade }) {
   const maxParticipantes = Number(desafio.maxParticipantes || 1);
-  let grupo = await findOpenGroup({ desafioId: getEntityId(desafio), turmaId, maxParticipantes });
+  let grupo = await findOpenGroup({ desafioId: getEntityId(desafio), turmaId, maxParticipantes, modalidade });
 
   if (!grupo) {
     grupo = await GrupoDesafio.create({
@@ -180,6 +201,7 @@ async function joinOrCreateGroup({ desafio, turmaId, alunoId }) {
       turma: turmaId,
       participantes: [alunoId],
       maxParticipantes,
+      modalidade,
       status: maxParticipantes === 1 ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS,
     });
     return grupo;
@@ -213,21 +235,23 @@ async function populateInscricao(inscricaoId) {
     .lean();
 }
 
-async function subscribeToChallenge(authenticatedUserId, desafioId) {
+async function subscribeToChallenge(authenticatedUserId, desafioId, payload = {}) {
   const student = await getAuthenticatedStudent(authenticatedUserId);
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
+  const modalidade = normalizeGroupMode(getFirstValue(payload, ["modalidade", "modalidadeGrupo", "groupMode"]));
   const existing = await InscricaoDesafio.findOne({ aluno: authenticatedUserId, desafio: id, status: SUBSCRIPTION_STATUS }).lean();
   if (existing) {
     throw createHttpError("Aluno já está inscrito neste desafio.", 409, { code: "CHALLENGE_ALREADY_SUBSCRIBED" });
   }
 
   const [desafio, turmaId] = await Promise.all([getActiveDesafio(id), findStudentTurma(student)]);
-  const grupo = await joinOrCreateGroup({ desafio, turmaId, alunoId: authenticatedUserId });
+  const grupo = await joinOrCreateGroup({ desafio, turmaId, alunoId: authenticatedUserId, modalidade });
   const inscricao = await InscricaoDesafio.create({
     desafio: id,
     aluno: authenticatedUserId,
     turma: turmaId,
     grupo: getEntityId(grupo),
+    modalidade,
     status: SUBSCRIPTION_STATUS,
   });
   const populated = await populateInscricao(getEntityId(inscricao));

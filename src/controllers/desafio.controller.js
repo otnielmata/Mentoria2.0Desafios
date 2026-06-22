@@ -48,7 +48,7 @@ async function disable(req, res, next) {
 
 async function subscribe(req, res, next) {
   try {
-    const inscricao = await inscricaoDesafioService.subscribeToChallenge(req.user.id, req.params.id);
+    const inscricao = await inscricaoDesafioService.subscribeToChallenge(req.user.id, req.params.id, req.body);
     return res.status(201).json({ inscricao });
   } catch (error) {
     return next(error);

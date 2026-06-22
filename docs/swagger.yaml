@@ -395,10 +395,21 @@ paths:
       tags: [Desafios]
       security:
         - bearerAuth: []
-      summary: Inscreve aluno em desafio ativo e forma grupo automaticamente
+      summary: Inscreve aluno em desafio ativo e forma grupo normal ou de inglês automaticamente
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modalidade:
+                  type: string
+                  enum: [normal, ingles]
+                  default: normal
       responses:
         "201":
-          description: Inscrição criada e grupo atribuído
+          description: Inscrição criada e grupo atribuído somente com alunos da mesma modalidade
         "400":
           description: Aluno sem turma ativa ou desafio inativo
         "409":

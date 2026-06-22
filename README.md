@@ -214,7 +214,8 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - Apenas alunos registram envios de desafios.
 - Antes de enviar uma entrega, o aluno deve estar inscrito no desafio e vinculado a um grupo automático.
 - O professor/admin cadastra descrição, um ou mais pilares com pontuação individual, data limite de entrega e quantidade de participantes por grupo.
-- Ao se inscrever, o aluno entra em um grupo aberto do mesmo desafio/turma ou inicia um novo grupo automaticamente.
+- Ao se inscrever, o aluno escolhe a modalidade normal ou inglês e entra em um grupo aberto do mesmo desafio/turma/modalidade, ou inicia um novo grupo automaticamente.
+- Grupos normais e grupos de inglês são formados separadamente; alunos de modalidades diferentes nunca são misturados no mesmo grupo.
 - O grupo é marcado como completo quando atinge a quantidade de participantes definida no desafio.
 - Participantes do grupo podem atualizar o link de contato do grupo para WhatsApp, Telegram ou Discord.
 - Envios começam com status `pendente`.

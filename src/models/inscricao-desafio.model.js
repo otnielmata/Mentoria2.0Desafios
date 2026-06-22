@@ -6,6 +6,13 @@ const inscricaoDesafioSchema = new mongoose.Schema(
     aluno: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     turma: { type: mongoose.Schema.Types.ObjectId, ref: "Turma", required: true, index: true },
     grupo: { type: mongoose.Schema.Types.ObjectId, ref: "GrupoDesafio", required: true, index: true },
+    modalidade: {
+      type: String,
+      enum: ["normal", "ingles"],
+      default: "normal",
+      trim: true,
+      index: true,
+    },
     status: {
       type: String,
       enum: ["inscrito", "cancelado"],

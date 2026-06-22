@@ -16,6 +16,13 @@ const grupoDesafioSchema = new mongoose.Schema(
     turma: { type: mongoose.Schema.Types.ObjectId, ref: "Turma", required: true, index: true },
     participantes: { type: [mongoose.Schema.Types.ObjectId], ref: "User", default: [], index: true },
     maxParticipantes: { type: Number, required: true, min: 1, max: 5 },
+    modalidade: {
+      type: String,
+      enum: ["normal", "ingles"],
+      default: "normal",
+      trim: true,
+      index: true,
+    },
     contato: { type: contatoSchema, default: () => ({}) },
     status: {
       type: String,
@@ -31,6 +38,6 @@ const grupoDesafioSchema = new mongoose.Schema(
   }
 );
 
-grupoDesafioSchema.index({ desafio: 1, turma: 1, status: 1 });
+grupoDesafioSchema.index({ desafio: 1, turma: 1, modalidade: 1, status: 1 });
 
 module.exports = mongoose.model("GrupoDesafio", grupoDesafioSchema);

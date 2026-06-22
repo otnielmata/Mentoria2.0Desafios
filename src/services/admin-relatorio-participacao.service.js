@@ -1130,6 +1130,7 @@ function serializeChallengeGroupRow(grupo, envio) {
     nomesIntegrantes: participantes.map((participante) => participante.name).filter(Boolean),
     totalParticipantes: participantes.length,
     maxParticipantes: Number((grupo && grupo.maxParticipantes) || 0),
+    modalidade: normalizeText(grupo && grupo.modalidade) === "ingles" ? "ingles" : "normal",
     grupoFormado,
     statusGrupo: grupo && grupo.status,
     enviadoParaAprovacao: Boolean(envio),

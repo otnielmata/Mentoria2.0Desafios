@@ -2922,12 +2922,19 @@ function StudentChallengesView({ apiClient }) {
     load();
   }, [apiClient]);
 
-  async function subscribe(desafioId) {
+  async function subscribe(desafioId, modalidade = "normal") {
     setFeedback("");
     setError("");
     try {
-      await apiClient.request({ method: "POST", path: `/desafios/${desafioId}/inscricoes` });
-      setFeedback("Inscrição realizada. O grupo foi formado automaticamente.");
+      await apiClient.request(
+        { method: "POST", path: `/desafios/${desafioId}/inscricoes` },
+        { body: { modalidade } }
+      );
+      setFeedback(
+        modalidade === "ingles"
+          ? "Inscrição em inglês realizada. O grupo será formado apenas com alunos desta modalidade."
+          : "Inscrição realizada. O grupo normal foi formado automaticamente."
+      );
       await load();
     } catch (subscribeError) {
       setError(getErrorMessage(subscribeError));
@@ -2951,6 +2958,10 @@ function StudentChallengesView({ apiClient }) {
   function findInscricaoForDesafio(desafio) {
     const desafioId = getEntityId(desafio);
     return inscricoes.find((inscricao) => getEntityId(inscricao.desafio) === desafioId) || null;
+  }
+
+  function getSubscriptionMode(inscricao) {
+    return String((inscricao && (inscricao.modalidade || (inscricao.grupo && inscricao.grupo.modalidade))) || "normal").toLowerCase();
   }
 
   function findInscricaoForEnvio(envio) {
@@ -3081,6 +3092,7 @@ function StudentChallengesView({ apiClient }) {
             {desafios.map((desafio) => {
               const inscricao = findInscricaoForDesafio(desafio);
               const isSubscribed = subscribedChallengeIds.has(desafio.id);
+              const subscriptionMode = getSubscriptionMode(inscricao);
               return (
                 <tr key={desafio.id}>
                   <td>
@@ -3090,12 +3102,21 @@ function StudentChallengesView({ apiClient }) {
                   <td>{formatPilarPoints(desafio)}</td>
                   <td>{formatNumber(desafio.points)}</td>
                   <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
-                  <td>{formatChallengeGroupSize(desafio, inscricao)}</td>
                   <td>
-                    <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id)}>
-                      <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
-                      {isSubscribed ? "Inscrito" : "Inscrever-se"}
-                    </button>
+                    {formatChallengeGroupSize(desafio, inscricao)}
+                    {isSubscribed ? <div className="muted">Modalidade: {subscriptionMode === "ingles" ? "Inglês" : "Normal"}</div> : null}
+                  </td>
+                  <td>
+                    <div className="actions table-actions">
+                      <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "normal")}>
+                        <ButtonIcon name={isSubscribed && subscriptionMode === "normal" ? "verified" : "how_to_reg"} />
+                        {isSubscribed && subscriptionMode === "normal" ? "Inscrito" : "Inscrever-se"}
+                      </button>
+                      <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "ingles")}>
+                        <ButtonIcon name={isSubscribed && subscriptionMode === "ingles" ? "verified" : "translate"} />
+                        {isSubscribed && subscriptionMode === "ingles" ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -3127,7 +3148,7 @@ function StudentChallengesView({ apiClient }) {
               <option value="">Selecione</option>
               {inscricoes.map((inscricao) => (
                 <option key={inscricao.id} value={inscricao.id}>
-                  {inscricao.desafio ? inscricao.desafio.title : "Desafio sem título"}
+                  {inscricao.desafio ? inscricao.desafio.title : "Desafio sem título"} - {getSubscriptionMode(inscricao) === "ingles" ? "Inglês" : "Normal"}
                 </option>
               ))}
             </select>
@@ -3344,7 +3365,7 @@ function StudentGroupsView({ apiClient }) {
                 <div>
                   <strong>{grupo.desafio ? grupo.desafio.title : "Desafio sem título"}</strong>
                   <p className="muted">
-                    {grupo.turma ? grupo.turma.name : "-"} | {formatNumber(grupo.totalParticipantes)} de {formatNumber(grupo.maxParticipantes)} participantes
+                    {grupo.turma ? grupo.turma.name : "-"} | {formatNumber(grupo.totalParticipantes)} de {formatNumber(grupo.maxParticipantes)} participantes | Modalidade: {grupo.modalidade === "ingles" ? "Inglês" : "Normal"}
                   </p>
                 </div>
                 <span className={`badge ${grupo.status === "completo" ? "ok" : "warn"}`}>{grupo.status}</span>
