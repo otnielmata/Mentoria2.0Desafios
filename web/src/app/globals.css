@@ -166,6 +166,35 @@ h3 {
   color: var(--muted);
 }
 
+.password-input {
+  position: relative;
+}
+
+.field .password-input input {
+  padding-right: 48px;
+}
+
+.password-visibility {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.password-visibility:hover,
+.password-visibility:focus-visible {
+  background: var(--surface-soft);
+  color: var(--primary);
+}
+
 .field textarea {
   min-height: 96px;
   resize: vertical;

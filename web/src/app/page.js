@@ -326,6 +326,7 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -375,12 +376,23 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
             </label>
             <label className="field">
               <span>Senha</span>
-              <input
-                value={password}
-                type="password"
-                autoComplete="current-password"
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              <div className="password-input">
+                <input
+                  value={password}
+                  type={passwordVisible ? "text" : "password"}
+                  autoComplete="current-password"
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <button
+                  aria-label={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+                  className="password-visibility"
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                  title={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+                  type="button"
+                >
+                  <Icon name={passwordVisible ? "visibility_off" : "visibility"} />
+                </button>
+              </div>
             </label>
             {error ? <div className="alert">{error}</div> : null}
             <button className="button with-icon" type="submit" disabled={loading}>
@@ -395,6 +407,7 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
                 setName("");
                 setEmail("");
                 setPassword("");
+                setPasswordVisible(false);
                 setError("");
               }}
             >
@@ -414,19 +427,37 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
             </label>
             <label className="field">
               <span>Senha</span>
-              <input
-                value={password}
-                type="password"
-                autoComplete="new-password"
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              <div className="password-input">
+                <input
+                  value={password}
+                  type={passwordVisible ? "text" : "password"}
+                  autoComplete="new-password"
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <button
+                  aria-label={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+                  className="password-visibility"
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                  title={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+                  type="button"
+                >
+                  <Icon name={passwordVisible ? "visibility_off" : "visibility"} />
+                </button>
+              </div>
             </label>
             {error ? <div className="alert">{error}</div> : null}
             <button className="button with-icon" type="submit" disabled={loading}>
               <ButtonIcon name="how_to_reg" />
               {loading ? "Inscrevendo..." : "Criar inscrição"}
             </button>
-            <button className="button ghost with-icon" type="button" onClick={() => setMode("login")}>
+            <button
+              className="button ghost with-icon"
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setPasswordVisible(false);
+              }}
+            >
               <ButtonIcon name="arrow_back" />
               Voltar para login
             </button>
