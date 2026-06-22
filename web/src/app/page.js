@@ -2884,7 +2884,7 @@ function AdminReportsView({ apiClient }) {
                 <input
                   value={groupFilters.search}
                   onChange={(event) => updateGroupFilter("search", event.target.value)}
-                  placeholder="Título, aluno, turma ou status"
+                  placeholder="Título, aluno, turma, modalidade ou status"
                 />
               </label>
               <IconButton icon="filter_alt" label="Filtrar grupos" type="submit" />
@@ -2895,6 +2895,7 @@ function AdminReportsView({ apiClient }) {
                 <tr>
                   <th>Desafio</th>
                   <th>Integrantes</th>
+                  <th>Modalidade</th>
                   <th>Grupo</th>
                   <th>Envio</th>
                   <th>Status</th>
@@ -2908,6 +2909,11 @@ function AdminReportsView({ apiClient }) {
                       <div className="muted">{formatTurmaName(row.turma)}</div>
                     </td>
                     <td>{formatParticipantNames(row)}</td>
+                    <td>
+                      <span className={`badge ${row.modalidade === "ingles" ? "ok" : "off"}`}>
+                        {row.modalidade === "ingles" ? "Inglês" : "Normal"}
+                      </span>
+                    </td>
                     <td>
                       <span className={`badge ${row.grupoFormado ? "ok" : "warn"}`}>{row.grupoFormado ? "Formado" : "Em formação"}</span>
                       <div className="muted">

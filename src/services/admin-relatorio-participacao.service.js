@@ -1154,6 +1154,7 @@ function matchesGroupReportSearch(row, search) {
     row.tituloDesafio,
     row.statusGrupo,
     row.statusEnvio,
+    row.modalidade,
     row.turma && row.turma.name,
     row.turma && row.turma.code,
     ...participantes.flatMap((participante) => [participante.name, participante.email]),

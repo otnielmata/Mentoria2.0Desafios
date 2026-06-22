@@ -236,6 +236,7 @@ describe("admin-relatorio-participacao.service MR-95", () => {
           { _id: ALUNO_2_ID, name: "Bruno", email: "bruno@email.com", role: "aluno", status: "ativo", password: "secret" },
         ],
         maxParticipantes: 2,
+        modalidade: "ingles",
         status: "completo",
         createdAt: new Date("2026-02-01T10:00:00.000Z"),
       },
@@ -268,6 +269,7 @@ describe("admin-relatorio-participacao.service MR-95", () => {
       expect.objectContaining({
         tituloDesafio: "Publicar artigo",
         turma: expect.objectContaining({ id: TURMA_ID, name: "Turma 1" }),
+        modalidade: "ingles",
         grupoFormado: true,
         enviadoParaAprovacao: true,
         statusEnvio: "pendente",
