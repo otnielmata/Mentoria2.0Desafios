@@ -1,6 +1,7 @@
 const Desafio = require("../models/desafio.model");
 const Pilar = require("../models/pilar.model");
 const User = require("../models/user.model");
+const { getEffectiveChallengeStatus, inactivateExpiredChallenges } = require("./desafio-prazo.service");
 const {
   buildPagination,
   createHttpError,
@@ -89,7 +90,7 @@ function serializeDesafio(desafio) {
     type: desafio.type,
     maxParticipantes: desafio.maxParticipantes,
     recorrencia: desafio.recorrencia,
-    status: desafio.status,
+    status: getEffectiveChallengeStatus(desafio),
   };
 }
 
@@ -401,6 +402,7 @@ async function createDesafio(authenticatedUserId, payload = {}) {
 
 async function listDesafios(authenticatedUserId, query = {}) {
   const user = await getAuthenticatedUser(authenticatedUserId);
+  await inactivateExpiredChallenges();
   const isAdmin = isAdminUser(user);
   const filters = {};
   const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
@@ -438,6 +440,7 @@ async function listDesafios(authenticatedUserId, query = {}) {
 
 async function getDesafio(authenticatedUserId, desafioId) {
   const user = await getAuthenticatedUser(authenticatedUserId);
+  await inactivateExpiredChallenges();
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
   const filters = { _id: id };
   if (!isAdminUser(user)) filters.status = ACTIVE_STATUS;

@@ -8,6 +8,7 @@ function getSubscriptionActionState(inscricao) {
 
   return {
     isSubscribed,
+    actionDisabled: isSubscribed,
     modalidade,
     showNormal: !isSubscribed || modalidade === "normal",
     showEnglish: !isSubscribed || modalidade === "ingles",

@@ -1,5 +1,6 @@
 jest.mock("../../src/models/desafio.model", () => ({
   countDocuments: jest.fn(),
+  updateMany: jest.fn(),
 }));
 
 jest.mock("../../src/models/envio-desafio.model", () => ({

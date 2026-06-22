@@ -6,6 +6,7 @@ const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { inactivateExpiredChallenges } = require("./desafio-prazo.service");
 
 const STUDENT_ROLE = "aluno";
 const APPROVED_STATUS = "aprovado";
@@ -147,6 +148,7 @@ async function findStudentEnvios(authenticatedUserId, scope) {
 }
 
 async function countActiveDesafios() {
+  await inactivateExpiredChallenges();
   return Desafio.countDocuments({ status: ACTIVE_STATUS });
 }
 

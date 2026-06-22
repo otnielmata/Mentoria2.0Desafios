@@ -3,6 +3,7 @@ jest.mock("../../src/models/desafio.model", () => ({
   create: jest.fn(),
   find: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  updateMany: jest.fn(),
 }));
 
 jest.mock("../../src/models/pilar.model", () => ({
@@ -28,6 +29,7 @@ describe("desafio.service difficulty", () => {
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
     Pilar.findById.mockResolvedValue({ _id: PILAR_ID, status: "ativo" });
     Desafio.create.mockImplementation(async (payload) => ({ _id: "6814f12ab3f34872f7558f42", ...payload }));
+    Desafio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
   });
 
   it("cadastra desafio com pontuação fixa explícita", async () => {

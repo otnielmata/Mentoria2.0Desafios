@@ -4,6 +4,7 @@ jest.mock("../../src/models/aluno-turma.model", () => ({
 
 jest.mock("../../src/models/desafio.model", () => ({
   findById: jest.fn(),
+  updateMany: jest.fn(),
 }));
 
 jest.mock("../../src/models/grupo-desafio.model", () => ({
@@ -65,6 +66,7 @@ describe("inscricao-desafio.service", () => {
     mockLeanChain(AlunoTurma.findOne, { aluno: STUDENT_ID, turma: TURMA_ID, status: "ativa" });
     mockLeanChain(Desafio.findById, desafioPayload());
     InscricaoDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue(null) });
+    Desafio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
   });
 
   it("inscreve aluno em desafio ativo e cria grupo automático quando não há grupo aberto", async () => {
@@ -174,6 +176,19 @@ describe("inscricao-desafio.service", () => {
       statusCode: 400,
       code: "VALIDATION_ERROR",
     });
+  });
+
+  it("bloqueia inscrição após o prazo final do desafio", async () => {
+    mockLeanChain(Desafio.findById, {
+      ...desafioPayload(),
+      deliveryDate: new Date("2020-01-01T00:00:00.000Z"),
+    });
+
+    await expect(subscribeToChallenge(STUDENT_ID, DESAFIO_ID)).rejects.toMatchObject({
+      statusCode: 400,
+      code: "CHALLENGE_REGISTRATION_CLOSED",
+    });
+    expect(GrupoDesafio.find).not.toHaveBeenCalled();
   });
 
   it("bloqueia inscrição duplicada no mesmo desafio", async () => {

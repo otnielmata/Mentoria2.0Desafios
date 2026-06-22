@@ -5,6 +5,7 @@ const Desafio = require("../models/desafio.model");
 const GrupoDesafio = require("../models/grupo-desafio.model");
 const InscricaoDesafio = require("../models/inscricao-desafio.model");
 const User = require("../models/user.model");
+const { inactivateExpiredChallenges, isDeliveryDeadlineExpired } = require("./desafio-prazo.service");
 const {
   createHttpError,
   getEntityId,
@@ -172,8 +173,14 @@ async function findStudentTurma(student) {
 }
 
 async function getActiveDesafio(desafioId) {
+  await inactivateExpiredChallenges();
   const desafio = await Desafio.findById(desafioId).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
+  if (isDeliveryDeadlineExpired(desafio)) {
+    throw createHttpError("Prazo de inscrição do desafio encerrado.", 400, {
+      code: "CHALLENGE_REGISTRATION_CLOSED",
+    });
+  }
   if (normalizeText(desafio.status) !== ACTIVE_STATUS) {
     throw createHttpError("Apenas desafios ativos aceitam inscrição.", 400);
   }

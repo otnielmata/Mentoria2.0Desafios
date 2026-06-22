@@ -3058,7 +3058,6 @@ function StudentChallengesView({ apiClient }) {
     }
   }
 
-  const subscribedChallengeIds = new Set(inscricoes.map((inscricao) => getEntityId(inscricao.desafio)).filter(Boolean));
   const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId) || inscricoes[0];
   const selectedEnvio = findEnvioForInscricao(selectedInscricao);
   const selectedParticipants = getArray(selectedInscricao && selectedInscricao.grupo, "participantes");
@@ -3090,8 +3089,8 @@ function StudentChallengesView({ apiClient }) {
           <tbody>
             {desafios.map((desafio) => {
               const inscricao = findInscricaoForDesafio(desafio);
-              const isSubscribed = subscribedChallengeIds.has(desafio.id);
               const subscriptionState = getSubscriptionActionState(inscricao);
+              const isSubscribed = subscriptionState.isSubscribed;
               const subscriptionMode = subscriptionState.modalidade;
               return (
                 <tr key={desafio.id}>
@@ -3109,13 +3108,13 @@ function StudentChallengesView({ apiClient }) {
                   <td>
                     <div className="actions table-actions">
                       {subscriptionState.showNormal ? (
-                        <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "normal")}>
+                        <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled} onClick={() => subscribe(desafio.id, "normal")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
                           {isSubscribed ? "Inscrito" : "Inscrever-se"}
                         </button>
                       ) : null}
                       {subscriptionState.showEnglish ? (
-                        <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "ingles")}>
+                        <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled} onClick={() => subscribe(desafio.id, "ingles")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "translate"} />
                           {isSubscribed ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
                         </button>

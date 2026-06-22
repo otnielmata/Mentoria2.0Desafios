@@ -411,7 +411,7 @@ paths:
         "201":
           description: Inscrição criada e grupo atribuído somente com alunos da mesma modalidade
         "400":
-          description: Aluno sem turma ativa ou desafio inativo
+          description: Aluno sem turma ativa, desafio inativo ou prazo de inscrição encerrado
         "409":
           description: Aluno já inscrito no desafio
   /api/envios-desafios:

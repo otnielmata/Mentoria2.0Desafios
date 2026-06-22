@@ -5,6 +5,7 @@ require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
+const { inactivateExpiredChallenges } = require("./desafio-prazo.service");
 
 const ALLOWED_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
@@ -83,6 +84,7 @@ async function findEnvios() {
 }
 
 async function countActiveDesafios() {
+  await inactivateExpiredChallenges();
   return Desafio.countDocuments({ status: ACTIVE_STATUS });
 }
 
