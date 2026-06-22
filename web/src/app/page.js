@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import apiClientModule from "../lib/api-client";
+import challengeSubscriptionModel from "../models/challenge-subscription.model";
 
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
+const { getSubscriptionActionState, getSubscriptionMode } = challengeSubscriptionModel;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 const LIST_PAGE_SIZE = 10;
@@ -2960,10 +2962,6 @@ function StudentChallengesView({ apiClient }) {
     return inscricoes.find((inscricao) => getEntityId(inscricao.desafio) === desafioId) || null;
   }
 
-  function getSubscriptionMode(inscricao) {
-    return String((inscricao && (inscricao.modalidade || (inscricao.grupo && inscricao.grupo.modalidade))) || "normal").toLowerCase();
-  }
-
   function findInscricaoForEnvio(envio) {
     const grupoId = getEnvioGroupId(envio);
     if (!grupoId) return null;
@@ -3020,7 +3018,8 @@ function StudentChallengesView({ apiClient }) {
 
   async function submitEnvio(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId);
     const anexo = await readFileAsAttachment(data.get("anexo"));
     const evidencia = String(data.get("evidencia") || "").trim();
@@ -3052,7 +3051,7 @@ function StudentChallengesView({ apiClient }) {
         await apiClient.request({ method: "POST", path: "/envios-desafios" }, { body: { ...body, grupoId: getInscricaoGroupId(selectedInscricao) } });
         setFeedback("Envio registrado e enviado para aprovação. Todos os integrantes do grupo podem acompanhar e editar até a aprovação.");
       }
-      event.currentTarget.reset();
+      form.reset();
       await load();
     } catch (submitError) {
       setError(getErrorMessage(submitError));
@@ -3092,7 +3091,8 @@ function StudentChallengesView({ apiClient }) {
             {desafios.map((desafio) => {
               const inscricao = findInscricaoForDesafio(desafio);
               const isSubscribed = subscribedChallengeIds.has(desafio.id);
-              const subscriptionMode = getSubscriptionMode(inscricao);
+              const subscriptionState = getSubscriptionActionState(inscricao);
+              const subscriptionMode = subscriptionState.modalidade;
               return (
                 <tr key={desafio.id}>
                   <td>
@@ -3108,14 +3108,18 @@ function StudentChallengesView({ apiClient }) {
                   </td>
                   <td>
                     <div className="actions table-actions">
-                      <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "normal")}>
-                        <ButtonIcon name={isSubscribed && subscriptionMode === "normal" ? "verified" : "how_to_reg"} />
-                        {isSubscribed && subscriptionMode === "normal" ? "Inscrito" : "Inscrever-se"}
-                      </button>
-                      <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "ingles")}>
-                        <ButtonIcon name={isSubscribed && subscriptionMode === "ingles" ? "verified" : "translate"} />
-                        {isSubscribed && subscriptionMode === "ingles" ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
-                      </button>
+                      {subscriptionState.showNormal ? (
+                        <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "normal")}>
+                          <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
+                          {isSubscribed ? "Inscrito" : "Inscrever-se"}
+                        </button>
+                      ) : null}
+                      {subscriptionState.showEnglish ? (
+                        <button className="button secondary with-icon" type="button" disabled={isSubscribed} onClick={() => subscribe(desafio.id, "ingles")}>
+                          <ButtonIcon name={isSubscribed ? "verified" : "translate"} />
+                          {isSubscribed ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
