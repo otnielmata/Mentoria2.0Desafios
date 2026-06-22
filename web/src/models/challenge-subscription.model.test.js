@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import subscriptionModel from "./challenge-subscription.model";
 
-const { getSubscriptionActionState, isChallengeActive } = subscriptionModel;
+const {
+  getGroupParticipantNames,
+  getSubmissionParticipantNames,
+  getSubscriptionActionState,
+  isChallengeActive,
+} = subscriptionModel;
 
 describe("ações de inscrição em desafios", () => {
   it("mostra as duas modalidades antes da inscrição", () => {
@@ -53,5 +58,36 @@ describe("disponibilidade de desafios inscritos", () => {
         new Date("2026-06-22T00:00:00.000Z")
       )
     ).toBe(false);
+  });
+});
+
+describe("integrantes relacionados aos desafios", () => {
+  it("lista todos os integrantes do grupo inscrito", () => {
+    const names = getGroupParticipantNames({
+      grupo: {
+        participantes: [
+          { id: "1", name: "Ana" },
+          { id: "2", name: "Bruno" },
+          { id: "3", name: "Carla" },
+        ],
+      },
+    });
+
+    expect(names).toEqual(["Ana", "Bruno", "Carla"]);
+  });
+
+  it("inclui responsável e participantes do envio sem duplicar nomes por usuário", () => {
+    const names = getSubmissionParticipantNames({
+      aluno: { id: "1", name: "Ana" },
+      responsavel: { id: "1", name: "Ana" },
+      lider: { id: "1", name: "Ana" },
+      participantesDetalhes: [
+        { id: "2", name: "Bruno" },
+        { id: "3", name: "Carla" },
+      ],
+      participantes: ["2", "3"],
+    });
+
+    expect(names).toEqual(["Ana", "Bruno", "Carla"]);
   });
 });

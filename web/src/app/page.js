@@ -6,7 +6,13 @@ import apiClientModule from "../lib/api-client";
 import challengeSubscriptionModel from "../models/challenge-subscription.model";
 
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
-const { getSubscriptionActionState, getSubscriptionMode, isChallengeActive } = challengeSubscriptionModel;
+const {
+  getGroupParticipantNames,
+  getSubmissionParticipantNames,
+  getSubscriptionActionState,
+  getSubscriptionMode,
+  isChallengeActive,
+} = challengeSubscriptionModel;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 const LIST_PAGE_SIZE = 10;
@@ -23,13 +29,13 @@ const MENU_BY_ROLE = {
   admin: [
     { key: "dashboard", label: "Dashboard", icon: "dashboard", supported: true },
     { key: "alunos", label: "Alunos", icon: "school", supported: true },
-    { key: "turmas", label: "Turmas", icon: "groups_2", supported: true },
-    { key: "pilares", label: "Pilares", icon: "account_tree", supported: true },
-    { key: "desafios", label: "Desafios", icon: "emoji_events", supported: true },
     { key: "aprovacoes", label: "Aprovações", icon: "fact_check", supported: true },
+    { key: "configuracoes", label: "Configurações", icon: "manage_accounts", supported: true, roles: ["admin"] },
+    { key: "desafios", label: "Desafios", icon: "emoji_events", supported: true },
+    { key: "pilares", label: "Pilares", icon: "account_tree", supported: true },
     { key: "ranking", label: "Ranking", icon: "leaderboard", supported: true },
     { key: "relatorios", label: "Relatórios", icon: "analytics", supported: true },
-    { key: "configuracoes", label: "Configurações", icon: "manage_accounts", supported: true, roles: ["admin"] },
+    { key: "turmas", label: "Turmas", icon: "groups_2", supported: true },
   ],
 };
 
@@ -3132,6 +3138,7 @@ function StudentChallengesView({ apiClient }) {
               const subscriptionState = getSubscriptionActionState(inscricao);
               const isSubscribed = subscriptionState.isSubscribed;
               const subscriptionMode = subscriptionState.modalidade;
+              const participantNames = getGroupParticipantNames(inscricao);
               return (
                 <tr key={desafio.id}>
                   <td>
@@ -3144,6 +3151,9 @@ function StudentChallengesView({ apiClient }) {
                   <td>
                     {formatChallengeGroupSize(desafio, inscricao)}
                     {isSubscribed ? <div className="muted">Modalidade: {subscriptionMode === "ingles" ? "Inglês" : "Normal"}</div> : null}
+                    {isSubscribed ? (
+                      <div className="muted">Integrantes: {participantNames.length > 0 ? participantNames.join(", ") : "Grupo em formação"}</div>
+                    ) : null}
                   </td>
                   <td>
                     <div className="actions table-actions">
@@ -3243,6 +3253,7 @@ function StudentChallengesView({ apiClient }) {
             {envios.map((envio) => {
               const challengeActive = isChallengeActive(envio.desafio);
               const submissionEditable = challengeActive && isEditableSubmission(envio.status) && findInscricaoForEnvio(envio);
+              const participantNames = getSubmissionParticipantNames(envio);
               return (
                 <tr key={envio.id}>
                   <td>
@@ -3252,7 +3263,10 @@ function StudentChallengesView({ apiClient }) {
                   <td>{envio.aluno ? envio.aluno.name : "Integrante do grupo"}</td>
                   <td>{envio.type}</td>
                   <td>{envio.status}</td>
-                  <td>{formatNumber(getSubmissionParticipantCount(envio))}</td>
+                  <td>
+                    <strong>{formatNumber(getSubmissionParticipantCount(envio))}</strong>
+                    <div className="muted">{participantNames.length > 0 ? participantNames.join(", ") : "Integrantes não informados"}</div>
+                  </td>
                   <td>
                     {submissionEditable ? (
                       <IconButton icon="edit" label="Editar envio do grupo" onClick={() => selectEnvioForEdit(envio)} />
