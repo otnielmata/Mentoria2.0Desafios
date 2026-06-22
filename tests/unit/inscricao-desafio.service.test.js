@@ -29,7 +29,7 @@ const Desafio = require("../../src/models/desafio.model");
 const GrupoDesafio = require("../../src/models/grupo-desafio.model");
 const InscricaoDesafio = require("../../src/models/inscricao-desafio.model");
 const User = require("../../src/models/user.model");
-const { subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
+const { listMySubscriptions, subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
 
 const STUDENT_ID = "6814f12ab3f34872f7558f40";
 const DESAFIO_ID = "6814f12ab3f34872f7558f41";
@@ -198,6 +198,40 @@ describe("inscricao-desafio.service", () => {
       statusCode: 409,
       code: "CHALLENGE_ALREADY_SUBSCRIBED",
     });
+  });
+
+  it("lista para envio somente inscrições vinculadas a desafios ativos", async () => {
+    mockLeanChain(InscricaoDesafio.find, [
+      {
+        _id: INSCRICAO_ID,
+        desafio: desafioPayload(),
+        turma: { _id: TURMA_ID, name: "Turma 1" },
+        grupo: {
+          _id: GRUPO_ID,
+          participantes: [{ _id: STUDENT_ID, name: "Ana" }],
+          maxParticipantes: 3,
+          status: "formando",
+        },
+        status: "inscrito",
+      },
+      {
+        _id: "6814f12ab3f34872f7558f46",
+        desafio: { ...desafioPayload(), _id: "6814f12ab3f34872f7558f47", status: "inativo" },
+        turma: { _id: TURMA_ID, name: "Turma 1" },
+        grupo: {
+          _id: "6814f12ab3f34872f7558f48",
+          participantes: [{ _id: STUDENT_ID, name: "Ana" }],
+          maxParticipantes: 3,
+          status: "completo",
+        },
+        status: "inscrito",
+      },
+    ]);
+
+    const result = await listMySubscriptions(STUDENT_ID);
+
+    expect(result.inscricoes).toHaveLength(1);
+    expect(result.inscricoes[0].desafio).toMatchObject({ id: DESAFIO_ID, status: "ativo" });
   });
 
   it("permite participante atualizar contato do grupo", async () => {

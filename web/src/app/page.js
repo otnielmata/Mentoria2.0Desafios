@@ -6,7 +6,7 @@ import apiClientModule from "../lib/api-client";
 import challengeSubscriptionModel from "../models/challenge-subscription.model";
 
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
-const { getSubscriptionActionState, getSubscriptionMode } = challengeSubscriptionModel;
+const { getSubscriptionActionState, getSubscriptionMode, isChallengeActive } = challengeSubscriptionModel;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 const LIST_PAGE_SIZE = 10;
@@ -2910,11 +2910,13 @@ function StudentChallengesView({ apiClient }) {
         apiClient.request({ method: "GET", path: "/desafios/inscricoes/minhas" }),
         apiClient.request({ method: "GET", path: "/envios-desafios/meus?limit=100" }),
       ]);
-      const nextInscricoes = getArray(inscricoesResult, "inscricoes");
+      const nextInscricoes = getArray(inscricoesResult, "inscricoes").filter((inscricao) => isChallengeActive(inscricao.desafio));
       setDesafios(getArray(desafiosResult, "desafios"));
       setInscricoes(nextInscricoes);
       setEnvios(getArray(enviosResult, "envios"));
-      if (!selectedInscricaoId && nextInscricoes[0]) setSelectedInscricaoId(nextInscricoes[0].id);
+      setSelectedInscricaoId((current) =>
+        nextInscricoes.some((inscricao) => inscricao.id === current) ? current : (nextInscricoes[0] && nextInscricoes[0].id) || ""
+      );
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     }
@@ -3032,6 +3034,11 @@ function StudentChallengesView({ apiClient }) {
       return;
     }
 
+    if (!isChallengeActive(selectedInscricao.desafio)) {
+      setError("Apenas desafios inscritos e ativos podem ser enviados ou editados.");
+      return;
+    }
+
     if (existingEnvio && !isEditableSubmission(existingEnvio.status)) {
       setError("Este envio já foi aprovado ou encerrado e não pode mais ser editado.");
       return;
@@ -3061,7 +3068,9 @@ function StudentChallengesView({ apiClient }) {
   const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId) || inscricoes[0];
   const selectedEnvio = findEnvioForInscricao(selectedInscricao);
   const selectedParticipants = getArray(selectedInscricao && selectedInscricao.grupo, "participantes");
-  const selectedEnvioEditable = !selectedEnvio || isEditableSubmission(selectedEnvio.status);
+  const selectedEnvioEditable =
+    Boolean(selectedInscricao && isChallengeActive(selectedInscricao.desafio)) &&
+    (!selectedEnvio || isEditableSubmission(selectedEnvio.status));
 
   return (
     <div className="content">
@@ -3183,7 +3192,7 @@ function StudentChallengesView({ apiClient }) {
             {selectedEnvio ? "Atualizar envio" : "Enviar para aprovação"}
           </button>
         </form>
-        {inscricoes.length === 0 ? <Notice message="Você ainda não está inscrito em nenhum desafio ativo." /> : null}
+        {inscricoes.length === 0 ? <Notice message="Você não possui desafios inscritos e ativos disponíveis para envio." /> : null}
       </section>
 
       <section className="panel">
@@ -3200,22 +3209,29 @@ function StudentChallengesView({ apiClient }) {
             </tr>
           </thead>
           <tbody>
-            {envios.map((envio) => (
-              <tr key={envio.id}>
-                <td>{envio.desafio ? envio.desafio.title : "Desafio sem título"}</td>
-                <td>{envio.aluno ? envio.aluno.name : "Integrante do grupo"}</td>
-                <td>{envio.type}</td>
-                <td>{envio.status}</td>
-                <td>{formatNumber(getSubmissionParticipantCount(envio))}</td>
-                <td>
-                  {isEditableSubmission(envio.status) && findInscricaoForEnvio(envio) ? (
-                    <IconButton icon="edit" label="Editar envio do grupo" onClick={() => selectEnvioForEdit(envio)} />
-                  ) : (
-                    <span className="muted">Bloqueado</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {envios.map((envio) => {
+              const challengeActive = isChallengeActive(envio.desafio);
+              const submissionEditable = challengeActive && isEditableSubmission(envio.status) && findInscricaoForEnvio(envio);
+              return (
+                <tr key={envio.id}>
+                  <td>
+                    {envio.desafio ? envio.desafio.title : "Desafio sem título"}
+                    <div className="muted">{challengeActive ? "Desafio ativo" : "Desafio inativo"}</div>
+                  </td>
+                  <td>{envio.aluno ? envio.aluno.name : "Integrante do grupo"}</td>
+                  <td>{envio.type}</td>
+                  <td>{envio.status}</td>
+                  <td>{formatNumber(getSubmissionParticipantCount(envio))}</td>
+                  <td>
+                    {submissionEditable ? (
+                      <IconButton icon="edit" label="Editar envio do grupo" onClick={() => selectEnvioForEdit(envio)} />
+                    ) : (
+                      <span className="muted">Bloqueado</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </section>

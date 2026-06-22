@@ -267,6 +267,7 @@ async function subscribeToChallenge(authenticatedUserId, desafioId, payload = {}
 
 async function listMySubscriptions(authenticatedUserId) {
   await getAuthenticatedStudent(authenticatedUserId);
+  await inactivateExpiredChallenges();
   const inscricoes = await InscricaoDesafio.find({ aluno: authenticatedUserId, status: SUBSCRIPTION_STATUS })
     .sort({ createdAt: -1 })
     .populate({
@@ -288,7 +289,9 @@ async function listMySubscriptions(authenticatedUserId) {
     .lean();
 
   return {
-    inscricoes: (inscricoes || []).map(serializeInscricao),
+    inscricoes: (inscricoes || [])
+      .filter((inscricao) => inscricao.desafio && normalizeText(inscricao.desafio.status) === ACTIVE_STATUS && !isDeliveryDeadlineExpired(inscricao.desafio))
+      .map(serializeInscricao),
   };
 }
 

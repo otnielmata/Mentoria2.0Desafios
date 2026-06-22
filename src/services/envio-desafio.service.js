@@ -6,6 +6,7 @@ const ParticipanteEnvio = require("../models/participante-envio.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
+const { getEffectiveChallengeStatus, inactivateExpiredChallenges } = require("./desafio-prazo.service");
 const {
   assertObjectPayload,
   buildPagination,
@@ -100,7 +101,7 @@ function serializeDesafio(desafio) {
     type: desafio.type,
     maxParticipantes: desafio.maxParticipantes,
     deliveryDate: toIsoDate(desafio.deliveryDate),
-    status: desafio.status,
+    status: getEffectiveChallengeStatus(desafio),
   };
 }
 
@@ -385,6 +386,7 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
 
 async function listMine(authenticatedUserId, query = {}) {
   await getAuthenticatedStudent(authenticatedUserId);
+  await inactivateExpiredChallenges();
   const period = parsePeriod(query);
   const filters = {
     $or: [{ aluno: authenticatedUserId }, { participantes: authenticatedUserId }],
@@ -423,6 +425,19 @@ async function listMine(authenticatedUserId, query = {}) {
   };
 }
 
+async function assertSubmissionChallengeActive(envio) {
+  await inactivateExpiredChallenges();
+  const embeddedDesafio = envio && envio.desafio && typeof envio.desafio === "object" && envio.desafio.status ? envio.desafio : null;
+  const desafio = embeddedDesafio || (await Desafio.findById(getEntityId(envio && envio.desafio)));
+  if (!desafio) throw createHttpError("Desafio do envio não encontrado.", 404);
+  if (normalizeText(getEffectiveChallengeStatus(desafio)) !== ACTIVE_STATUS) {
+    throw createHttpError("Envios de desafios inativos não podem ser editados.", 400, {
+      code: "INACTIVE_CHALLENGE_EDIT_BLOCKED",
+    });
+  }
+  return desafio;
+}
+
 async function getEnvio(authenticatedUserId, envioId) {
   const id = parseObjectId(envioId, "Envio deve ser um identificador válido.");
   const user = await User.findById(authenticatedUserId);
@@ -454,6 +469,7 @@ async function updateEnvio(authenticatedUserId, envioId, payload = {}) {
   const isParticipant = (envio.participantes || []).some((participante) => getEntityId(participante) === authenticatedUserId);
   if (!isOwner && !isParticipant) throw createHttpError("Apenas integrantes do grupo podem alterar este envio.", 403);
   if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser alterados.", 400);
+  await assertSubmissionChallengeActive(envio);
 
   if (hasOwn(payload, "description") || hasOwn(payload, "descricao")) envio.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
   const hasEvidenceField = ["evidencias", "evidences", "evidence", "evidencia_url"].some((field) => hasOwn(payload, field));
@@ -472,6 +488,7 @@ async function updateParticipantes(authenticatedUserId, envioId, payload = {}) {
   if (getEntityId(envio.aluno) !== authenticatedUserId) throw createHttpError("Apenas o aluno responsável pode gerenciar participantes deste envio.", 403);
   if (normalizeText(envio.type) !== GROUP_TYPE) throw createHttpError("Participantes só podem ser gerenciados em envio em grupo.", 400);
   if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser alterados.", 400);
+  await assertSubmissionChallengeActive(envio);
 
   const participantes = parseParticipantes(payload, GROUP_TYPE);
   assertParticipantsLimit(participantes, envio.desafio);

@@ -218,6 +218,8 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - Grupos normais e grupos de inglês são formados separadamente; alunos de modalidades diferentes nunca são misturados no mesmo grupo.
 - A data limite é inclusiva; após o fim do dia cadastrado, o desafio é inativado automaticamente e deixa de aceitar novas inscrições.
 - Depois da inscrição, o botão da modalidade escolhida permanece visível como `Inscrito`, desabilitado para impedir nova inscrição.
+- O formulário de envio lista somente desafios em que o aluno está inscrito e que permanecem ativos.
+- `Meus desafios enviados` mantém o histórico completo dos envios feitos pelos grupos do aluno; envios ligados a desafios inativos ficam visíveis, mas bloqueados para edição.
 - O grupo é marcado como completo quando atinge a quantidade de participantes definida no desafio.
 - Participantes do grupo podem atualizar o link de contato do grupo para WhatsApp, Telegram ou Discord.
 - Envios começam com status `pendente`.

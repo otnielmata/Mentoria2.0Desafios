@@ -5,6 +5,7 @@ jest.mock("../../src/models/aluno-turma.model", () => ({
 jest.mock("../../src/models/desafio.model", () => ({
   find: jest.fn(),
   findById: jest.fn(),
+  updateMany: jest.fn(),
 }));
 
 jest.mock("../../src/models/envio-desafio.model", () => ({
@@ -45,7 +46,7 @@ const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
-const { createEnvioDesafio, updateEnvio } = require("../../src/services/envio-desafio.service");
+const { createEnvioDesafio, listMine, updateEnvio } = require("../../src/services/envio-desafio.service");
 
 const STUDENT_ID = "6814f12ab3f34872f7558f40";
 const PARTICIPANT_ID = "6814f12ab3f34872f7558f41";
@@ -68,6 +69,14 @@ describe("envio-desafio.service grupos", () => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno", status: "ativo" });
     EnvioDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue(null) });
+    Desafio.findById.mockResolvedValue({
+      _id: DESAFIO_ID,
+      status: "ativo",
+      deliveryDate: "2099-01-01T00:00:00.000Z",
+      type: "grupo",
+      maxParticipantes: 2,
+    });
+    Desafio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
   });
 
   it("cria envio individual pendente com aluno autenticado como responsável e líder", async () => {
@@ -294,6 +303,40 @@ describe("envio-desafio.service grupos", () => {
     });
   });
 
+  it("mantém no histórico envios de grupos do aluno mesmo com desafio inativo", async () => {
+    const query = {
+      populate: jest.fn(() => query),
+      sort: jest.fn(() => query),
+      skip: jest.fn(() => query),
+      limit: jest.fn(() => query),
+      lean: jest.fn().mockResolvedValue([
+        {
+          _id: "6814f12ab3f34872f7558f45",
+          desafio: { _id: DESAFIO_ID, title: "Desafio encerrado", status: "inativo" },
+          aluno: { _id: STUDENT_ID, name: "Aluno" },
+          participantes: [{ _id: PARTICIPANT_ID, name: "Colega" }],
+          turma: { _id: TURMA_ID, name: "Turma 1" },
+          description: "Entrega do grupo",
+          type: "grupo",
+          status: "pendente",
+        },
+      ]),
+    };
+    EnvioDesafio.countDocuments.mockResolvedValue(1);
+    EnvioDesafio.find.mockReturnValue(query);
+
+    const result = await listMine(PARTICIPANT_ID, { limit: "100" });
+
+    expect(EnvioDesafio.find).toHaveBeenCalledWith({
+      $or: [{ aluno: PARTICIPANT_ID }, { participantes: PARTICIPANT_ID }],
+    });
+    expect(result.envios).toHaveLength(1);
+    expect(result.envios[0]).toMatchObject({
+      desafio: { title: "Desafio encerrado", status: "inativo" },
+      status: "pendente",
+    });
+  });
+
   it("rejeita grupo com mais de 5 participantes", async () => {
     const participantes = [
       PARTICIPANT_ID,
@@ -377,6 +420,26 @@ describe("envio-desafio.service grupos", () => {
     ).rejects.toMatchObject({
       statusCode: 400,
       message: "Somente envios pendentes ou em ajuste podem ser alterados.",
+    });
+  });
+
+  it("bloqueia edição de envio pendente quando o desafio está inativo", async () => {
+    EnvioDesafio.findById.mockResolvedValue({
+      _id: "6814f12ab3f34872f7558f45",
+      desafio: DESAFIO_ID,
+      aluno: STUDENT_ID,
+      participantes: [PARTICIPANT_ID],
+      status: "pendente",
+    });
+    Desafio.findById.mockResolvedValue({ _id: DESAFIO_ID, status: "inativo" });
+
+    await expect(
+      updateEnvio(PARTICIPANT_ID, "6814f12ab3f34872f7558f45", {
+        description: "Tentativa de edição tardia",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "INACTIVE_CHALLENGE_EDIT_BLOCKED",
     });
   });
 });
