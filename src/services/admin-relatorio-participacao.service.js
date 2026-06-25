@@ -5,8 +5,10 @@ require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const GrupoDesafio = require("../models/grupo-desafio.model");
+const PlanoEstudoItem = require("../models/plano-estudo-item.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
+const { buildChecklistSummaryByStudent } = require("./plano-estudo.service");
 
 const ALLOWED_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
@@ -289,6 +291,25 @@ async function findPontuacoes() {
     .populate({ path: "createdBy", select: "name email role status" })
     .sort({ createdAt: -1 })
     .lean();
+}
+
+function buildPlanningItemQuery(filters) {
+  const query = {
+    deletedAt: null,
+    status: ACTIVE_STATUS,
+  };
+
+  if (filters.startDate || filters.endDate) {
+    query.startAt = {};
+    if (filters.startDate) query.startAt.$gte = filters.startDate;
+    if (filters.endDate) query.startAt.$lte = filters.endDate;
+  }
+
+  return query;
+}
+
+async function findPlanningItems(filters) {
+  return PlanoEstudoItem.find(buildPlanningItemQuery(filters)).sort({ startAt: 1 }).lean();
 }
 
 function buildStudentQuery(filters) {
@@ -988,7 +1009,27 @@ function serializePontuacaoPilarDetail(pontuacao, pilarItem, pontos) {
   });
 }
 
-function buildStudentPillarRows(students, pontuacoes, filters) {
+function serializeChecklistPlanning(summary) {
+  const safeSummary = summary || {};
+  return {
+    totalPontos: Number(safeSummary.totalPontos || 0),
+    totalTarefas: Number(safeSummary.totalTarefas || 0),
+    tarefasConcluidas: Number(safeSummary.tarefasConcluidas || 0),
+    diasComCheck: Number(safeSummary.diasComCheck || 0),
+    semanas: Array.isArray(safeSummary.semanas)
+      ? safeSummary.semanas.map((semana) => ({
+          inicio: semana.inicio,
+          fim: semana.fim,
+          pontos: Number(semana.pontos || 0),
+          diasComCheck: Number(semana.diasComCheck || 0),
+          totalTarefas: Number(semana.totalTarefas || 0),
+          tarefasConcluidas: Number(semana.tarefasConcluidas || 0),
+        }))
+      : [],
+  };
+}
+
+function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, filters) {
   const groupedByStudent = new Map();
 
   (students || []).forEach((student) => {
@@ -997,6 +1038,7 @@ function buildStudentPillarRows(students, pontuacoes, filters) {
       totalPontos: 0,
       pilares: new Map(),
       detalhesPontosPorPilar: [],
+      checklistPlanejamento: serializeChecklistPlanning(planningSummaryByStudent.get(getEntityId(student))),
     });
   });
 
@@ -1034,7 +1076,8 @@ function buildStudentPillarRows(students, pontuacoes, filters) {
   return Array.from(groupedByStudent.values())
     .map((row) => ({
       aluno: row.aluno,
-      totalPontos: row.totalPontos,
+      totalPontos: row.totalPontos + (!filters.pilarId ? Number(row.checklistPlanejamento.totalPontos || 0) : 0),
+      checklistPlanejamento: row.checklistPlanejamento,
       pontosPorPilar: Array.from(row.pilares.values()).sort((first, second) => second.pontos - first.pontos),
       detalhesPontosPorPilar: row.detalhesPontosPorPilar.sort((first, second) => {
         const firstDate = first.dataLancamento ? new Date(first.dataLancamento).getTime() : 0;
@@ -1054,9 +1097,12 @@ async function getStudentPillarReport(authenticatedUserId, query = {}) {
   const filters = parseFilters(query);
   const pagination = parsePagination(query);
   const search = String(getFirstValue(query, ["search", "busca", "nome", "aluno"]) || "").trim();
-  const [students, pontuacoes] = await Promise.all([findStudents(filters), findPontuacoes()]);
+  const [students, pontuacoes, planningItems] = await Promise.all([findStudents(filters), findPontuacoes(), findPlanningItems(filters)]);
   const filteredPontuacoes = (pontuacoes || []).filter((pontuacao) => matchesPontuacaoFilters(pontuacao, filters));
-  const rows = buildStudentPillarRows(students || [], filteredPontuacoes, filters).filter((row) => matchesStudentSearch(row.aluno, search));
+  const planningSummaryByStudent = buildChecklistSummaryByStudent(planningItems || []);
+  const rows = buildStudentPillarRows(students || [], filteredPontuacoes, planningSummaryByStudent, filters).filter((row) =>
+    matchesStudentSearch(row.aluno, search)
+  );
   const paginatedRows = rows.slice(pagination.skip, pagination.skip + pagination.limit);
 
   return {

@@ -8,3 +8,5 @@ coverage
 web/node_modules
 web/.next
 web/.env.local
+.codex-worktrees/
+docs/qa/

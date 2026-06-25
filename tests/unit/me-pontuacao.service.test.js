@@ -6,8 +6,17 @@ jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../src/services/plano-estudo.service", () => {
+  const actual = jest.requireActual("../../src/services/plano-estudo.service");
+  return {
+    ...actual,
+    getChecklistSummaryFromFilters: jest.fn(),
+  };
+});
+
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
+const planoEstudoService = require("../../src/services/plano-estudo.service");
 const { getMyPontuacoes } = require("../../src/services/me-pontuacao.service");
 
 const STUDENT_ID = "6814f12ab3f34872f7558f41";
@@ -60,9 +69,17 @@ describe("me-pontuacao.service MR-94", () => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno", status: "ativo" });
     mockPontuacaoFind([]);
+    planoEstudoService.getChecklistSummaryFromFilters.mockResolvedValue({ totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] });
   });
 
   it("retorna total, pontos por pilar e histórico usando apenas envios aprovados", async () => {
+    planoEstudoService.getChecklistSummaryFromFilters.mockResolvedValue({
+      totalPontos: 2,
+      totalTarefas: 2,
+      tarefasConcluidas: 2,
+      diasComCheck: 4,
+      semanas: [],
+    });
     mockPontuacaoFind([
       createPontuacao({
         id: "6814f12ab3f34872f7558f45",
@@ -90,9 +107,10 @@ describe("me-pontuacao.service MR-94", () => {
     const result = await getMyPontuacoes(STUDENT_ID);
 
     expect(Pontuacao.find).toHaveBeenCalledWith({ aluno: STUDENT_ID });
-    expect(result.totalPontos).toBe(30);
+    expect(result.totalPontos).toBe(32);
     expect(result.desafiosAprovados).toBe(2);
     expect(result.historico).toHaveLength(2);
+    expect(result.checklistPlanejamento).toMatchObject({ totalPontos: 2 });
     expect(result.pontosPorPilar).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ pilar: expect.objectContaining({ id: PILAR_1_ID }), pontos: 10, desafiosAprovados: 1 }),

@@ -19,11 +19,25 @@ jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../src/services/plano-estudo.service", () => {
+  const actual = jest.requireActual("../../src/services/plano-estudo.service");
+  return {
+    ...actual,
+    getChecklistSummaryByStudentContext: jest.fn(),
+  };
+});
+
+jest.mock("../../src/services/cupom.service", () => ({
+  getStudentCouponSummary: jest.fn(),
+}));
+
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const Desafio = require("../../src/models/desafio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
+const { getStudentCouponSummary } = require("../../src/services/cupom.service");
+const planoEstudoService = require("../../src/services/plano-estudo.service");
 const { getMyDashboard } = require("../../src/services/me-dashboard.service");
 
 const STUDENT_ID = "6814f12ab3f34872f7558f41";
@@ -68,16 +82,42 @@ describe("me-dashboard.service MR-95", () => {
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno", status: "ativo" });
     Desafio.countDocuments.mockResolvedValue(2);
     mockFindChain(Turma, [{ _id: TURMA_ID }]);
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [],
+      summaryByStudent: new Map(),
+      studentsById: new Map(),
+    });
+    getStudentCouponSummary.mockResolvedValue({
+      totalCupons: 3,
+      cuponsValidados: 1,
+      cuponsPendentes: 2,
+      ultimoConquistadoEm: "2026-01-20T00:00:00.000Z",
+      ultimaValidacaoEm: "2026-01-21T00:00:00.000Z",
+      itens: [],
+    });
   });
 
   it("retorna métricas consolidadas do aluno sem exigir cálculo na Web", async () => {
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [
+        {
+          _id: "plan-1",
+          aluno: { _id: STUDENT_ID, turmas: [{ _id: TURMA_ID }] },
+          plannedDateKey: "2026-01-20",
+          scoreWindowStartKey: "2026-01-20",
+          completedAt: new Date("2026-01-20T12:00:00.000Z"),
+        },
+      ],
+      summaryByStudent: new Map(),
+      studentsById: new Map([[STUDENT_ID, { _id: STUDENT_ID, turmas: [{ _id: TURMA_ID }] }]]),
+    });
     mockFindChain(Pontuacao, [
       createPontuacao({ pontos: 30 }),
       createPontuacao({ pontos: 100, status: "pendente", envioId: "6814f12ab3f34872f7558f48" }),
     ]);
     mockFindChain(Pontuacao, [
       createPontuacao({ pontos: 30 }),
-      createPontuacao({ alunoId: OTHER_STUDENT_ID, pontos: 50, envioId: "6814f12ab3f34872f7558f49" }),
+      createPontuacao({ alunoId: OTHER_STUDENT_ID, pontos: 30, envioId: "6814f12ab3f34872f7558f49" }),
     ]);
     mockFindChain(EnvioDesafio, [
       {
@@ -111,8 +151,9 @@ describe("me-dashboard.service MR-95", () => {
 
     const result = await getMyDashboard(STUDENT_ID);
 
-    expect(result.totalPontos).toBe(30);
-    expect(result.ranking).toMatchObject({ posicao: 2, totalParticipantes: 2 });
+    expect(result.totalPontos).toBe(31);
+    expect(result.ranking).toMatchObject({ posicao: 1, totalParticipantes: 2 });
+    expect(result.checklistPlanejamento).toMatchObject({ totalPontos: 1 });
     expect(result.desafiosEnviados).toMatchObject({
       total: 3,
       totaisPorStatus: expect.objectContaining({ aprovado: 1, pendente: 1, ajuste: 1 }),
@@ -122,6 +163,12 @@ describe("me-dashboard.service MR-95", () => {
     expect(result.pendencias).toBe(1);
     expect(result.evolucaoPorCategoria).toEqual(result.pontosPorPilar);
     expect(result.ultimosEnvios).toHaveLength(3);
+    expect(result.cupons).toMatchObject({
+      totalCupons: 3,
+      cuponsValidados: 1,
+      cuponsPendentes: 2,
+    });
+    expect(getStudentCouponSummary).toHaveBeenCalledWith(STUDENT_ID, { sync: true, populateValidationSource: true });
   });
 
   it("bloqueia dashboard do aluno para outros perfis", async () => {

@@ -87,6 +87,8 @@ function serializeDesafio(desafio) {
     pontos: points,
     livePresentationPoints: Number(desafio.livePresentationPoints || 0),
     pontosApresentacaoAoVivo: Number(desafio.livePresentationPoints || 0),
+    certificatePosted: desafio.certificatePosted === true,
+    certificadoPostado: desafio.certificatePosted === true,
     type: desafio.type,
     maxParticipantes: desafio.maxParticipantes,
     recorrencia: desafio.recorrencia,
@@ -391,6 +393,11 @@ async function createDesafio(authenticatedUserId, payload = {}) {
       ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
       "pontosApresentacaoAoVivo"
     ),
+    certificatePosted: parseBoolean(
+      getFirstValue(payload, ["certificatePosted", "certificadoPostado", "certificado_postado"]),
+      "certificatePosted",
+      false
+    ),
     type,
     maxParticipantes: parseMaxParticipantes(payload, type),
     recorrencia: parseRecorrencia(payload),
@@ -489,6 +496,17 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
       payload,
       ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
       "pontosApresentacaoAoVivo"
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload, "certificatePosted") ||
+    Object.prototype.hasOwnProperty.call(payload, "certificadoPostado") ||
+    Object.prototype.hasOwnProperty.call(payload, "certificado_postado")
+  ) {
+    updates.certificatePosted = parseBoolean(
+      getFirstValue(payload, ["certificatePosted", "certificadoPostado", "certificado_postado"]),
+      "certificatePosted",
+      false
     );
   }
   if (payload.maxParticipantes !== undefined || payload.max_participantes !== undefined || payload.maxParticipants !== undefined) {

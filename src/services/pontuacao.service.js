@@ -5,6 +5,7 @@ const Pilar = require("../models/pilar.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
+const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("./cupom.service");
 const { isLeadershipBonusEnabled } = require("./configuration.service");
 const {
   assertObjectPayload,
@@ -346,6 +347,7 @@ async function grantExtraPoints(authenticatedUserId, payload = {}) {
       source: EXTRA_POINTS_SOURCE,
     },
   });
+  await syncCouponsForStudents([alunoId], { occurredAt: pontuacao.createdAt || new Date() });
 
   return {
     pontuacao: serializeExtraPontuacao(pontuacao, aluno, pilar, reviewer),
@@ -467,6 +469,14 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
   if (pontuacoesToCreate.length > 0) {
     await Pontuacao.create(pontuacoesToCreate);
     await logPontuacoesGeradas(envio, desafio, pontuacoesToCreate);
+  }
+  await syncCouponsForStudents(alunos, { occurredAt: envio.approvedAt || envio.evaluatedAt || new Date() });
+  if (desafio && desafio.certificatePosted === true) {
+    await validatePendingCouponsForStudents(alunos, {
+      desafioId,
+      envioId,
+      validatedAt: envio.approvedAt || envio.evaluatedAt || new Date(),
+    });
   }
   return {
     pontos: pontosTotais,

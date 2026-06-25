@@ -10,9 +10,18 @@ jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../src/services/plano-estudo.service", () => {
+  const actual = jest.requireActual("../../src/services/plano-estudo.service");
+  return {
+    ...actual,
+    getChecklistSummaryByStudentContext: jest.fn(),
+  };
+});
+
 const Pontuacao = require("../../src/models/pontuacao.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
+const planoEstudoService = require("../../src/services/plano-estudo.service");
 const { getFilteredRanking } = require("../../src/services/ranking.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
@@ -83,9 +92,37 @@ describe("ranking.service MR-94", () => {
     mockPontuacaoFind([]);
     mockTurmaFind([]);
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [],
+      summaryByStudent: new Map(),
+      studentsById: new Map(),
+    });
   });
 
   it("retorna ranking geral ordenado pela soma de pontos aprovados", async () => {
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [
+        {
+          _id: "plan-1",
+          aluno: { _id: ALUNO_A_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", turmas: [] },
+          plannedDateKey: "2026-01-20",
+          scoreWindowStartKey: "2026-01-20",
+          completedAt: new Date("2026-01-20T12:00:00.000Z"),
+        },
+        {
+          _id: "plan-2",
+          aluno: { _id: "6814f12ab3f34872f7558f66", name: "Carla", email: "carla@email.com", role: "aluno", status: "ativo", turmas: [] },
+          plannedDateKey: "2026-01-21",
+          scoreWindowStartKey: "2026-01-21",
+          completedAt: new Date("2026-01-21T12:00:00.000Z"),
+        },
+      ],
+      summaryByStudent: new Map(),
+      studentsById: new Map([
+        [ALUNO_A_ID, { _id: ALUNO_A_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", turmas: [] }],
+        ["6814f12ab3f34872f7558f66", { _id: "6814f12ab3f34872f7558f66", name: "Carla", email: "carla@email.com", role: "aluno", status: "ativo", turmas: [] }],
+      ]),
+    });
     mockPontuacaoFind([
       createPontuacao({
         id: "6814f12ab3f34872f7558f48",
@@ -116,10 +153,11 @@ describe("ranking.service MR-94", () => {
 
     const result = await getFilteredRanking(ADMIN_ID);
 
-    expect(result.totalParticipantes).toBe(2);
+    expect(result.totalParticipantes).toBe(3);
     expect(result.ranking.map((row) => [row.posicao, row.aluno.id, row.totalPontos])).toEqual([
       [1, ALUNO_B_ID, 30],
-      [2, ALUNO_A_ID, 10],
+      [2, ALUNO_A_ID, 11],
+      [3, "6814f12ab3f34872f7558f66", 1],
     ]);
   });
 

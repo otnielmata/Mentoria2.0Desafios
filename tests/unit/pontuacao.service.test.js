@@ -28,12 +28,18 @@ jest.mock("../../src/services/audit.service", () => ({
   logDomainEvent: jest.fn(),
 }));
 
+jest.mock("../../src/services/cupom.service", () => ({
+  syncCouponsForStudents: jest.fn(),
+  validatePendingCouponsForStudents: jest.fn(),
+}));
+
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Pilar = require("../../src/models/pilar.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
+const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("../../src/services/cupom.service");
 const {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
@@ -66,6 +72,8 @@ describe("pontuacao.service MR-94", () => {
       Promise.resolve(id === OWNER_ID ? { _id: OWNER_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" } : { _id: id, role: "professor" })
     );
     Pilar.findById.mockResolvedValue({ _id: PILAR_ID, name: "Prática", status: "ativo" });
+    syncCouponsForStudents.mockResolvedValue(new Map());
+    validatePendingCouponsForStudents.mockResolvedValue(new Map());
   });
 
   it("não gera pontuação para envio pendente, reprovado ou em ajuste", async () => {
@@ -117,6 +125,10 @@ describe("pontuacao.service MR-94", () => {
         metadata: expect.objectContaining({ pontos: 30, motivo: "desafio_dificil" }),
       })
     );
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID], {
+      occurredAt: expect.any(Date),
+    });
+    expect(validatePendingCouponsForStudents).not.toHaveBeenCalled();
   });
 
   it("gera pontuação para responsável e participantes válidos do grupo sem duplicar aluno", async () => {
@@ -145,6 +157,9 @@ describe("pontuacao.service MR-94", () => {
       ignoradas: 0,
       alunos: [OWNER_ID, PARTICIPANT_ID, LEGACY_PARTICIPANT_ID],
       bonusLiderancaAplicado: false,
+    });
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID, PARTICIPANT_ID, LEGACY_PARTICIPANT_ID], {
+      occurredAt: expect.any(Date),
     });
   });
 
@@ -180,6 +195,9 @@ describe("pontuacao.service MR-94", () => {
       geradas: 1,
       alunos: [OWNER_ID],
     });
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID], {
+      occurredAt: expect.any(Date),
+    });
   });
 
   it("soma bônus de apresentação ao vivo para todos os participantes aprovados", async () => {
@@ -208,6 +226,9 @@ describe("pontuacao.service MR-94", () => {
       bonusApresentacaoAoVivo: 10,
       geradas: 2,
       alunos: [OWNER_ID, PARTICIPANT_ID],
+    });
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID, PARTICIPANT_ID], {
+      occurredAt: expect.any(Date),
     });
   });
 
@@ -257,6 +278,27 @@ describe("pontuacao.service MR-94", () => {
         metadata: expect.objectContaining({ pilar: PILAR_ID, pontos: 12 }),
       })
     );
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID], {
+      occurredAt: "2026-01-20T10:00:00.000Z",
+    });
+  });
+
+  it("valida cupons pendentes quando o desafio aprovado exige certificado postado", async () => {
+    const approvedAt = new Date("2026-01-25T14:30:00.000Z");
+
+    await generatePontuacoesForApprovedEnvio(
+      { _id: ENVIO_ID, aluno: OWNER_ID, status: "aprovado", type: "individual", approvedAt },
+      { _id: DESAFIO_ID, points: 30, difficulty: "dificil", certificatePosted: true }
+    );
+
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID], {
+      occurredAt: approvedAt,
+    });
+    expect(validatePendingCouponsForStudents).toHaveBeenCalledWith([OWNER_ID], {
+      desafioId: DESAFIO_ID,
+      envioId: ENVIO_ID,
+      validatedAt: approvedAt,
+    });
   });
 
   it("bloqueia nova pontuação quando a mesma evidência já pontuou o aluno no desafio", async () => {

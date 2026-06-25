@@ -25,11 +25,17 @@ jest.mock("../../src/services/audit.service", () => ({
   logDomainEvent: jest.fn(),
 }));
 
+jest.mock("../../src/services/cupom.service", () => ({
+  syncCouponsForStudents: jest.fn(),
+  validatePendingCouponsForStudents: jest.fn(),
+}));
+
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
+const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("../../src/services/cupom.service");
 const { evaluateEnvio, listPending } = require("../../src/services/admin-envio-desafio.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
@@ -53,6 +59,8 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       lean: jest.fn().mockResolvedValue([]),
     });
     Pontuacao.create.mockResolvedValue([]);
+    syncCouponsForStudents.mockResolvedValue(new Map());
+    validatePendingCouponsForStudents.mockResolvedValue(new Map());
   });
 
   it("gera pontuação para responsável e participantes ativos da coleção ParticipanteEnvio", async () => {
@@ -86,6 +94,9 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       ignoradas: 0,
       alunos: [OWNER_ID, PARTICIPANT_ID],
       bonusLiderancaAplicado: false,
+    });
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID, PARTICIPANT_ID], {
+      occurredAt: expect.any(Date),
     });
     expect(logDomainEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -178,6 +189,9 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       geradas: 2,
       alunos: [OWNER_ID, PARTICIPANT_ID],
     });
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID, PARTICIPANT_ID], {
+      occurredAt: expect.any(Date),
+    });
     expect(result.envio.avaliacao).toMatchObject({ apresentacaoAoVivo: true });
   });
 
@@ -208,6 +222,9 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       pontos: 20,
       geradas: 2,
       alunos: [OWNER_ID, PARTICIPANT_ID],
+    });
+    expect(syncCouponsForStudents).toHaveBeenCalledWith([OWNER_ID, PARTICIPANT_ID], {
+      occurredAt: expect.any(Date),
     });
     expect(result.pontuacao).not.toHaveProperty("bonusApresentacaoAoVivo");
     expect(result.envio.avaliacao).toMatchObject({ apresentacaoAoVivo: false });

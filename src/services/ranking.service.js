@@ -5,6 +5,7 @@ require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { buildChecklistSummaryByStudent, getChecklistSummaryByStudentContext } = require("./plano-estudo.service");
 
 const APPROVED_STATUS = "aprovado";
 const EXTRA_POINTS_SOURCE = "pontuacao_extra";
@@ -395,6 +396,44 @@ function serializeScope(scope) {
   };
 }
 
+function itemMatchesScope(item, scope) {
+  if (scope.allowedTurmaIds === null) {
+    return true;
+  }
+
+  const turmas = Array.isArray(item && item.aluno && item.aluno.turmas) ? item.aluno.turmas : [];
+  return turmas.some((turma) => scope.allowedTurmaIds.includes(getEntityId(turma)));
+}
+
+function mergeChecklistPointsIntoRankingRows(rows, checklistSummaryByStudent, studentsById) {
+  const rowsByStudent = new Map();
+
+  (rows || []).forEach((row) => {
+    const studentId = getEntityId(row.aluno);
+    const checklistPoints = Number((checklistSummaryByStudent.get(studentId) || {}).totalPontos || 0);
+    rowsByStudent.set(studentId, {
+      ...row,
+      totalPontos: Number(row.totalPontos || 0) + checklistPoints,
+    });
+  });
+
+  checklistSummaryByStudent.forEach((summary, studentId) => {
+    const checklistPoints = Number((summary || {}).totalPontos || 0);
+    if (checklistPoints <= 0 || rowsByStudent.has(studentId)) return;
+
+    const student = studentsById.get(studentId);
+    if (!student) return;
+
+    rowsByStudent.set(studentId, {
+      aluno: serializeAluno(student),
+      totalPontos: checklistPoints,
+      desafiosAprovados: 0,
+    });
+  });
+
+  return Array.from(rowsByStudent.values());
+}
+
 async function getFilteredRanking(authenticatedUserId, query = {}) {
   const authenticatedUser = await getAuthenticatedUser(authenticatedUserId);
   const filters = parseFilters(query);
@@ -410,12 +449,24 @@ async function getFilteredRanking(authenticatedUserId, query = {}) {
     };
   }
 
-  const pontuacoes = await findPontuacoes(filters);
+  const shouldIncludeChecklist = !filters.pilarId && !filters.type;
+  const [pontuacoes, checklistContext] = await Promise.all([
+    findPontuacoes(filters),
+    shouldIncludeChecklist ? getChecklistSummaryByStudentContext({ startDate: filters.startDate, endDate: filters.endDate, populateAluno: true }) : null,
+  ]);
   const filteredPontuacoes = (pontuacoes || [])
     .filter(isValidApprovedPontuacao)
     .filter((pontuacao) => matchesScope(pontuacao, scope))
     .filter((pontuacao) => matchesFilters(pontuacao, filters));
-  const rows = buildRankingRows(filteredPontuacoes).filter((row) => {
+  const planningItemsInScope = shouldIncludeChecklist
+    ? (checklistContext.items || []).filter((item) => itemMatchesScope(item, scope))
+    : [];
+  const checklistSummaryByStudent = shouldIncludeChecklist ? buildChecklistSummaryByStudent(planningItemsInScope) : new Map();
+  const rows = mergeChecklistPointsIntoRankingRows(
+    buildRankingRows(filteredPontuacoes),
+    checklistSummaryByStudent,
+    (shouldIncludeChecklist && checklistContext.studentsById) || new Map()
+  ).filter((row) => {
     if (!shouldHideInactiveStudents()) return true;
     return normalizeText(row.aluno.status) === "ativo";
   });

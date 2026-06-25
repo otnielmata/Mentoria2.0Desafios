@@ -7,12 +7,15 @@ const routeModules = [
   { base: "", router: require("../../src/routes/admin-pontuacao.routes") },
   { base: "", router: require("../../src/routes/admin-relatorio-participacao.routes") },
   { base: "", router: require("../../src/routes/auditoria.routes") },
+  { base: "", router: require("../../src/routes/cupom.routes") },
   { base: "", router: require("../../src/routes/desafio.routes") },
   { base: "", router: require("../../src/routes/envio-desafio.routes") },
+  { base: "", router: require("../../src/routes/evento-ao-vivo.routes") },
   { base: "", router: require("../../src/routes/grupo.routes") },
   { base: "", router: require("../../src/routes/me-dashboard.routes") },
   { base: "", router: require("../../src/routes/me-pontuacao.routes") },
   { base: "", router: require("../../src/routes/pilar.routes") },
+  { base: "", router: require("../../src/routes/plano-estudo.routes") },
   { base: "", router: require("../../src/routes/ranking.routes") },
   { base: "", router: require("../../src/routes/student.routes") },
   { base: "", router: require("../../src/routes/turma.routes") },
@@ -52,11 +55,15 @@ const webContractRouteKeys = [
   "GET /pontuacoes/minha",
   "GET /dashboard/aluno",
   "GET /dashboard/admin",
+  "POST /cupons/distribuicao/numeros-sorte",
+  "GET /cupons/alunos",
+  "GET /cupons/numeros-sorte",
   "GET /ranking",
   "GET /ranking/admin",
   "GET /relatorios/participacao",
   "GET /relatorios/alunos/pilares",
   "GET /relatorios/grupos-desafios",
+  "GET /relatorios/cupons-sorte",
   "GET /auditorias",
   "GET /configuracoes",
 ];
@@ -95,6 +102,7 @@ describe("api route contract MR-91", () => {
     expect(source).toContain("router.use(adminDashboardRoutes)");
     expect(source).toContain("router.use(adminEnvioDesafioRoutes)");
     expect(source).toContain("router.use(adminPontuacaoRoutes)");
+    expect(source).toContain("router.use(cupomRoutes)");
     expect(source).toContain("router.use(meDashboardRoutes)");
     expect(source).toContain("router.use(mePontuacaoRoutes)");
     expect(source).toContain("router.use(rankingRoutes)");
@@ -141,10 +149,14 @@ describe("api route contract MR-91", () => {
       "POST /pontuacoes/extras",
       "GET /grupos",
       "GET /dashboard/admin",
+      "POST /cupons/distribuicao/numeros-sorte",
+      "GET /cupons/alunos",
+      "GET /cupons/numeros-sorte",
       "GET /ranking/admin",
       "GET /relatorios/participacao",
       "GET /relatorios/alunos/pilares",
       "GET /relatorios/grupos-desafios",
+      "GET /relatorios/cupons-sorte",
       "GET /auditorias",
       "GET /configuracoes",
     ];
@@ -178,11 +190,15 @@ describe("api route contract MR-91", () => {
       "/api/pontuacoes/minha",
       "/api/dashboard/aluno",
       "/api/dashboard/admin",
+      "/api/cupons/distribuicao/numeros-sorte",
+      "/api/cupons/alunos",
+      "/api/cupons/numeros-sorte",
       "/api/ranking",
       "/api/ranking/admin",
       "/api/relatorios/participacao",
       "/api/relatorios/alunos/pilares",
       "/api/relatorios/grupos-desafios",
+      "/api/relatorios/cupons-sorte",
       "/api/pontuacoes/extras",
       "/api/auditorias",
       "/api/configuracoes",

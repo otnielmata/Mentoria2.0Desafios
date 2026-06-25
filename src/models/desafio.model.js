@@ -21,6 +21,7 @@ const desafioSchema = new mongoose.Schema(
     },
     points: { type: Number, required: true, min: 1 },
     livePresentationPoints: { type: Number, default: 0, min: 0 },
+    certificatePosted: { type: Boolean, default: false, index: true },
     type: {
       type: String,
       required: true,

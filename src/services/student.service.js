@@ -4,6 +4,7 @@ const AlunoTurma = require("../models/aluno-turma.model");
 const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { getChecklistSummaryFromFilters } = require("./plano-estudo.service");
 const {
   buildPagination,
   createHttpError,
@@ -397,12 +398,12 @@ async function listStudents(authenticatedUserId, query = {}) {
 }
 
 async function getPontuacaoResumo(studentId) {
-  const pontuacoes = await Pontuacao.find({ aluno: studentId }).lean();
+  const [pontuacoes, checklistSummary] = await Promise.all([Pontuacao.find({ aluno: studentId }).lean(), getChecklistSummaryFromFilters({ alunoId: studentId })]);
   const totalPontos = (pontuacoes || []).reduce((total, pontuacao) => total + Number(pontuacao.pontos || 0), 0);
   const desafiosAprovados = new Set((pontuacoes || []).map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean)).size;
 
   return {
-    totalPontos,
+    totalPontos: totalPontos + Number((checklistSummary && checklistSummary.totalPontos) || 0),
     desafiosAprovados,
   };
 }

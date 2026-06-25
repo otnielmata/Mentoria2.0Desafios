@@ -16,10 +16,24 @@ jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../src/services/plano-estudo.service", () => {
+  const actual = jest.requireActual("../../src/services/plano-estudo.service");
+  return {
+    ...actual,
+    getChecklistSummaryByStudentContext: jest.fn(),
+  };
+});
+
+jest.mock("../../src/services/cupom.service", () => ({
+  getCouponOverview: jest.fn(),
+}));
+
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const Desafio = require("../../src/models/desafio.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
+const { getCouponOverview } = require("../../src/services/cupom.service");
+const planoEstudoService = require("../../src/services/plano-estudo.service");
 const { getAdminDashboard } = require("../../src/services/admin-dashboard.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
@@ -54,9 +68,39 @@ describe("admin-dashboard.service MR-95", () => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
     Desafio.countDocuments.mockResolvedValue(2);
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [],
+      summaryByStudent: new Map(),
+      studentsById: new Map(),
+    });
+    getCouponOverview.mockResolvedValue({
+      totalCupons: 7,
+      cuponsValidados: 5,
+      cuponsPendentes: 2,
+    });
   });
 
   it("retorna pendências, ranking, alunos ativos e métricas de participação sem segredos", async () => {
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [
+        {
+          _id: "plan-1",
+          aluno: { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" },
+          plannedDateKey: "2026-01-20",
+          scoreWindowStartKey: "2026-01-20",
+          completedAt: new Date("2026-01-20T12:00:00.000Z"),
+        },
+      ],
+      summaryByStudent: new Map([
+        [
+          ALUNO_1_ID,
+          {
+            totalPontos: 1,
+          },
+        ],
+      ]),
+      studentsById: new Map([[ALUNO_1_ID, { _id: ALUNO_1_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" }]]),
+    });
     mockFindChain(User, [
       { _id: ALUNO_1_ID, name: "Ana", role: "aluno", status: "ativo", password: "secret" },
       { _id: ALUNO_2_ID, name: "Bruno", role: "aluno", status: "ativo", password: "secret" },
@@ -93,12 +137,18 @@ describe("admin-dashboard.service MR-95", () => {
       quantidadeDesafios: 2,
       desafiosAtivos: 2,
       aprovacoesPendentes: 1,
+      cuponsGerados: 7,
     });
     expect(result.topRanking.map((row) => [row.aluno.id, row.totalPontos])).toEqual([
       [ALUNO_2_ID, 50],
-      [ALUNO_1_ID, 20],
+      [ALUNO_1_ID, 21],
     ]);
     expect(result.metricasParticipacao).toEqual(result.engajamento);
+    expect(result.cupons).toMatchObject({
+      totalCupons: 7,
+      cuponsValidados: 5,
+      cuponsPendentes: 2,
+    });
     expect(result.desafiosPorPilar).toEqual([
       expect.objectContaining({
         quantidade: 2,
@@ -114,6 +164,7 @@ describe("admin-dashboard.service MR-95", () => {
     });
     expect(JSON.stringify(result)).not.toContain("secret");
     expect(JSON.stringify(result)).not.toContain("password");
+    expect(getCouponOverview).toHaveBeenCalledWith({ sync: true });
   });
 
   it("bloqueia dashboard administrativo para perfil sem permissão", async () => {

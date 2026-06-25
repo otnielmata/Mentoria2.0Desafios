@@ -10,6 +10,10 @@ jest.mock("../../src/models/pontuacao.model", () => ({
   find: jest.fn(),
 }));
 
+jest.mock("../../src/models/plano-estudo-item.model", () => ({
+  find: jest.fn(),
+}));
+
 jest.mock("../../src/models/user.model", () => ({
   find: jest.fn(),
   findById: jest.fn(),
@@ -17,6 +21,7 @@ jest.mock("../../src/models/user.model", () => ({
 
 const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const GrupoDesafio = require("../../src/models/grupo-desafio.model");
+const PlanoEstudoItem = require("../../src/models/plano-estudo-item.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
 const { getChallengeGroupsReport, getParticipationReport, getStudentPillarReport } = require("../../src/services/admin-relatorio-participacao.service");
@@ -175,6 +180,26 @@ describe("admin-relatorio-participacao.service MR-95", () => {
         createdAt: new Date("2026-01-21T10:00:00.000Z"),
       },
     ]);
+    mockFindChain(PlanoEstudoItem, [
+      {
+        _id: "6814f12ab3f34872f7558f4d",
+        aluno: ALUNO_1_ID,
+        startAt: new Date("2026-01-20T19:00:00.000Z"),
+        plannedDateKey: "2026-01-20",
+        scoreWindowStartKey: "2026-01-20",
+        completedAt: new Date("2026-01-20T20:30:00.000Z"),
+        status: "ativo",
+      },
+      {
+        _id: "6814f12ab3f34872f7558f4e",
+        aluno: ALUNO_1_ID,
+        startAt: new Date("2026-01-21T19:00:00.000Z"),
+        plannedDateKey: "2026-01-21",
+        scoreWindowStartKey: "2026-01-20",
+        completedAt: new Date("2026-01-21T20:30:00.000Z"),
+        status: "ativo",
+      },
+    ]);
 
     const result = await getStudentPillarReport(ADMIN_ID, { search: "Ana", page: "1", limit: "10" });
 
@@ -182,7 +207,21 @@ describe("admin-relatorio-participacao.service MR-95", () => {
     expect(result.alunos).toEqual([
       expect.objectContaining({
         aluno: expect.objectContaining({ id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" }),
-        totalPontos: 40,
+        totalPontos: 41,
+        checklistPlanejamento: expect.objectContaining({
+          totalPontos: 1,
+          totalTarefas: 2,
+          tarefasConcluidas: 2,
+          diasComCheck: 2,
+          semanas: [
+            expect.objectContaining({
+              inicio: "2026-01-20",
+              fim: "2026-01-26",
+              diasComCheck: 2,
+              pontos: 1,
+            }),
+          ],
+        }),
         pontosPorPilar: [
           expect.objectContaining({
             pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }),

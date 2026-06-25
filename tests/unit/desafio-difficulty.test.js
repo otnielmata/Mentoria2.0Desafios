@@ -17,7 +17,7 @@ jest.mock("../../src/models/user.model", () => ({
 const Desafio = require("../../src/models/desafio.model");
 const Pilar = require("../../src/models/pilar.model");
 const User = require("../../src/models/user.model");
-const { createDesafio, disableDesafio, listDesafios } = require("../../src/services/desafio.service");
+const { createDesafio, disableDesafio, listDesafios, updateDesafio } = require("../../src/services/desafio.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const PILAR_ID = "6814f12ab3f34872f7558f41";
@@ -161,6 +161,53 @@ describe("desafio.service difficulty", () => {
     );
     expect(desafio.livePresentationPoints).toBe(15);
     expect(desafio.pontosApresentacaoAoVivo).toBe(15);
+  });
+
+  it("permite marcar certificado postado no cadastro e na edição do desafio", async () => {
+    const created = await createDesafio(ADMIN_ID, {
+      pilarId: PILAR_ID,
+      title: "Desafio com certificado",
+      description: "Valida cupons ao aprovar o envio.",
+      points: 20,
+      type: "individual",
+      certificatePosted: true,
+    });
+
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        certificatePosted: true,
+      })
+    );
+    expect(created.certificatePosted).toBe(true);
+    expect(created.certificadoPostado).toBe(true);
+
+    const lean = jest.fn().mockResolvedValue({
+      _id: "6814f12ab3f34872f7558f70",
+      pilar: { _id: PILAR_ID, name: "Prática", status: "ativo" },
+      title: "Desafio com certificado",
+      description: "Valida cupons ao aprovar o envio.",
+      points: 20,
+      type: "individual",
+      maxParticipantes: 1,
+      status: "ativo",
+      certificatePosted: true,
+    });
+    const populate = jest.fn(() => ({ lean }));
+    Desafio.findByIdAndUpdate.mockReturnValue({ populate });
+
+    const updated = await updateDesafio(ADMIN_ID, "6814f12ab3f34872f7558f70", {
+      certificatePosted: true,
+    });
+
+    expect(Desafio.findByIdAndUpdate).toHaveBeenCalledWith(
+      "6814f12ab3f34872f7558f70",
+      expect.objectContaining({
+        certificatePosted: true,
+      }),
+      { new: true }
+    );
+    expect(updated.certificatePosted).toBe(true);
+    expect(updated.certificadoPostado).toBe(true);
   });
 
   it("cadastra desafio recorrente com limite de pontos por período", async () => {

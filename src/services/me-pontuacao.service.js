@@ -5,6 +5,7 @@ require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
+const { getChecklistSummaryFromFilters } = require("./plano-estudo.service");
 
 const STUDENT_ROLE = "aluno";
 const APPROVED_STATUS = "aprovado";
@@ -381,17 +382,22 @@ async function getMyPontuacoes(authenticatedUserId, query = {}) {
   await getAuthenticatedStudent(authenticatedUserId);
 
   const filters = parseFilters(query);
-  const pontuacoes = await findPontuacoes(authenticatedUserId, filters);
+  const [pontuacoes, checklistSummary] = await Promise.all([
+    findPontuacoes(authenticatedUserId, filters),
+    filters.pilarId ? null : getChecklistSummaryFromFilters({ alunoId: authenticatedUserId, startDate: filters.dataInicio, endDate: filters.dataFim }),
+  ]);
   const validPontuacoes = (pontuacoes || [])
     .filter(isValidApprovedPontuacao)
     .filter((pontuacao) => matchesFilters(pontuacao, filters));
   const approvedEnvioIds = new Set(validPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
+  const checklistPlanejamento = checklistSummary || { totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] };
 
   return {
-    totalPontos: validPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos), 0),
+    totalPontos: validPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos), 0) + Number(checklistPlanejamento.totalPontos || 0),
     desafiosAprovados: approvedEnvioIds.size,
     pontosPorPilar: buildPontosPorPilar(validPontuacoes),
     historico: validPontuacoes.map(serializeHistoricoItem),
+    checklistPlanejamento,
     filtros: serializeFilters(filters),
   };
 }

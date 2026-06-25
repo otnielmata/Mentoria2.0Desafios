@@ -93,6 +93,8 @@ npm install
 - `GET /api/admin/relatorios/baixa-participacao`
 - `GET /api/auditorias` e `GET /api/admin/auditorias`
 - `GET /api/configuracoes`
+- `GET /api/eventos-ao-vivo`, `POST /api/eventos-ao-vivo`, `GET /api/eventos-ao-vivo/:id`, `PATCH /api/eventos-ao-vivo/:id` e `DELETE /api/eventos-ao-vivo/:id` (admin)
+- `GET /api/plano-estudo/agenda`, `GET /api/plano-estudo/itens`, `POST /api/plano-estudo/itens`, `PATCH /api/plano-estudo/itens/:id` e `DELETE /api/plano-estudo/itens/:id` (aluno)
 - `GET /api/docs` (Swagger UI)
 
 Rotas administrativas exigem JWT válido e perfil `professor` ou `admin`. Rotas do aluno exigem JWT válido e perfil `aluno`; a API continua sendo a autoridade final de autorização, mesmo quando a Web filtra menus visualmente.
@@ -101,7 +103,9 @@ Rotas administrativas exigem JWT válido e perfil `professor` ou `admin`. Rotas 
 
 A tela inicial da Web permite login ou inscrição pública como aluno. A inscrição pública usa `POST /api/auth/register`, não oferece seleção de perfil e cria o usuário sempre com perfil `aluno` e status `ativo`. Professor só deve ser definido em fluxo administrativo.
 
-O menu do aluno exibe `Início`, `Calendário`, `Desafios`, `Meus Grupos`, `Minha Pontuação` e `Meu Perfil`. No MVP, `Calendário` fica visível como funcionalidade futura; os demais itens consomem endpoints reais da API.
+O menu do aluno exibe `Início`, `Plano de Estudo`, `Desafios`, `Meus Grupos`, `Minha Pontuação` e `Meu Perfil`. Todos os itens consomem endpoints reais da API.
+
+Em `Plano de Estudo`, o aluno visualiza uma agenda mensal no estilo calendário. Eventos cadastrados pelo administrador/professor para a turma aparecem em camadas de leitura (`ao_vivo`, `modulo_gravado`, `conteudo_especial`) e não podem ser editados pelo aluno. O aluno pode criar, editar e excluir apenas itens pessoais de planejamento na própria agenda.
 
 No `Início`, a Web exibe nome do aluno, posição no ranking, pontuação total, quantidade de desafios ativos e gráfico de pizza com a distribuição percentual de desafios aprovados por pilar do Método do Alavanque, usando `GET /api/dashboard/aluno`.
 
@@ -113,7 +117,9 @@ Em `Meus Grupos`, o aluno vê os integrantes do grupo automático e qualquer par
 
 ## Fluxo Web do professor/admin
 
-O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Aprovações`, `Grupos`, `Ranking`, `Relatórios` e, para usuários com perfil `admin`, `Configurações`.
+O menu administrativo exibe `Dashboard`, `Alunos`, `Turmas`, `Pilares`, `Desafios`, `Plano de Estudo`, `Aprovações`, `Grupos`, `Ranking`, `Relatórios` e, para usuários com perfil `admin`, `Configurações`.
+
+Em `Plano de Estudo`, professor/admin cadastra a agenda oficial da mentoria por turma: aulas ao vivo, liberação de módulos gravados e conteúdos com convidado especial. A tela usa visão mensal semelhante a um calendário e permite filtrar por turma e tipo de evento.
 
 Em `Alunos`, professor/admin pode cadastrar alunos, importar alunos em lote por CSV, editar nome, e-mail, senha, status, turma e a marcação se o aluno entrou no Discord. A lista exibe 10 registros por página, permite filtrar por parte do nome, editar e excluir o aluno por soft delete. A inscrição pública continua criando apenas usuários com perfil `aluno`; perfis de professor devem ser administrados fora desse cadastro público.
 
@@ -208,6 +214,8 @@ As respostas não expõem senha, token, hash ou segredos; os serviços usam apen
 - `envios_desafios`: registros enviados pelos alunos
 - `participantes_envio`: participantes ativos/removidos de envios em grupo
 - `pontuacoes`: histórico de pontos concedidos após aprovação
+- `eventos_ao_vivo`: agenda oficial da mentoria por turma (somente leitura para alunos)
+- `plano_estudo_itens`: planejamento pessoal do aluno
 
 ## Regras consolidadas
 

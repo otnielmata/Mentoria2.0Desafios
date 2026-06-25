@@ -5,7 +5,9 @@ require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
+const { getCouponOverview } = require("./cupom.service");
 const { inactivateExpiredChallenges } = require("./desafio-prazo.service");
+const { getChecklistSummaryByStudentContext } = require("./plano-estudo.service");
 
 const ALLOWED_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
@@ -238,6 +240,35 @@ function buildStudentRanking(pontuacoes) {
     });
 }
 
+function mergeChecklistPointsIntoStudentRanking(rows, checklistSummaryByStudent, studentsById) {
+  const rowsByStudent = new Map();
+
+  (rows || []).forEach((row) => {
+    const studentId = getEntityId(row.aluno);
+    const checklistPoints = Number((checklistSummaryByStudent.get(studentId) || {}).totalPontos || 0);
+    rowsByStudent.set(studentId, {
+      ...row,
+      totalPontos: Number(row.totalPontos || 0) + checklistPoints,
+    });
+  });
+
+  checklistSummaryByStudent.forEach((summary, studentId) => {
+    const checklistPoints = Number((summary || {}).totalPontos || 0);
+    if (checklistPoints <= 0 || rowsByStudent.has(studentId)) return;
+
+    const student = studentsById.get(studentId);
+    if (!student) return;
+
+    rowsByStudent.set(studentId, {
+      aluno: serializeAluno(student),
+      totalPontos: checklistPoints,
+      desafiosAprovados: 0,
+    });
+  });
+
+  return Array.from(rowsByStudent.values());
+}
+
 function assignPositions(rankingRows) {
   let previousPoints = null;
   let previousPosition = 0;
@@ -369,12 +400,21 @@ function buildEngajamento(activeStudents, envios, approvedEnvioIds) {
 async function getAdminDashboard(authenticatedUserId) {
   await getAuthorizedReviewer(authenticatedUserId);
 
-  const [users, envios, pontuacoes, activeChallengesCount] = await Promise.all([findUsers(), findEnvios(), findPontuacoes(), countActiveDesafios()]);
+  const [users, envios, pontuacoes, activeChallengesCount, checklistContext] = await Promise.all([
+    findUsers(),
+    findEnvios(),
+    findPontuacoes(),
+    countActiveDesafios(),
+    getChecklistSummaryByStudentContext({ populateAluno: true }),
+  ]);
   const activeStudents = (users || []).filter(isActiveStudent);
+  const cupons = await getCouponOverview({ sync: true });
   const approvedPontuacoes = (pontuacoes || []).filter(isApprovedPontuacao);
   const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
   const pendingApprovals = (envios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS);
-  const ranking = assignPositions(buildStudentRanking(approvedPontuacoes));
+  const ranking = assignPositions(
+    mergeChecklistPointsIntoStudentRanking(buildStudentRanking(approvedPontuacoes), checklistContext.summaryByStudent || new Map(), checklistContext.studentsById || new Map())
+  );
   const rankingPorPilar = buildRankingPorPilar(approvedPontuacoes);
   const engajamento = buildEngajamento(activeStudents, envios || [], approvedEnvioIds);
 
@@ -385,12 +425,14 @@ async function getAdminDashboard(authenticatedUserId) {
       quantidadeDesafios: activeChallengesCount,
       desafiosAtivos: activeChallengesCount,
       aprovacoesPendentes: pendingApprovals.length,
+      cuponsGerados: cupons.totalCupons,
     },
     topRanking: ranking.slice(0, TOP_RANKING_LIMIT),
     ranking: ranking.slice(0, TOP_RANKING_LIMIT),
     rankingPorTurma: buildRankingPorTurma(approvedPontuacoes),
     rankingPorPilar,
     desafiosPorPilar: buildDesafiosPorPilar(rankingPorPilar),
+    cupons,
     engajamento,
     metricasParticipacao: engajamento,
   };

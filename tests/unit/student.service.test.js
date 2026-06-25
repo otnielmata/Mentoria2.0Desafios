@@ -30,11 +30,20 @@ jest.mock("../../src/models/user.model", () => ({
   findOneAndUpdate: jest.fn(),
 }));
 
+jest.mock("../../src/services/plano-estudo.service", () => {
+  const actual = jest.requireActual("../../src/services/plano-estudo.service");
+  return {
+    ...actual,
+    getChecklistSummaryFromFilters: jest.fn(),
+  };
+});
+
 const AlunoTurma = require("../../src/models/aluno-turma.model");
 const bcrypt = require("bcryptjs");
 const Pontuacao = require("../../src/models/pontuacao.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
+const planoEstudoService = require("../../src/services/plano-estudo.service");
 const { createStudent, disableStudent, getStudent, importStudentsFromCsv, listStudents, updateStudent } = require("../../src/services/student.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
@@ -54,6 +63,7 @@ describe("student.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
+    planoEstudoService.getChecklistSummaryFromFilters.mockResolvedValue({ totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] });
   });
 
   it("cadastra aluno salvando role/status e ocultando senha/hash", async () => {
@@ -136,6 +146,7 @@ describe("student.service", () => {
   });
 
   it("retorna aluno com resumo de pontuação sem campos sensíveis", async () => {
+    planoEstudoService.getChecklistSummaryFromFilters.mockResolvedValue({ totalPontos: 2, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] });
     User.findOne.mockReturnValue({
       populate: jest.fn(() => ({
         lean: jest.fn().mockResolvedValue({ _id: STUDENT_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", turmas: [] }),
@@ -150,7 +161,7 @@ describe("student.service", () => {
 
     const result = await getStudent(ADMIN_ID, STUDENT_ID);
 
-    expect(result.pontuacao).toEqual({ totalPontos: 30, desafiosAprovados: 2 });
+    expect(result.pontuacao).toEqual({ totalPontos: 32, desafiosAprovados: 2 });
     expect(result).not.toHaveProperty("passwordHash");
   });
 

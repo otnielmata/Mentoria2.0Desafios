@@ -6,7 +6,9 @@ const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { getStudentCouponSummary } = require("./cupom.service");
 const { inactivateExpiredChallenges } = require("./desafio-prazo.service");
+const { buildChecklistSummaryByStudent, getChecklistSummaryByStudentContext } = require("./plano-estudo.service");
 
 const STUDENT_ROLE = "aluno";
 const APPROVED_STATUS = "aprovado";
@@ -369,6 +371,39 @@ function buildRankingRows(pontuacoes) {
   }));
 }
 
+function itemMatchesPlanningScope(item, scope) {
+  const turmas = Array.isArray(item && item.aluno && item.aluno.turmas) ? item.aluno.turmas : [];
+  return turmas.some((turma) => scope.turmaIds.includes(getEntityId(turma)));
+}
+
+function mergeChecklistPointsIntoRankingRows(rows, checklistSummaryByStudent, studentsById) {
+  const rowsByStudent = new Map();
+
+  (rows || []).forEach((row) => {
+    const checklistPoints = Number((checklistSummaryByStudent.get(row.alunoId) || {}).totalPontos || 0);
+    rowsByStudent.set(row.alunoId, {
+      ...row,
+      totalPontos: Number(row.totalPontos || 0) + checklistPoints,
+    });
+  });
+
+  checklistSummaryByStudent.forEach((summary, studentId) => {
+    const checklistPoints = Number((summary || {}).totalPontos || 0);
+    if (checklistPoints <= 0 || rowsByStudent.has(studentId)) return;
+
+    const student = studentsById.get(studentId);
+    if (!student) return;
+
+    rowsByStudent.set(studentId, {
+      alunoId: studentId,
+      totalPontos: checklistPoints,
+      desafiosAprovados: 0,
+    });
+  });
+
+  return Array.from(rowsByStudent.values());
+}
+
 function sortRankingRows(rows) {
   return rows.sort((first, second) => {
     if (second.totalPontos !== first.totalPontos) {
@@ -395,8 +430,8 @@ function assignPositions(rows) {
   });
 }
 
-function getStudentRankingPosition(authenticatedUserId, scopePontuacoes) {
-  const ranking = assignPositions(sortRankingRows(buildRankingRows(scopePontuacoes)));
+function getStudentRankingPosition(authenticatedUserId, scopePontuacoes, checklistSummaryByStudent = new Map(), studentsById = new Map()) {
+  const ranking = assignPositions(sortRankingRows(mergeChecklistPointsIntoRankingRows(buildRankingRows(scopePontuacoes), checklistSummaryByStudent, studentsById)));
   const studentRanking = ranking.find((item) => item.alunoId === authenticatedUserId);
 
   return {
@@ -422,6 +457,18 @@ function emptyDashboard(scope, activeChallengesCount = 0) {
     desafiosAprovados: 0,
     pendencias: 0,
     pontosPorPilar: [],
+    cupons: {
+      totalCupons: 0,
+      cuponsValidados: 0,
+      cuponsPendentes: 0,
+      cuponsComNumeroSorte: 0,
+      cuponsAguardandoNumeroSorte: 0,
+      ultimoConquistadoEm: null,
+      ultimaValidacaoEm: null,
+      ultimoNumeroSorteDistribuidoEm: null,
+      numerosDaSorte: [],
+      itens: [],
+    },
     evolucaoPorCategoria: [],
     ultimosEnvios: [],
     escopo: {
@@ -452,11 +499,16 @@ async function getMyDashboard(authenticatedUserId) {
     .filter(isApprovedPontuacao)
     .filter((pontuacao) => matchesScopeByEnvio(pontuacao, scope));
   const approvedEnvioIds = new Set(validStudentPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
-  const ranking = getStudentRankingPosition(authenticatedUserId, validScopePontuacoes);
+  const checklistContext = await getChecklistSummaryByStudentContext({ populateAluno: true });
+  const planningItemsInScope = (checklistContext.items || []).filter((item) => itemMatchesPlanningScope(item, scope));
+  const checklistSummaryByStudent = buildChecklistSummaryByStudent(planningItemsInScope);
+  const studentChecklistSummary = checklistSummaryByStudent.get(authenticatedUserId) || { totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] };
+  const cupons = await getStudentCouponSummary(authenticatedUserId, { sync: true, populateValidationSource: true });
+  const ranking = getStudentRankingPosition(authenticatedUserId, validScopePontuacoes, checklistSummaryByStudent, checklistContext.studentsById || new Map());
   const pontosPorPilar = buildPontosPorPilar(validStudentPontuacoes);
 
   return {
-    totalPontos: validStudentPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos), 0),
+    totalPontos: validStudentPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos), 0) + Number(studentChecklistSummary.totalPontos || 0),
     posicaoRanking: ranking.posicao,
     totalParticipantesRanking: ranking.totalParticipantes,
     ranking,
@@ -466,6 +518,8 @@ async function getMyDashboard(authenticatedUserId) {
     desafiosAprovados: approvedEnvioIds.size,
     pendencias: (studentEnvios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS).length,
     pontosPorPilar,
+    checklistPlanejamento: studentChecklistSummary,
+    cupons,
     evolucaoPorCategoria: pontosPorPilar,
     ultimosEnvios: (studentEnvios || []).slice(0, LAST_SUBMISSIONS_LIMIT).map(serializeEnvio),
     escopo: {

@@ -135,6 +135,8 @@ function serializeDesafio(desafio) {
     pilares,
     pontosPorPilar: pilares,
     livePresentationPoints: Number(desafio.livePresentationPoints || 0),
+    certificatePosted: desafio.certificatePosted === true,
+    certificadoPostado: desafio.certificatePosted === true,
     type: desafio.type,
     difficulty: desafio.difficulty,
     pilar: serializePilar(desafio.pilar),

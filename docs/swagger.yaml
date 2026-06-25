@@ -752,6 +752,39 @@ paths:
           description: Retorna pendências, alunos ativos, ranking, rankings por turma/pilar e métricas de participação
         "403":
           description: Perfil sem permissão
+  /api/cupons/alunos:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Lista alunos com total de cupons conquistados, pendentes e validados
+      responses:
+        "200":
+          description: Lista de cupons por aluno retornada
+        "403":
+          description: Perfil sem permissão
+  /api/cupons/numeros-sorte:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Lista global cupom por cupom dos cupons validados com seus números da sorte
+      responses:
+        "200":
+          description: Lista global dos cupons validados retornada
+        "403":
+          description: Perfil sem permissão
+  /api/cupons/distribuicao/numeros-sorte:
+    post:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Distribui os números da sorte para todos os cupons validados em ordem de data
+      responses:
+        "200":
+          description: Distribuição concluída
+        "403":
+          description: Perfil sem permissão
   /api/admin/dashboard:
     get:
       tags: [Admin]
@@ -805,6 +838,17 @@ paths:
       responses:
         "200":
           description: Retorna participação por aluno, turma, período, distribuição de pontos e baixa participação quando aplicável
+        "403":
+          description: Perfil sem permissão
+  /api/relatorios/cupons-sorte:
+    get:
+      tags: [Relatórios]
+      security:
+        - bearerAuth: []
+      summary: Lista alunos com seus números da sorte já distribuídos e cupons validados aguardando distribuição
+      responses:
+        "200":
+          description: Relatório de números da sorte retornado
         "403":
           description: Perfil sem permissão
   /api/relatorios/alunos/pilares:
@@ -992,6 +1036,101 @@ paths:
           description: Configurações retornadas em modo somente leitura
         "403":
           description: Perfil sem permissão
+  /api/eventos-ao-vivo:
+    get:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Lista eventos ao vivo da mentoria por turma e período
+      responses:
+        "200":
+          description: Eventos retornados
+    post:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Cadastra evento ao vivo, módulo gravado ou convidado especial
+      responses:
+        "201":
+          description: Evento cadastrado
+  /api/eventos-ao-vivo/:id:
+    get:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Visualiza evento ao vivo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Evento retornado
+    patch:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Edita evento ao vivo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Evento atualizado
+    delete:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Inativa evento ao vivo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Evento inativado
+  /api/plano-estudo/agenda:
+    get:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Retorna agenda do aluno com eventos da mentoria e planejamento pessoal
+      responses:
+        "200":
+          description: Agenda retornada
+  /api/plano-estudo/itens:
+    get:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Lista itens pessoais do plano de estudo
+      responses:
+        "200":
+          description: Itens retornados
+    post:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Cadastra item pessoal do plano de estudo
+      responses:
+        "201":
+          description: Item cadastrado
+  /api/plano-estudo/itens/:id:
+    patch:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Edita item pessoal do plano de estudo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Item atualizado
+    delete:
+      tags: [Plano de Estudo]
+      security:
+        - bearerAuth: []
+      summary: Exclui item pessoal do plano de estudo
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Item excluído
 components:
   securitySchemes:
     bearerAuth:
