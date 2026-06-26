@@ -12,15 +12,22 @@ function resolveBaseUrl() {
     process.env.APP_URL,
     process.env.NEXT_PUBLIC_APP_URL
   );
-  if (configuredBaseUrl) return configuredBaseUrl;
-
   const vercelUrl = firstNonEmpty(
     process.env.VERCEL_PROJECT_PRODUCTION_URL,
     process.env.VERCEL_URL
   );
-  if (vercelUrl) {
-    return /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+  const normalizedVercelUrl = vercelUrl
+    ? /^https?:\/\//i.test(vercelUrl)
+      ? vercelUrl
+      : `https://${vercelUrl}`
+    : "";
+
+  if (configuredBaseUrl) {
+    const isConfiguredLocalHost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl);
+    if (!isConfiguredLocalHost || !normalizedVercelUrl) return configuredBaseUrl;
   }
+
+  if (normalizedVercelUrl) return normalizedVercelUrl;
 
   return "http://localhost:3000";
 }
@@ -45,11 +52,19 @@ function resolveMongoEnvName() {
 }
 
 function resolveMongoDbName() {
-  return firstNonEmpty(
+  const configuredDbName = firstNonEmpty(
     process.env.MONGODB_DB_NAME,
     process.env.MONGO_DB_NAME,
     process.env.DB_NAME
   );
+  if (configuredDbName) return configuredDbName;
+
+  const mongoUri = resolveMongoUri();
+  const match = mongoUri.match(/^[a-z]+:\/\/[^/]+\/([^?]+)/i);
+  if (!match) return "";
+
+  const dbName = decodeURIComponent(match[1] || "").trim();
+  return dbName && dbName !== "/" ? dbName : "";
 }
 
 module.exports = {
