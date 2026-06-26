@@ -31,8 +31,19 @@ const {
   toIsoFromDateTimeInput,
 } = planoEstudoView;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 const LIST_PAGE_SIZE = 10;
+
+function resolveApiBaseUrl() {
+  const configuredBaseUrl = String(process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
+  if (configuredBaseUrl) return configuredBaseUrl.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined") {
+    const { origin, hostname } = window.location;
+    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") return origin;
+  }
+
+  return "http://localhost:3000";
+}
 
 const MENU_BY_ROLE = {
   aluno: [
@@ -5050,7 +5061,7 @@ function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, us
         <header className="topbar">
           <div>
             <h1>{role === "admin" ? "Área do professor/admin" : "Área do aluno"}</h1>
-            <p className="muted">API REST em {API_BASE_URL}</p>
+            <p className="muted">API REST em {apiBaseUrl}</p>
           </div>
           <div className="actions">
             <IconButton icon={theme === "dark" ? "light_mode" : "dark_mode"} label={`Tema ${theme === "dark" ? "claro" : "escuro"}`} onClick={onThemeChange} />
@@ -5104,11 +5115,13 @@ export default function Page() {
   const [theme, setTheme] = useState("light");
   const [session, setSession] = useState(null);
   const [operationNotice, setOperationNotice] = useState("");
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => resolveApiBaseUrl());
 
   useEffect(() => {
     const storedSession = window.localStorage.getItem("desafios.session");
     const storedTheme = window.localStorage.getItem("desafios.theme");
     if (storedTheme) setTheme(storedTheme);
+    setApiBaseUrl(resolveApiBaseUrl());
     if (storedSession) {
       try {
         setSession(JSON.parse(storedSession));
@@ -5132,7 +5145,7 @@ export default function Page() {
   const apiClient = useMemo(
     () =>
       createApiClient({
-        baseUrl: API_BASE_URL,
+        baseUrl: apiBaseUrl,
         getToken: () => session && session.token,
         onUnauthorized: () => {
           window.localStorage.removeItem("desafios.session");
@@ -5143,7 +5156,7 @@ export default function Page() {
           setOperationNotice(method === "DELETE" ? "Registro excluído com sucesso." : "Alterações gravadas com sucesso.");
         },
       }),
-    [session]
+    [apiBaseUrl, session]
   );
 
   async function login(credentials) {
