@@ -61,10 +61,10 @@ function resolveMongoDbName() {
 
   const mongoUri = resolveMongoUri();
   const match = mongoUri.match(/^[a-z]+:\/\/[^/]+\/([^?]+)/i);
-  if (!match) return "";
+  if (!match) return "mentoria_api";
 
   const dbName = decodeURIComponent(match[1] || "").trim();
-  return dbName && dbName !== "/" ? dbName : "";
+  return dbName && dbName !== "/" ? dbName : "mentoria_api";
 }
 
 module.exports = {
