@@ -10,3 +10,4 @@ web/.next
 web/.env.local
 .codex-worktrees/
 docs/qa/
+.vercel
