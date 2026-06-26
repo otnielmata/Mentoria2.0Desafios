@@ -35,12 +35,29 @@ const LIST_PAGE_SIZE = 10;
 
 function resolveApiBaseUrl() {
   const configuredBaseUrl = String(process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
-  if (configuredBaseUrl) return configuredBaseUrl.replace(/\/+$/, "");
+  const normalizedConfiguredBaseUrl = configuredBaseUrl.replace(/\/+$/, "");
 
   if (typeof window !== "undefined") {
     const { origin, hostname } = window.location;
-    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") return origin;
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+
+    if (normalizedConfiguredBaseUrl) {
+      const configuredHostname = (() => {
+        try {
+          return new URL(normalizedConfiguredBaseUrl).hostname;
+        } catch {
+          return "";
+        }
+      })();
+      const configuredIsLocalHost = configuredHostname === "localhost" || configuredHostname === "127.0.0.1";
+
+      if (!configuredIsLocalHost || isLocalHost) return normalizedConfiguredBaseUrl;
+    }
+
+    if (!isLocalHost) return origin;
   }
+
+  if (normalizedConfiguredBaseUrl) return normalizedConfiguredBaseUrl;
 
   return "http://localhost:3000";
 }
