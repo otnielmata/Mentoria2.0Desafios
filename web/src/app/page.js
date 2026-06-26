@@ -5060,7 +5060,7 @@ function AdminPlanoEstudoView({ apiClient }) {
   );
 }
 
-function Workspace({ apiClient, onLogout, onThemeChange, onUserChange, theme, user }) {
+function Workspace({ apiBaseUrl, apiClient, onLogout, onThemeChange, onUserChange, theme, user }) {
   const [activeView, setActiveView] = useState(getInitialView(user));
   const [selectedMenu, setSelectedMenu] = useState(null);
   const role = getRole(user);
@@ -5218,6 +5218,7 @@ export default function Page() {
       ) : null}
       {session ? (
         <Workspace
+          apiBaseUrl={apiBaseUrl}
           apiClient={apiClient}
           onLogout={logout}
           onThemeChange={toggleTheme}
