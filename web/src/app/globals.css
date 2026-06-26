@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..700,0..1,-50..200");
+@import "material-symbols/rounded.css";
 
 :root {
   --bg: #f6f7f9;
@@ -291,17 +291,10 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: "Material Symbols Rounded";
   font-size: 21px;
-  font-style: normal;
   font-weight: 500;
+  font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24;
   font-feature-settings: "liga";
-  line-height: 1;
-  text-transform: none;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-smoothing: antialiased;
 }
 
 .material-symbols-rounded.filled {
