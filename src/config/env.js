@@ -2,12 +2,54 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+function firstNonEmpty(...values) {
+  return values.find((value) => typeof value === "string" && value.trim()) || "";
+}
+
+function resolveBaseUrl() {
+  const configuredBaseUrl = firstNonEmpty(
+    process.env.BASE_URL,
+    process.env.APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL
+  );
+  if (configuredBaseUrl) return configuredBaseUrl;
+
+  const vercelUrl = firstNonEmpty(
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL
+  );
+  if (vercelUrl) {
+    return /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+function resolveMongoUri() {
+  return (
+    firstNonEmpty(
+      process.env.MONGODB_URI,
+      process.env.DATABASE_URL,
+      process.env.MONGO_URL,
+      process.env.MONGO_URI
+    ) || "mongodb://localhost:27017/mentoria_api"
+  );
+}
+
+function resolveMongoEnvName() {
+  if (firstNonEmpty(process.env.MONGODB_URI)) return "MONGODB_URI";
+  if (firstNonEmpty(process.env.DATABASE_URL)) return "DATABASE_URL";
+  if (firstNonEmpty(process.env.MONGO_URL)) return "MONGO_URL";
+  if (firstNonEmpty(process.env.MONGO_URI)) return "MONGO_URI";
+  return "fallback";
+}
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT) || 3000,
-  baseUrl: process.env.BASE_URL || "http://localhost:3000",
-  mongoUri:
-    process.env.MONGODB_URI || "mongodb://localhost:27017/mentoria_api",
+  baseUrl: resolveBaseUrl(),
+  mongoUri: resolveMongoUri(),
+  mongoEnvName: resolveMongoEnvName(),
   jwtSecret: process.env.JWT_SECRET || "fallback-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
 };

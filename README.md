@@ -47,6 +47,9 @@ cp .env.example .env
 - `PORT`
 - `BASE_URL`
 - `MONGODB_URI`
+- `DATABASE_URL` (alternativa aceita)
+- `MONGO_URL` (alternativa aceita)
+- `MONGO_URI` (alternativa aceita)
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
 - `RANKING_HIDE_INACTIVE_STUDENTS`

@@ -7,4 +7,21 @@ async function connectDatabase() {
   await seedDefaultPilares();
 }
 
-module.exports = { connectDatabase };
+function getDatabaseStatus() {
+  const state = mongoose.connection.readyState;
+  const labels = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  };
+
+  return {
+    name: mongoose.connection.name || null,
+    host: mongoose.connection.host || null,
+    readyState: state,
+    status: labels[state] || "unknown",
+  };
+}
+
+module.exports = { connectDatabase, getDatabaseStatus };
