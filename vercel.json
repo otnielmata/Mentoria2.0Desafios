@@ -3,5 +3,11 @@
   "framework": null,
   "installCommand": "npm install && npm --prefix web install",
   "buildCommand": "NODE_ENV=production npm --prefix web run build",
-  "outputDirectory": "web/out"
+  "outputDirectory": "web/out",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    }
+  ]
 }
