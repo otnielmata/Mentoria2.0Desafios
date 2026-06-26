@@ -9,6 +9,7 @@ function healthCheck(req, res) {
     database: getDatabaseStatus(),
     config: {
       baseUrl: env.baseUrl,
+      mongoDbName: env.mongoDbName || null,
       mongoEnvName: env.mongoEnvName,
       nodeEnv: env.nodeEnv,
     },

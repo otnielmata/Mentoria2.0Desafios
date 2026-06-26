@@ -3,7 +3,8 @@ const env = require("./env");
 const { seedDefaultPilares } = require("../seeds/pilares.seed");
 
 async function connectDatabase() {
-  await mongoose.connect(env.mongoUri);
+  const options = env.mongoDbName ? { dbName: env.mongoDbName } : undefined;
+  await mongoose.connect(env.mongoUri, options);
   await seedDefaultPilares();
 }
 

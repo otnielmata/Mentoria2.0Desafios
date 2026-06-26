@@ -44,12 +44,21 @@ function resolveMongoEnvName() {
   return "fallback";
 }
 
+function resolveMongoDbName() {
+  return firstNonEmpty(
+    process.env.MONGODB_DB_NAME,
+    process.env.MONGO_DB_NAME,
+    process.env.DB_NAME
+  );
+}
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT) || 3000,
   baseUrl: resolveBaseUrl(),
   mongoUri: resolveMongoUri(),
   mongoEnvName: resolveMongoEnvName(),
+  mongoDbName: resolveMongoDbName(),
   jwtSecret: process.env.JWT_SECRET || "fallback-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
 };

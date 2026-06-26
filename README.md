@@ -50,6 +50,9 @@ cp .env.example .env
 - `DATABASE_URL` (alternativa aceita)
 - `MONGO_URL` (alternativa aceita)
 - `MONGO_URI` (alternativa aceita)
+- `MONGODB_DB_NAME` (opcional, força o nome do banco)
+- `MONGO_DB_NAME` (alternativa aceita)
+- `DB_NAME` (alternativa aceita)
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
 - `RANKING_HIDE_INACTIVE_STUDENTS`
