@@ -67,7 +67,24 @@ function resolveMongoDbName() {
   return dbName && dbName !== "/" ? dbName : "mentoria_api";
 }
 
+function resolveAppEnv() {
+  return firstNonEmpty(
+    process.env.APP_ENV,
+    process.env.VERCEL_ENV,
+    process.env.NODE_ENV
+  ) || "development";
+}
+
+function resolveGitBranch() {
+  return firstNonEmpty(
+    process.env.VERCEL_GIT_COMMIT_REF,
+    process.env.GIT_BRANCH
+  ) || null;
+}
+
 module.exports = {
+  appEnv: resolveAppEnv(),
+  gitBranch: resolveGitBranch(),
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT) || 3000,
   baseUrl: resolveBaseUrl(),

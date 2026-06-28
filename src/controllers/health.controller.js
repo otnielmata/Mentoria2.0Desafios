@@ -8,7 +8,9 @@ function healthCheck(req, res) {
     timestamp: new Date().toISOString(),
     database: getDatabaseStatus(),
     config: {
+      appEnv: env.appEnv,
       baseUrl: env.baseUrl,
+      gitBranch: env.gitBranch,
       mongoDbName: env.mongoDbName || null,
       mongoEnvName: env.mongoEnvName,
       nodeEnv: env.nodeEnv,

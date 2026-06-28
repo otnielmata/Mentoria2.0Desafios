@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "db:clone:dev": "node scripts/clone-database.js",
     "test": "jest --runInBand",
     "test:contract": "jest --runInBand tests/unit/web-api-contract.test.js tests/unit/web-api-client.test.js"
   },

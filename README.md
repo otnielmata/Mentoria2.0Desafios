@@ -43,6 +43,7 @@ cp .env.example .env
 
 2. Ajuste as variáveis:
 
+- `APP_ENV`
 - `NODE_ENV`
 - `PORT`
 - `BASE_URL`
@@ -67,8 +68,19 @@ npm install
 
 - `npm run dev`: inicia com `nodemon` e reinicia automaticamente a cada alteração
 - `npm start`: inicia em modo estático
+- `npm run db:clone:dev`: clona a base principal para uma base dev isolada
 - `npm test`: executa testes unitários com Jest
 - `npm run test:contract`: valida o contrato entre menus/telas da Web e endpoints reais da API
+
+## Ambiente dev isolado no Vercel
+
+Para manter uma versão de testes separada da `main`, use uma branch dedicada no GitHub/Vercel e um banco independente no Atlas. O projeto já inclui:
+
+- suporte a `APP_ENV`
+- identificação da branch no `GET /api/health`
+- script `npm run db:clone:dev` para copiar a base principal para uma base de desenvolvimento
+
+Um guia passo a passo está em `docs/vercel-dev-preview.md`.
 
 ## Endpoints principais
 
