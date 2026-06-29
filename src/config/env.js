@@ -6,25 +6,47 @@ function firstNonEmpty(...values) {
   return values.find((value) => typeof value === "string" && value.trim()) || "";
 }
 
+function resolveVercelUrl() {
+  const vercelUrl = firstNonEmpty(
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL
+  );
+
+  if (!vercelUrl) return "";
+  return /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+}
+
+function resolveAppEnv() {
+  return firstNonEmpty(
+    process.env.APP_ENV,
+    process.env.VERCEL_ENV,
+    process.env.NODE_ENV
+  ) || "development";
+}
+
+function resolveGitBranch() {
+  return firstNonEmpty(
+    process.env.VERCEL_GIT_COMMIT_REF,
+    process.env.GIT_BRANCH
+  ) || null;
+}
+
 function resolveBaseUrl() {
+  const appEnv = resolveAppEnv();
   const configuredBaseUrl = firstNonEmpty(
     process.env.BASE_URL,
     process.env.APP_URL,
     process.env.NEXT_PUBLIC_APP_URL
   );
-  const vercelUrl = firstNonEmpty(
-    process.env.VERCEL_PROJECT_PRODUCTION_URL,
-    process.env.VERCEL_URL
-  );
-  const normalizedVercelUrl = vercelUrl
-    ? /^https?:\/\//i.test(vercelUrl)
-      ? vercelUrl
-      : `https://${vercelUrl}`
-    : "";
+  const normalizedVercelUrl = resolveVercelUrl();
 
   if (configuredBaseUrl) {
     const isConfiguredLocalHost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl);
-    if (!isConfiguredLocalHost || !normalizedVercelUrl) return configuredBaseUrl;
+    if (appEnv !== "preview" && (!isConfiguredLocalHost || !normalizedVercelUrl)) return configuredBaseUrl;
+    if (appEnv === "preview" && !isConfiguredLocalHost && !/vercel\.app$/i.test(new URL(configuredBaseUrl).hostname)) {
+      return configuredBaseUrl;
+    }
   }
 
   if (normalizedVercelUrl) return normalizedVercelUrl;
@@ -52,6 +74,8 @@ function resolveMongoEnvName() {
 }
 
 function resolveMongoDbName() {
+  const appEnv = resolveAppEnv();
+  const gitBranch = resolveGitBranch();
   const configuredDbName = firstNonEmpty(
     process.env.MONGODB_DB_NAME,
     process.env.MONGO_DB_NAME,
@@ -59,27 +83,16 @@ function resolveMongoDbName() {
   );
   if (configuredDbName) return configuredDbName;
 
+  if (appEnv === "preview" || gitBranch === "codex/dev-vercel-preview") {
+    return "test";
+  }
+
   const mongoUri = resolveMongoUri();
   const match = mongoUri.match(/^[a-z]+:\/\/[^/]+\/([^?]+)/i);
   if (!match) return "mentoria_api";
 
   const dbName = decodeURIComponent(match[1] || "").trim();
   return dbName && dbName !== "/" ? dbName : "mentoria_api";
-}
-
-function resolveAppEnv() {
-  return firstNonEmpty(
-    process.env.APP_ENV,
-    process.env.VERCEL_ENV,
-    process.env.NODE_ENV
-  ) || "development";
-}
-
-function resolveGitBranch() {
-  return firstNonEmpty(
-    process.env.VERCEL_GIT_COMMIT_REF,
-    process.env.GIT_BRANCH
-  ) || null;
 }
 
 module.exports = {
