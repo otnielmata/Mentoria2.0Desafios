@@ -36,6 +36,10 @@ function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function getLeanResult(query) {
+  return query && typeof query.lean === "function" ? query.lean() : query;
+}
+
 async function assertAdmin(authenticatedUserId) {
   const user = await User.findById(authenticatedUserId);
   if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
@@ -140,6 +144,7 @@ async function updateManagedUser(authenticatedUserId, userId, payload = {}) {
   if (!current) throw createHttpError("Usuário não encontrado.", 404);
 
   const updates = {};
+  let shouldRotateSession = false;
   const name = parseOptionalText(payload.name || payload.nome, "Nome");
   if (name) updates.name = name;
 
@@ -151,13 +156,26 @@ async function updateManagedUser(authenticatedUserId, userId, payload = {}) {
   }
 
   const role = getFirstValue(payload, ["role", "perfil"]);
-  if (role !== undefined) updates.role = parseManagedRole(role);
+  if (role !== undefined) {
+    updates.role = parseManagedRole(role);
+    if (updates.role !== current.role) shouldRotateSession = true;
+  }
 
   const status = getFirstValue(payload, ["status", "situacao"]);
-  if (status !== undefined) updates.status = parseManagedStatus(status);
+  if (status !== undefined) {
+    updates.status = parseManagedStatus(status);
+    if (updates.status !== current.status) shouldRotateSession = true;
+  }
 
   const password = parseOptionalText(payload.password || payload.senha || payload.newPassword || payload.novaSenha, "Senha");
-  if (password) updates.passwordHash = await bcrypt.hash(password, 10);
+  if (password) {
+    updates.passwordHash = await bcrypt.hash(password, 10);
+    shouldRotateSession = true;
+  }
+
+  if (shouldRotateSession) {
+    updates.authVersion = Number(current.authVersion || 0) + 1;
+  }
 
   const updatedUser = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
   return serializeManagedUser(updatedUser);
@@ -171,7 +189,13 @@ async function deleteManagedUser(authenticatedUserId, userId) {
     throw createHttpError("Administrador autenticado não pode excluir o próprio usuário.", 400, { code: "SELF_DELETE_NOT_ALLOWED" });
   }
 
-  const deletedUser = await User.findByIdAndUpdate(id, { status: "inativo" }, { new: true }).lean();
+  const current = await getLeanResult(User.findById(id));
+  if (!current) throw createHttpError("Usuário não encontrado.", 404);
+  const deletedUser = await User.findByIdAndUpdate(
+    id,
+    { status: "inativo", authVersion: Number(current.authVersion || 0) + 1 },
+    { new: true }
+  ).lean();
   if (!deletedUser) throw createHttpError("Usuário não encontrado.", 404);
   return serializeManagedUser(deletedUser);
 }

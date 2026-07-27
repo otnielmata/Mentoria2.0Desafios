@@ -75,6 +75,7 @@ function generateUserToken(user) {
     role: safeUser.role,
     status: safeUser.status,
     sub: safeUser.id,
+    authVersion: Number(user.authVersion || 0),
   });
 }
 

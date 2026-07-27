@@ -14,7 +14,7 @@ const GLOBAL_ROLES = ["professor", "admin"];
 const ALLOWED_TYPES = ["individual", "grupo"];
 
 function shouldHideInactiveStudents() {
-  return normalizeText(process.env.RANKING_HIDE_INACTIVE_STUDENTS) === "true";
+  return normalizeText(process.env.RANKING_HIDE_INACTIVE_STUDENTS) !== "false";
 }
 
 function createHttpError(message, statusCode) {

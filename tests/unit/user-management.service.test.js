@@ -193,7 +193,7 @@ describe("user-management.service", () => {
 
     const result = await deleteManagedUser(ADMIN_ID, USER_ID);
 
-    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(USER_ID, { status: "inativo" }, { new: true });
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(USER_ID, { status: "inativo", authVersion: 1 }, { new: true });
     expect(result).toMatchObject({
       id: USER_ID,
       status: "inativo",
