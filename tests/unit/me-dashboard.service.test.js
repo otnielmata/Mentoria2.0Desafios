@@ -151,9 +151,9 @@ describe("me-dashboard.service MR-95", () => {
 
     const result = await getMyDashboard(STUDENT_ID);
 
-    expect(result.totalPontos).toBe(31);
+    expect(result.totalPontos).toBe(33);
     expect(result.ranking).toMatchObject({ posicao: 1, totalParticipantes: 2 });
-    expect(result.checklistPlanejamento).toMatchObject({ totalPontos: 1 });
+    expect(result.checklistPlanejamento).toMatchObject({ totalPontos: 3 });
     expect(result.desafiosEnviados).toMatchObject({
       total: 3,
       totaisPorStatus: expect.objectContaining({ aprovado: 1, pendente: 1, ajuste: 1 }),

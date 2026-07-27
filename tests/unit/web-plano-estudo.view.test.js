@@ -8,7 +8,7 @@ const {
   formatDateTimeInputValue,
   getDateKeyFromDateTimeInput,
   getCurrentMonthRef,
-  getChecklistPointsForCompletedDays,
+  getChecklistPointsForDelay,
   shiftMonth,
   toDateKey,
   toIsoFromDateTimeInput,
@@ -112,7 +112,7 @@ describe("plano-estudo.view", () => {
     expect(new Date(sessions[0].endAt).getTime() - new Date(sessions[0].startAt).getTime()).toBe(90 * 60000);
   });
 
-  it("resume o checklist por janela de 7 dias e conta só um check por dia", () => {
+  it("resume o checklist por dia planejado e pontua conforme o atraso", () => {
     const result = buildChecklistSummaryViewModel([
       {
         id: "1",
@@ -121,6 +121,7 @@ describe("plano-estudo.view", () => {
         plannedDateKey: "2026-06-23",
         scoreWindowStartKey: "2026-06-23",
         completed: true,
+        completedAt: "2026-06-23T20:00:00.000Z",
       },
       {
         id: "2",
@@ -129,6 +130,7 @@ describe("plano-estudo.view", () => {
         plannedDateKey: "2026-06-23",
         scoreWindowStartKey: "2026-06-23",
         completed: true,
+        completedAt: "2026-06-24T20:00:00.000Z",
       },
       {
         id: "3",
@@ -137,19 +139,27 @@ describe("plano-estudo.view", () => {
         plannedDateKey: "2026-06-24",
         scoreWindowStartKey: "2026-06-23",
         completed: true,
+        completedAt: "2026-06-29T19:00:00.000Z",
       },
     ]);
 
-    expect(getChecklistPointsForCompletedDays(2)).toBe(1);
+    expect(getChecklistPointsForDelay(0)).toBe(3);
+    expect(getChecklistPointsForDelay(3)).toBe(2);
+    expect(getChecklistPointsForDelay(7)).toBe(1);
+    expect(getChecklistPointsForDelay(8)).toBe(0);
     expect(result.totalTarefas).toBe(3);
     expect(result.tarefasConcluidas).toBe(3);
     expect(result.diasComCheck).toBe(2);
-    expect(result.totalPontos).toBe(1);
+    expect(result.totalPontos).toBe(4);
     expect(result.semanas[0]).toMatchObject({
-      inicio: "2026-06-23",
-      fim: "2026-06-29",
-      diasComCheck: 2,
+      dataPlanejada: "2026-06-24",
+      diasAtraso: 5,
       pontos: 1,
+    });
+    expect(result.semanas[1]).toMatchObject({
+      dataPlanejada: "2026-06-23",
+      diasAtraso: 1,
+      pontos: 3,
     });
   });
 

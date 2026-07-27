@@ -76,6 +76,14 @@ function addDaysToDateKey(dateKey, amount) {
   return toDateKeyFromDate(reference);
 }
 
+function getDateKeyDifferenceInDays(startDateKey, endDateKey) {
+  if (!startDateKey || !endDateKey) return null;
+  const startDate = new Date(`${startDateKey}T00:00:00.000Z`);
+  const endDate = new Date(`${endDateKey}T00:00:00.000Z`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+  return Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);
+}
+
 function buildDefaultScoreWindowStartKey(plannedDateKey) {
   const reference = new Date(`${plannedDateKey}T00:00:00.000Z`);
   if (Number.isNaN(reference.getTime())) return plannedDateKey;
@@ -94,71 +102,78 @@ function getEffectiveScoreWindowStartKey(item) {
   return plannedDateKey ? buildDefaultScoreWindowStartKey(plannedDateKey) : null;
 }
 
-function getChecklistPointsForCompletedDays(totalCompletedDays) {
-  if (totalCompletedDays <= 0) return 0;
-  if (totalCompletedDays <= 3) return 1;
-  if (totalCompletedDays <= 6) return 2;
-  return 3;
+function getChecklistPointsForDelay(delayDays) {
+  if (!Number.isFinite(delayDays) || delayDays < 0) return 0;
+  if (delayDays <= 1) return 3;
+  if (delayDays <= 4) return 2;
+  if (delayDays <= 7) return 1;
+  return 0;
 }
 
 function buildChecklistSummary(items = []) {
-  const windowsByKey = new Map();
-  const completedDayKeys = new Set();
+  const daysByKey = new Map();
   let totalCompletedTasks = 0;
 
   (items || []).forEach((item) => {
     const plannedDateKey = getEffectivePlannedDateKey(item);
-    const scoreWindowStartKey = getEffectiveScoreWindowStartKey(item);
-    if (!plannedDateKey || !scoreWindowStartKey) return;
+    if (!plannedDateKey) return;
 
-    const currentWindow = windowsByKey.get(scoreWindowStartKey) || {
-      inicio: scoreWindowStartKey,
-      fim: addDaysToDateKey(scoreWindowStartKey, 6),
-      totalTarefas: 0,
-      tarefasConcluidas: 0,
-      dias: new Map(),
-    };
-
-    const currentDay = currentWindow.dias.get(plannedDateKey) || {
-      data: plannedDateKey,
+    const currentDay = daysByKey.get(plannedDateKey) || {
+      inicio: plannedDateKey,
+      fim: plannedDateKey,
+      dataPlanejada: plannedDateKey,
       totalTarefas: 0,
       tarefasConcluidas: 0,
       concluidoNoDia: false,
+      dataConclusao: null,
+      diasAtraso: null,
+      pontos: 0,
+      pontuado: false,
     };
 
-    currentWindow.totalTarefas += 1;
     currentDay.totalTarefas += 1;
 
     if (item.completedAt) {
-      currentWindow.tarefasConcluidas += 1;
       currentDay.tarefasConcluidas += 1;
-      currentDay.concluidoNoDia = true;
       totalCompletedTasks += 1;
-      completedDayKeys.add(plannedDateKey);
+      const completedAt = item.completedAt instanceof Date ? item.completedAt : new Date(item.completedAt);
+      if (!Number.isNaN(completedAt.getTime())) {
+        const completedDateKey = toDateKeyFromDate(completedAt);
+        if (!currentDay.dataConclusao || completedDateKey > currentDay.dataConclusao) {
+          currentDay.dataConclusao = completedDateKey;
+        }
+      }
     }
 
-    currentWindow.dias.set(plannedDateKey, currentDay);
-    windowsByKey.set(scoreWindowStartKey, currentWindow);
+    daysByKey.set(plannedDateKey, currentDay);
   });
 
-  const semanas = Array.from(windowsByKey.values()).map((window) => {
-    const dias = Array.from(window.dias.values()).sort((left, right) => left.data.localeCompare(right.data));
-    const diasComCheck = dias.filter((day) => day.concluidoNoDia).length;
-    return {
-      inicio: window.inicio,
-      fim: window.fim,
-      totalTarefas: window.totalTarefas,
-      tarefasConcluidas: window.tarefasConcluidas,
-      diasComCheck,
-      pontos: getChecklistPointsForCompletedDays(diasComCheck),
-      dias,
-    };
-  });
+  const semanas = Array.from(daysByKey.values())
+    .map((day) => {
+      const concluidoNoDia = day.totalTarefas > 0 && day.tarefasConcluidas === day.totalTarefas;
+      const diasAtraso = concluidoNoDia ? getDateKeyDifferenceInDays(day.dataPlanejada, day.dataConclusao) : null;
+      const pontos = concluidoNoDia ? getChecklistPointsForDelay(diasAtraso) : 0;
+      return {
+        ...day,
+        diasComCheck: concluidoNoDia ? 1 : 0,
+        concluidoNoDia,
+        diasAtraso,
+        pontos,
+        pontuado: pontos > 0,
+      };
+    })
+    .sort((left, right) => right.dataPlanejada.localeCompare(left.dataPlanejada));
+
+  const diasConcluidos = semanas.filter((day) => day.concluidoNoDia).length;
+  const diasPontuados = semanas.filter((day) => day.pontuado).length;
 
   return {
     totalTarefas: items.length,
     tarefasConcluidas: totalCompletedTasks,
-    diasComCheck: completedDayKeys.size,
+    diasComCheck: diasConcluidos,
+    diasPlanejados: semanas.length,
+    diasConcluidos,
+    diasPontuados,
     totalPontos: semanas.reduce((total, semana) => total + Number(semana.pontos || 0), 0),
     semanas,
   };

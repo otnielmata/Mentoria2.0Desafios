@@ -3219,13 +3219,17 @@ function AdminReportsView({ apiClient }) {
         <div className="report-detail-item">
           <strong>{formatNumber(checklist.totalPontos)} pts no total</strong>
           <span>
-            {formatNumber(checklist.tarefasConcluidas)} tarefa(s) concluída(s) · {formatNumber(checklist.diasComCheck)} dia(s) com check
+            {formatNumber(checklist.tarefasConcluidas)} tarefa(s) concluída(s) · {formatNumber(checklist.diasConcluidos || checklist.diasComCheck)} dia(s) concluído(s)
           </span>
         </div>
         {semanas.map((semana, index) => (
-          <div className="report-detail-item" key={`${semana.inicio || "sem-inicio"}-${index}`}>
-            <strong>{formatCalendarDate(`${semana.inicio}T00:00:00`)} até {formatCalendarDate(`${semana.fim}T00:00:00`)}</strong>
-            <span>{formatNumber(semana.diasComCheck)} dia(s) com check · {formatNumber(semana.pontos)} pt(s)</span>
+          <div className="report-detail-item" key={`${semana.dataPlanejada || semana.inicio || "sem-inicio"}-${index}`}>
+            <strong>{formatCalendarDate(`${semana.dataPlanejada || semana.inicio}T00:00:00`)}</strong>
+            <span>
+              {semana.concluidoNoDia && semana.dataConclusao
+                ? `Concluído em ${formatCalendarDate(`${semana.dataConclusao}T00:00:00`)} com ${formatNumber(semana.pontos)} pt(s)`
+                : `Ainda não concluído · ${formatNumber(semana.pontos)} pt(s)`}
+            </span>
             <span className="muted">{formatNumber(semana.tarefasConcluidas)} de {formatNumber(semana.totalTarefas)} tarefa(s) concluída(s)</span>
           </div>
         ))}
@@ -3911,8 +3915,8 @@ function StudentChecklistView({ apiClient }) {
           <strong>{formatNumber(checklistSummary.tarefasConcluidas)}</strong>
         </div>
         <div className="metric">
-          <span className="muted">Dias com check</span>
-          <strong>{formatNumber(checklistSummary.diasComCheck)}</strong>
+          <span className="muted">Dias concluídos</span>
+          <strong>{formatNumber(checklistSummary.diasConcluidos || checklistSummary.diasComCheck)}</strong>
         </div>
         <div className="metric">
           <span className="muted">Pontos do checklist</span>
@@ -3927,41 +3931,46 @@ function StudentChecklistView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Check-list</h2>
-            <p className="muted">Marque as tarefas concluídas. A pontuação conta no máximo uma vez por dia, mesmo com várias tarefas planejadas.</p>
+            <p className="muted">A pontuação considera quando tudo o que foi planejado para cada dia foi finalizado.</p>
           </div>
           <IconButton icon="refresh" label="Atualizar check-list" onClick={load} />
         </div>
         <div className="status-grid">
           <div className="status-item">
             <span className="muted">Regra de pontuação</span>
-            <strong>1 a 3 dias = 1 ponto</strong>
-            <span className="muted">4 a 6 dias = 2 pontos · 7 dias = 3 pontos</span>
+            <strong>No prazo ou até 1 dia depois = 3 pontos</strong>
+            <span className="muted">De 2 a 4 dias depois = 2 pontos · de 5 a 7 dias = 1 ponto</span>
           </div>
           <div className="status-item">
-            <span className="muted">Máximo por janela de 7 dias</span>
-            <strong>3 pontos</strong>
-            <span className="muted">Mesmo com mais de uma tarefa no dia, só 1 dia conta para pontuação.</span>
+            <span className="muted">Quando não pontua</span>
+            <strong>Após 7 dias = 0 ponto</strong>
+            <span className="muted">Se houver mais de uma tarefa no mesmo dia, o dia só pontua quando todas forem concluídas.</span>
           </div>
         </div>
         {loading ? <Notice message="Carregando check-list..." /> : null}
-        {!loading && checklistSummary.semanas.length === 0 ? <Notice message="Nenhuma semana de planejamento encontrada." /> : null}
+        {!loading && checklistSummary.semanas.length === 0 ? <Notice message="Nenhum dia planejado foi encontrado." /> : null}
         {checklistSummary.semanas.length > 0 ? (
           <table className="table">
             <thead>
               <tr>
-                <th>Janela de 7 dias</th>
-                <th>Dias com check</th>
+                <th>Data planejada</th>
+                <th>Conclusão</th>
+                <th>Atraso</th>
                 <th>Tarefas concluídas</th>
                 <th>Pontos</th>
               </tr>
             </thead>
             <tbody>
               {checklistSummary.semanas.map((semana) => (
-                <tr key={`${semana.inicio}-${semana.fim}`}>
-                  <td>{formatCalendarDate(`${semana.inicio}T00:00:00`)} até {formatCalendarDate(`${semana.fim}T00:00:00`)}</td>
-                  <td>{formatNumber(semana.diasComCheck)}</td>
+                <tr key={semana.dataPlanejada || `${semana.inicio}-${semana.fim}`}>
+                  <td>{formatCalendarDate(`${semana.dataPlanejada || semana.inicio}T00:00:00`)}</td>
+                  <td>{semana.concluidoNoDia && semana.dataConclusao ? formatCalendarDate(`${semana.dataConclusao}T00:00:00`) : "Ainda não concluído"}</td>
+                  <td>{semana.concluidoNoDia ? `${formatNumber(Math.max(Number(semana.diasAtraso || 0), 0))} dia(s)` : "-"}</td>
                   <td>{formatNumber(semana.tarefasConcluidas)} de {formatNumber(semana.totalTarefas)}</td>
-                  <td>{formatNumber(semana.pontos)}</td>
+                  <td>
+                    {formatNumber(semana.pontos)}
+                    {semana.faixaPontuacao ? <div className="muted">{semana.faixaPontuacao}</div> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -4091,7 +4100,7 @@ function StudentScoreView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Minha Pontuação</h2>
-            <p className="muted">O total soma os pontos dos desafios aprovados com os pontos conquistados no Check-list.</p>
+            <p className="muted">O total soma os pontos dos desafios aprovados com os pontos do check-list, calculados pelo atraso de cada dia planejado.</p>
           </div>
           <IconButton icon="refresh" label="Atualizar pontuação" onClick={load} />
         </div>

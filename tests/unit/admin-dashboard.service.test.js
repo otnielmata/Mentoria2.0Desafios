@@ -95,7 +95,7 @@ describe("admin-dashboard.service MR-95", () => {
         [
           ALUNO_1_ID,
           {
-            totalPontos: 1,
+            totalPontos: 3,
           },
         ],
       ]),
@@ -141,7 +141,7 @@ describe("admin-dashboard.service MR-95", () => {
     });
     expect(result.topRanking.map((row) => [row.aluno.id, row.totalPontos])).toEqual([
       [ALUNO_2_ID, 50],
-      [ALUNO_1_ID, 21],
+      [ALUNO_1_ID, 23],
     ]);
     expect(result.metricasParticipacao).toEqual(result.engajamento);
     expect(result.cupons).toMatchObject({

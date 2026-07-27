@@ -207,7 +207,7 @@ describe("plano-estudo.service", () => {
     });
   });
 
-  it("marca apenas um dia por janela para calcular pontuação do checklist", () => {
+  it("pontua por dia planejado considerando o atraso da conclusão total do dia", () => {
     const result = buildChecklistSummary([
       {
         _id: "1",
@@ -238,12 +238,18 @@ describe("plano-estudo.service", () => {
     expect(result.totalTarefas).toBe(3);
     expect(result.tarefasConcluidas).toBe(3);
     expect(result.diasComCheck).toBe(2);
-    expect(result.totalPontos).toBe(1);
+    expect(result.totalPontos).toBe(6);
     expect(result.semanas[0]).toMatchObject({
-      inicio: "2026-06-24",
-      fim: "2026-06-30",
-      diasComCheck: 2,
-      pontos: 1,
+      dataPlanejada: "2026-06-25",
+      diasComCheck: 1,
+      diasAtraso: 0,
+      pontos: 3,
+    });
+    expect(result.semanas[1]).toMatchObject({
+      dataPlanejada: "2026-06-24",
+      diasComCheck: 1,
+      diasAtraso: 0,
+      pontos: 3,
     });
   });
 });

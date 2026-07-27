@@ -204,60 +204,64 @@ describe("admin-relatorio-participacao.service MR-95", () => {
     const result = await getStudentPillarReport(ADMIN_ID, { search: "Ana", page: "1", limit: "10" });
 
     expect(result.pagination).toMatchObject({ page: 1, limit: 10, total: 1, totalPages: 1 });
-    expect(result.alunos).toEqual([
-      expect.objectContaining({
-        aluno: expect.objectContaining({ id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" }),
-        totalPontos: 41,
-        checklistPlanejamento: expect.objectContaining({
-          totalPontos: 1,
-          totalTarefas: 2,
-          tarefasConcluidas: 2,
-          diasComCheck: 2,
-          semanas: [
-            expect.objectContaining({
-              inicio: "2026-01-20",
-              fim: "2026-01-26",
-              diasComCheck: 2,
-              pontos: 1,
-            }),
-          ],
-        }),
-        pontosPorPilar: [
-          expect.objectContaining({
-            pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }),
-            pontos: 40,
-            lancamentos: expect.arrayContaining([
-              expect.objectContaining({
-                dataLancamento: "2026-01-20T10:00:00.000Z",
-                responsavel: expect.objectContaining({ name: "Professor Extra" }),
-                tipo: "ponto_extra",
-                pontos: 15,
-              }),
-              expect.objectContaining({
-                dataLancamento: "2026-01-22T10:00:00.000Z",
-                responsavel: expect.objectContaining({ name: "Professor Aprovador" }),
-                tipo: "desafio",
-                pontos: 25,
-              }),
-            ]),
-          }),
-        ],
-        detalhesPontosPorPilar: expect.arrayContaining([
-          expect.objectContaining({
-            pilar: expect.objectContaining({ name: "Prática" }),
-            responsavel: expect.objectContaining({ name: "Professor Extra" }),
-            tipo: "ponto_extra",
-            pontos: 15,
-          }),
-          expect.objectContaining({
-            pilar: expect.objectContaining({ name: "Prática" }),
-            responsavel: expect.objectContaining({ name: "Professor Aprovador" }),
-            tipo: "desafio",
-            pontos: 25,
-          }),
-        ]),
+    expect(result.alunos).toHaveLength(1);
+    expect(result.alunos[0]).toMatchObject({
+      aluno: expect.objectContaining({ id: ALUNO_1_ID, name: "Ana", email: "ana@email.com" }),
+      totalPontos: 46,
+      checklistPlanejamento: expect.objectContaining({
+        totalPontos: 6,
+        totalTarefas: 2,
+        tarefasConcluidas: 2,
+        diasComCheck: 2,
       }),
-    ]);
+    });
+    expect(result.alunos[0].checklistPlanejamento.semanas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          inicio: "2026-01-21",
+          diasComCheck: 1,
+          pontos: 3,
+        }),
+      ])
+    );
+    expect(result.alunos[0].pontosPorPilar).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pilar: expect.objectContaining({ id: PILAR_ID, name: "Prática" }),
+          pontos: 40,
+          lancamentos: expect.arrayContaining([
+            expect.objectContaining({
+              dataLancamento: "2026-01-20T10:00:00.000Z",
+              responsavel: expect.objectContaining({ name: "Professor Extra" }),
+              tipo: "ponto_extra",
+              pontos: 15,
+            }),
+            expect.objectContaining({
+              dataLancamento: "2026-01-22T10:00:00.000Z",
+              responsavel: expect.objectContaining({ name: "Professor Aprovador" }),
+              tipo: "desafio",
+              pontos: 25,
+            }),
+          ]),
+        }),
+      ])
+    );
+    expect(result.alunos[0].detalhesPontosPorPilar).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pilar: expect.objectContaining({ name: "Prática" }),
+          responsavel: expect.objectContaining({ name: "Professor Extra" }),
+          tipo: "ponto_extra",
+          pontos: 15,
+        }),
+        expect.objectContaining({
+          pilar: expect.objectContaining({ name: "Prática" }),
+          responsavel: expect.objectContaining({ name: "Professor Aprovador" }),
+          tipo: "desafio",
+          pontos: 25,
+        }),
+      ])
+    );
     expect(JSON.stringify(result)).not.toContain("secret");
     expect(JSON.stringify(result)).not.toContain("password");
   });
