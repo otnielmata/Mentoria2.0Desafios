@@ -642,7 +642,8 @@ function ConfigurationView({ apiClient }) {
 
   async function createUser(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setFeedback("");
     setError("");
     try {
@@ -658,7 +659,7 @@ function ConfigurationView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Usuário cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
@@ -1362,7 +1363,8 @@ function AdminStudentsView({ apiClient }) {
 
   async function createStudent(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setError("");
     setFeedback("");
     try {
@@ -1379,7 +1381,7 @@ function AdminStudentsView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Aluno cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
@@ -1389,7 +1391,8 @@ function AdminStudentsView({ apiClient }) {
 
   async function importStudents(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setError("");
     setFeedback("");
     try {
@@ -1398,7 +1401,7 @@ function AdminStudentsView({ apiClient }) {
       const importacao = result && result.importacao ? result.importacao : {};
       const importados = Number(importacao.importados || 0);
       const falhas = Number(importacao.falhas || 0);
-      event.currentTarget.reset();
+      form.reset();
       setFeedback(`Importação finalizada: ${importados} aluno(s) importado(s), ${falhas} falha(s).`);
       if (falhas > 0) {
         setError(
@@ -1855,7 +1858,8 @@ function AdminTurmasView({ apiClient }) {
 
   async function createTurma(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setFeedback("");
     setError("");
     try {
@@ -1871,7 +1875,7 @@ function AdminTurmasView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Turma cadastrada com sucesso.");
       await loadTurmas(filters, 1);
     } catch (createError) {
@@ -2099,7 +2103,8 @@ function AdminPilaresView({ apiClient }) {
 
   async function createPilar(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setFeedback("");
     setError("");
     try {
@@ -2112,7 +2117,7 @@ function AdminPilaresView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Pilar cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
@@ -2318,7 +2323,8 @@ function AdminDesafiosView({ apiClient }) {
 
   async function createDesafio(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const maxParticipantes = Number(data.get("maxParticipantes"));
     setFeedback("");
     setError("");
@@ -2339,7 +2345,7 @@ function AdminDesafiosView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Desafio cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
