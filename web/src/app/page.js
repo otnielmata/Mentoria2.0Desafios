@@ -598,6 +598,7 @@ function ConfigurationView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   function buildUsersPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/users", {
@@ -642,9 +643,11 @@ function ConfigurationView({ apiClient }) {
 
   async function createUser(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setFeedback("");
     setError("");
+    setCreating(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/users" },
@@ -658,11 +661,13 @@ function ConfigurationView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Usuário cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -749,7 +754,7 @@ function ConfigurationView({ apiClient }) {
               <option value="inativo">inativo</option>
             </select>
           </label>
-          <IconButton className="button" icon="person_add" label="Cadastrar usuário" type="submit" />
+          <IconButton className="button" disabled={creating} icon="person_add" label="Cadastrar usuário" type="submit" />
         </form>
       </section>
 
@@ -1317,6 +1322,8 @@ function AdminStudentsView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   function buildStudentsPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/alunos", {
@@ -1332,7 +1339,7 @@ function AdminStudentsView({ apiClient }) {
     try {
       const [studentsResult, turmasResult] = await Promise.all([
         apiClient.request({ method: "GET", path: buildStudentsPath(nextFilters, nextPage) }),
-        apiClient.request({ method: "GET", path: "/turmas?limit=100" }),
+        apiClient.request({ method: "GET", path: "/turmas?limit=100&status=ativa" }),
       ]);
       setStudents(getArray(studentsResult, "alunos"));
       setPagination(getPagination(studentsResult));
@@ -1367,6 +1374,7 @@ function AdminStudentsView({ apiClient }) {
     const data = new FormData(form);
     setError("");
     setFeedback("");
+    setCreating(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/alunos" },
@@ -1386,6 +1394,8 @@ function AdminStudentsView({ apiClient }) {
       await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -1394,6 +1404,7 @@ function AdminStudentsView({ apiClient }) {
     const data = new FormData(event.currentTarget);
     setError("");
     setFeedback("");
+    setImporting(true);
     try {
       const csv = await readFileAsText(data.get("csvFile"));
       const result = await apiClient.request({ method: "POST", path: "/alunos/importar" }, { body: { csv } });
@@ -1413,6 +1424,8 @@ function AdminStudentsView({ apiClient }) {
       await load(filters, 1);
     } catch (importError) {
       setError(getErrorMessage(importError));
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -1511,7 +1524,7 @@ function AdminStudentsView({ apiClient }) {
             <input name="discordJoined" type="checkbox" />
             <span>Aluno entrou no Discord</span>
           </label>
-          <IconButton className="button" icon="person_add" label="Cadastrar aluno" type="submit" />
+          <IconButton className="button" disabled={creating} icon="person_add" label="Cadastrar aluno" type="submit" />
         </form>
       </section>
 
@@ -1527,9 +1540,9 @@ function AdminStudentsView({ apiClient }) {
             <span>Arquivo CSV</span>
             <input name="csvFile" required type="file" accept=".csv,text/csv" />
           </label>
-          <button className="button secondary with-icon" type="submit">
+          <button className="button secondary with-icon" disabled={importing} type="submit">
             <ButtonIcon name="upload_file" />
-            Importar em Lotes
+            {importing ? "Importando..." : "Importar em Lotes"}
           </button>
         </form>
       </section>
@@ -1815,6 +1828,7 @@ function AdminTurmasView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   function buildTurmasPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/turmas", {
@@ -1857,9 +1871,11 @@ function AdminTurmasView({ apiClient }) {
 
   async function createTurma(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setFeedback("");
     setError("");
+    setCreating(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/turmas" },
@@ -1873,11 +1889,13 @@ function AdminTurmasView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Turma cadastrada com sucesso.");
       await loadTurmas(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -1953,7 +1971,7 @@ function AdminTurmasView({ apiClient }) {
             <span>Descrição</span>
             <input name="description" placeholder="Mentoria 2.0" />
           </label>
-          <IconButton className="button" icon="add_business" label="Cadastrar turma" type="submit" />
+          <IconButton className="button" disabled={creating} icon="add_business" label="Cadastrar turma" type="submit" />
         </form>
       </section>
 
@@ -2058,6 +2076,7 @@ function AdminPilaresView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   function buildPilaresPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/pilares", {
@@ -2101,9 +2120,11 @@ function AdminPilaresView({ apiClient }) {
 
   async function createPilar(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setFeedback("");
     setError("");
+    setCreating(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/pilares" },
@@ -2114,11 +2135,13 @@ function AdminPilaresView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Pilar cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -2185,7 +2208,7 @@ function AdminPilaresView({ apiClient }) {
             <span>Descrição</span>
             <input name="description" placeholder="Resumo do pilar" />
           </label>
-          <IconButton className="button" icon="add_circle" label="Cadastrar pilar" type="submit" />
+          <IconButton className="button" disabled={creating} icon="add_circle" label="Cadastrar pilar" type="submit" />
         </form>
       </section>
 
@@ -2274,6 +2297,7 @@ function AdminDesafiosView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   function buildDesafiosPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/desafios", {
@@ -2320,10 +2344,12 @@ function AdminDesafiosView({ apiClient }) {
 
   async function createDesafio(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const maxParticipantes = Number(data.get("maxParticipantes"));
     setFeedback("");
     setError("");
+    setCreating(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/desafios" },
@@ -2341,11 +2367,13 @@ function AdminDesafiosView({ apiClient }) {
           },
         }
       );
-      event.currentTarget.reset();
+      form.reset();
       setFeedback("Desafio cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -2465,7 +2493,7 @@ function AdminDesafiosView({ apiClient }) {
             <span>Descrição</span>
             <textarea name="description" required placeholder="Descreva o que o aluno deve executar." />
           </label>
-          <IconButton className="button" icon="add_task" label="Cadastrar desafio" type="submit" />
+          <IconButton className="button" disabled={creating} icon="add_task" label="Cadastrar desafio" type="submit" />
         </form>
       </section>
 

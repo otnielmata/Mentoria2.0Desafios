@@ -113,6 +113,12 @@ async function assertTurmaExists(turmaId) {
 
   const turma = await Turma.findById(turmaId);
   if (!turma) throw createHttpError("Turma não encontrada.", 404);
+  if (normalizeText(turma.status) !== ACTIVE_CLASS_LINK_STATUS) {
+    throw createHttpError("Turma deve estar ativa para vincular alunos.", 400, {
+      code: "TURMA_INATIVA",
+      details: [{ field: "turmaId", message: "Selecione uma turma ativa." }],
+    });
+  }
   return turma;
 }
 
