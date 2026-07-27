@@ -701,7 +701,7 @@ function ConfigurationView({ apiClient }) {
     try {
       await apiClient.request({ method: "DELETE", path: `/users/${managedUser.id}` });
       if (editing && editing.id === managedUser.id) setEditing(null);
-      setFeedback("Usuário excluído com sucesso.");
+      setFeedback("Usuário inativado com sucesso.");
       await load();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
@@ -1450,7 +1450,7 @@ function AdminStudentsView({ apiClient }) {
     try {
       await apiClient.request({ method: "DELETE", path: `/alunos/${student.id}` });
       if (editing && editing.id === student.id) setEditing(null);
-      setFeedback("Aluno excluído com sucesso.");
+      setFeedback("Aluno inativado com sucesso.");
       await load();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
@@ -1915,7 +1915,7 @@ function AdminTurmasView({ apiClient }) {
     try {
       await apiClient.request({ method: "DELETE", path: `/turmas/${turma.id}` });
       if (editing && editing.id === turma.id) setEditing(null);
-      setFeedback("Turma excluída com sucesso.");
+      setFeedback("Turma encerrada com sucesso.");
       await loadTurmas();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
@@ -5170,7 +5170,7 @@ export default function Page() {
         },
         onMutationSuccess: ({ endpoint, method }) => {
           if (endpoint === "/auth/login") return;
-          setOperationNotice(method === "DELETE" ? "Registro excluído com sucesso." : "Alterações gravadas com sucesso.");
+          setOperationNotice(method === "DELETE" ? "Operação concluída com sucesso." : "Alterações gravadas com sucesso.");
         },
       }),
     [apiBaseUrl, session]

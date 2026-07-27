@@ -86,7 +86,7 @@ describe("profile.service", () => {
     expect(bcrypt.compare).toHaveBeenCalledWith("senha-atual", "hash-atual");
     expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
       USER_ID,
-      { name: "Ana Silva", passwordHash: "novo-hash" },
+      { name: "Ana Silva", passwordHash: "novo-hash", authVersion: 1 },
       { new: true }
     );
     expect(result.name).toBe("Ana Silva");

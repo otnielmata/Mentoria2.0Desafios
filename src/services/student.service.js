@@ -426,6 +426,7 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
   if (!student) throw createHttpError("Aluno não encontrado.", 404);
 
   const updates = {};
+  let shouldRotateSession = false;
   const name = parseOptionalText(payload.name || payload.nome, "Nome");
   if (name) updates.name = name;
 
@@ -440,10 +441,16 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
   }
 
   const status = parseOptionalText(payload.status || payload.situacao, "Status");
-  if (status) updates.status = parseStudentStatus(status);
+  if (status) {
+    updates.status = parseStudentStatus(status);
+    if (updates.status !== student.status) shouldRotateSession = true;
+  }
 
   const password = parseOptionalText(payload.password || payload.senha || payload.newPassword || payload.novaSenha, "Senha");
-  if (password) updates.passwordHash = await bcrypt.hash(password, 10);
+  if (password) {
+    updates.passwordHash = await bcrypt.hash(password, 10);
+    shouldRotateSession = true;
+  }
 
   const rawDiscordJoined = getFirstValue(payload, ["discordJoined", "entrouNoDiscord", "discord", "isInDiscord"]);
   if (rawDiscordJoined !== undefined) updates.discordJoined = parseBooleanFlag(rawDiscordJoined);
@@ -455,6 +462,10 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
     updates.turmas = await syncStudentTurma(id, turmaId);
   }
 
+  if (shouldRotateSession) {
+    updates.authVersion = Number(student.authVersion || 0) + 1;
+  }
+
   const updated = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
   return serializeStudent(updated);
 }
@@ -462,7 +473,13 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
 async function disableStudent(authenticatedUserId, studentId) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode desativar alunos.");
   const id = parseObjectId(studentId, "Aluno deve ser um identificador válido.");
-  const student = await User.findOneAndUpdate({ _id: id, role: STUDENT_ROLE }, { status: "inativo" }, { new: true }).lean();
+  const current = await getLeanResult(User.findOne({ _id: id, role: STUDENT_ROLE }));
+  if (!current) throw createHttpError("Aluno não encontrado.", 404);
+  const student = await User.findOneAndUpdate(
+    { _id: id, role: STUDENT_ROLE },
+    { status: "inativo", authVersion: Number(current.authVersion || 0) + 1 },
+    { new: true }
+  ).lean();
   if (!student) throw createHttpError("Aluno não encontrado.", 404);
   return serializeStudent(student);
 }

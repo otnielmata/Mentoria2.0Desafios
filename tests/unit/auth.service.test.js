@@ -47,6 +47,7 @@ describe("auth.service", () => {
       status: "ativo",
     });
     expect(generateToken).toHaveBeenCalledWith({
+      authVersion: 0,
       email: "ana@email.com",
       role: "aluno",
       status: "ativo",

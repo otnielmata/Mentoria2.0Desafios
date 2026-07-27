@@ -68,6 +68,7 @@ async function updateMe(authenticatedUserId, payload = {}) {
   }
 
   const newPassword = parseOptionalText(payload.password || payload.newPassword || payload.novaSenha, "Senha");
+  let shouldRotateSession = false;
   if (newPassword) {
     if (newPassword.length < 6) {
       throw createHttpError("Senha deve ter ao menos 6 caracteres.", 400, {
@@ -90,6 +91,11 @@ async function updateMe(authenticatedUserId, payload = {}) {
     }
 
     updates.passwordHash = await bcrypt.hash(newPassword, 10);
+    shouldRotateSession = true;
+  }
+
+  if (shouldRotateSession) {
+    updates.authVersion = Number(currentUser.authVersion || 0) + 1;
   }
 
   const user = await User.findByIdAndUpdate(authenticatedUserId, updates, { new: true }).lean();

@@ -174,7 +174,7 @@ describe("student.service", () => {
 
     expect(User.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: STUDENT_ID, role: "aluno" },
-      { status: "inativo" },
+      { status: "inativo", authVersion: 1 },
       { new: true }
     );
     expect(result.status).toBe("inativo");
