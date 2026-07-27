@@ -471,15 +471,21 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
 }
 
 async function disableStudent(authenticatedUserId, studentId) {
-  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode desativar alunos.");
+  await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode excluir alunos.");
   const id = parseObjectId(studentId, "Aluno deve ser um identificador válido.");
   const current = await getLeanResult(User.findOne({ _id: id, role: STUDENT_ROLE }));
   if (!current) throw createHttpError("Aluno não encontrado.", 404);
-  const student = await User.findOneAndUpdate(
-    { _id: id, role: STUDENT_ROLE },
-    { status: "inativo", authVersion: Number(current.authVersion || 0) + 1 },
-    { new: true }
-  ).lean();
+
+  await Promise.all([
+    typeof AlunoTurma.deleteMany === "function"
+      ? AlunoTurma.deleteMany({ aluno: id })
+      : typeof AlunoTurma.updateMany === "function"
+        ? AlunoTurma.updateMany({ aluno: id }, { status: INACTIVE_CLASS_LINK_STATUS, removedAt: new Date() })
+        : Promise.resolve(),
+    typeof Turma.updateMany === "function" ? Turma.updateMany({ alunos: id }, { $pull: { alunos: id } }) : Promise.resolve(),
+  ]);
+
+  const student = await getLeanResult(User.findOneAndDelete ? User.findOneAndDelete({ _id: id, role: STUDENT_ROLE }) : null);
   if (!student) throw createHttpError("Aluno não encontrado.", 404);
   return serializeStudent(student);
 }
