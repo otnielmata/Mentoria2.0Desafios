@@ -4,6 +4,7 @@ jest.mock("bcryptjs", () => ({
 
 jest.mock("../../src/models/aluno-turma.model", () => ({
   create: jest.fn(),
+  deleteMany: jest.fn(),
   find: jest.fn(),
   findOneAndUpdate: jest.fn(),
   updateMany: jest.fn(),
@@ -26,6 +27,7 @@ jest.mock("../../src/models/user.model", () => ({
   find: jest.fn(),
   findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  findOneAndDelete: jest.fn(),
   findOne: jest.fn(),
   findOneAndUpdate: jest.fn(),
 }));
@@ -165,19 +167,19 @@ describe("student.service", () => {
     expect(result).not.toHaveProperty("passwordHash");
   });
 
-  it("desativa aluno por status preservando histórico", async () => {
-    User.findOneAndUpdate.mockReturnValue({
-      lean: jest.fn().mockResolvedValue({ _id: STUDENT_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "inativo" }),
+  it("exclui aluno em definitivo removendo vínculos com turmas", async () => {
+    User.findOneAndDelete.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ _id: STUDENT_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" }),
     });
 
     const result = await disableStudent(ADMIN_ID, STUDENT_ID);
 
-    expect(User.findOneAndUpdate).toHaveBeenCalledWith(
+    expect(AlunoTurma.deleteMany).toHaveBeenCalledWith({ aluno: STUDENT_ID });
+    expect(Turma.updateMany).toHaveBeenCalledWith({ alunos: STUDENT_ID }, { $pull: { alunos: STUDENT_ID } });
+    expect(User.findOneAndDelete).toHaveBeenCalledWith(
       { _id: STUDENT_ID, role: "aluno" },
-      { status: "inativo", authVersion: 1 },
-      { new: true }
     );
-    expect(result.status).toBe("inativo");
+    expect(result.email).toBe("ana@email.com");
   });
 
   it("edita aluno com nome, e-mail, senha, status e turma pelo perfil admin", async () => {

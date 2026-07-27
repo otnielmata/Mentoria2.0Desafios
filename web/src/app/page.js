@@ -1312,6 +1312,7 @@ function AdminStudentsView({ apiClient }) {
   const [students, setStudents] = useState([]);
   const [turmas, setTurmas] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [importFormKey, setImportFormKey] = useState(0);
   const [filters, setFilters] = useState({ search: "" });
   const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
@@ -1391,8 +1392,7 @@ function AdminStudentsView({ apiClient }) {
 
   async function importStudents(event) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const data = new FormData(event.currentTarget);
     setError("");
     setFeedback("");
     try {
@@ -1401,7 +1401,7 @@ function AdminStudentsView({ apiClient }) {
       const importacao = result && result.importacao ? result.importacao : {};
       const importados = Number(importacao.importados || 0);
       const falhas = Number(importacao.falhas || 0);
-      form.reset();
+      setImportFormKey((current) => current + 1);
       setFeedback(`Importação finalizada: ${importados} aluno(s) importado(s), ${falhas} falha(s).`);
       if (falhas > 0) {
         setError(
@@ -1411,7 +1411,7 @@ function AdminStudentsView({ apiClient }) {
             .join(" | ")
         );
       }
-      await load();
+      await load(filters, 1);
     } catch (importError) {
       setError(getErrorMessage(importError));
     }
@@ -1453,8 +1453,8 @@ function AdminStudentsView({ apiClient }) {
     try {
       await apiClient.request({ method: "DELETE", path: `/alunos/${student.id}` });
       if (editing && editing.id === student.id) setEditing(null);
-      setFeedback("Aluno inativado com sucesso.");
-      await load();
+      setFeedback("Aluno excluído com sucesso.");
+      await load(filters, 1);
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
     }
@@ -1523,7 +1523,7 @@ function AdminStudentsView({ apiClient }) {
             <p className="muted">CSV com as colunas Nome, E-mail, Senha Inicial e Turma.</p>
           </div>
         </div>
-        <form className="inline-form" onSubmit={importStudents}>
+        <form className="inline-form" key={importFormKey} onSubmit={importStudents}>
           <label className="field">
             <span>Arquivo CSV</span>
             <input name="csvFile" required type="file" accept=".csv,text/csv" />
