@@ -1,19 +1,6 @@
 const app = require("../src/app");
 const { connectDatabase } = require("../src/config/database");
 
-let databaseConnectionPromise = null;
-
-async function ensureDatabaseConnection() {
-  if (!databaseConnectionPromise) {
-    databaseConnectionPromise = connectDatabase().catch((error) => {
-      databaseConnectionPromise = null;
-      throw error;
-    });
-  }
-
-  await databaseConnectionPromise;
-}
-
 function normalizePathSegments(pathValue) {
   if (Array.isArray(pathValue)) return pathValue.filter(Boolean);
   if (typeof pathValue === "string") return pathValue.split("/").filter(Boolean);
@@ -36,7 +23,7 @@ function rebuildApiRequestUrl(req) {
 }
 
 module.exports = async function handler(req, res) {
-  await ensureDatabaseConnection();
+  await connectDatabase();
   req.url = rebuildApiRequestUrl(req);
   return app(req, res);
 };

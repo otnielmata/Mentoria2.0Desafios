@@ -2,11 +2,13 @@ const env = require("../config/env");
 const { getDatabaseStatus } = require("../config/database");
 
 function healthCheck(req, res) {
-  return res.status(200).json({
-    status: "ok",
-    message: "API running",
+  const database = getDatabaseStatus();
+  const isDatabaseConnected = database.readyState === 1;
+  return res.status(isDatabaseConnected ? 200 : 503).json({
+    status: isDatabaseConnected ? "ok" : "degraded",
+    message: isDatabaseConnected ? "API running" : "API running without database connection",
     timestamp: new Date().toISOString(),
-    database: getDatabaseStatus(),
+    database,
     config: {
       baseUrl: env.baseUrl,
       mongoDbName: env.mongoDbName || null,
