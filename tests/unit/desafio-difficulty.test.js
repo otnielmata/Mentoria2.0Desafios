@@ -192,6 +192,58 @@ describe("desafio.service difficulty", () => {
     expect(desafio.pontosApresentacaoAoVivo).toBe(15);
   });
 
+  it("permite zero pontos de apresentação quando o desafio não tem apresentação", async () => {
+    await createDesafio(ADMIN_ID, {
+      pilarId: PILAR_ID,
+      title: "Sem apresentação ao vivo",
+      description: "Desafio sem evento de apresentação.",
+      points: 20,
+      livePresentationPoints: 0,
+      type: "individual",
+      deliveryDate: "2099-01-01T00:00:00.000Z",
+    });
+
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({ livePresentationPoints: 0 })
+    );
+  });
+
+  it("ignora pilar desmarcado com zero e exige pontuação positiva para pilar selecionado", async () => {
+    const desafio = await createDesafio(ADMIN_ID, {
+      pilares: [
+        { pilarId: PILAR_ID, points: 20, selected: true },
+        { pilarId: PILAR_2_ID, points: 0, selected: false },
+      ],
+      title: "Pilar opcional",
+      description: "Desafio com um pilar não selecionado.",
+      type: "individual",
+      deliveryDate: "2099-01-01T00:00:00.000Z",
+    });
+
+    expect(desafio.pilares).toEqual([
+      expect.objectContaining({ pilarId: PILAR_ID, points: 20, pontos: 20 }),
+    ]);
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pilares: [{ pilar: PILAR_ID, points: 20 }],
+        points: 20,
+      })
+    );
+
+    await expect(
+      createDesafio(ADMIN_ID, {
+        pilares: [{ pilarId: PILAR_ID, points: 0, selected: true }],
+        title: "Pilar sem pontos",
+        description: "Desafio inválido.",
+        type: "individual",
+        deliveryDate: "2099-01-01T00:00:00.000Z",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Pontuação do pilar 1 deve estar entre 1 e 1000000.",
+    });
+  });
+
   it("permite marcar certificado postado no cadastro e na edição do desafio", async () => {
     const created = await createDesafio(ADMIN_ID, {
       pilarId: PILAR_ID,

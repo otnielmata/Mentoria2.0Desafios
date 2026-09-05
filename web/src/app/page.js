@@ -178,10 +178,13 @@ function isPilarSelected(desafio, pilarId) {
 function buildPilaresPayloadFromForm(data, fieldPrefix = "") {
   const selectedIds = data.getAll(`${fieldPrefix}PilarIds`).map(String);
 
-  return selectedIds.map((pilarId) => ({
-    pilarId,
-    points: Number(data.get(`${fieldPrefix}PilarPoints_${pilarId}`) || 0),
-  }));
+  return selectedIds.map((pilarId) => {
+    const points = Number(data.get(`${fieldPrefix}PilarPoints_${pilarId}`) || 0);
+    if (!Number.isFinite(points) || points <= 0) {
+      throw new Error("Cada pilar selecionado deve ter pontuação maior que zero. Desmarque o pilar ou informe um valor positivo.");
+    }
+    return { pilarId, points };
+  });
 }
 
 function formatTurmaName(turma) {
@@ -2441,11 +2444,12 @@ function AdminDesafiosView({ apiClient }) {
             <input name="title" maxLength={160} required placeholder={`Desafio ${todaySuffix()}`} />
           </label>
           <label className="field">
-            <span>Pontos apresentação ao vivo</span>
+            <span>Pontos apresentação ao vivo (use 0 se não houver apresentação)</span>
             <input name="livePresentationPoints" required type="number" min="0" max="1000000" defaultValue="0" />
           </label>
           <div className="field span-2">
             <span>Pilares e pontuação</span>
+            <small className="muted">Pilares desmarcados ficam com 0. Marque um pilar somente quando ele tiver pontuação maior que zero.</small>
             <div className="pillar-points-grid">
               {pilares.map((pilar) => (
                 <div className="pillar-point-row" key={pilar.id}>
@@ -2453,7 +2457,7 @@ function AdminDesafiosView({ apiClient }) {
                     <input name="PilarIds" type="checkbox" value={pilar.id} />
                     {pilar.name}
                   </label>
-                  <input aria-label={`Pontos para ${pilar.name}`} name={`PilarPoints_${pilar.id}`} type="number" min="1" max="1000000" defaultValue="10" />
+                  <input aria-label={`Pontos para ${pilar.name}`} name={`PilarPoints_${pilar.id}`} type="number" min="0" max="1000000" defaultValue="0" />
                 </div>
               ))}
             </div>
@@ -2500,7 +2504,7 @@ function AdminDesafiosView({ apiClient }) {
               <input name="editTitle" maxLength={160} required defaultValue={editing.title} />
             </label>
             <label className="field">
-              <span>Pontos apresentação ao vivo</span>
+              <span>Pontos apresentação ao vivo (use 0 se não houver apresentação)</span>
               <input
                 name="editLivePresentationPoints"
                 required
@@ -2512,6 +2516,7 @@ function AdminDesafiosView({ apiClient }) {
             </label>
             <div className="field span-2">
               <span>Pilares e pontuação</span>
+              <small className="muted">Pilares desmarcados ficam com 0. Marque um pilar somente quando ele tiver pontuação maior que zero.</small>
               <div className="pillar-points-grid">
                 {pilares.map((pilar) => (
                   <div className="pillar-point-row" key={pilar.id}>
@@ -2523,9 +2528,9 @@ function AdminDesafiosView({ apiClient }) {
                       aria-label={`Pontos para ${pilar.name}`}
                       name={`editPilarPoints_${pilar.id}`}
                       type="number"
-                      min="1"
+                      min="0"
                       max="1000000"
-                      defaultValue={getPilarPointValue(editing, pilar.id, 10)}
+                      defaultValue={getPilarPointValue(editing, pilar.id, 0)}
                     />
                   </div>
                 ))}

@@ -201,10 +201,22 @@ function hasPilaresPayload(payload = {}) {
 }
 
 function normalizePilaresPayload(rawPilares) {
-  if (Array.isArray(rawPilares)) return rawPilares;
+  const values = Array.isArray(rawPilares)
+    ? rawPilares
+    : rawPilares && typeof rawPilares === "object"
+      ? Object.entries(rawPilares).map(([pilarId, points]) => ({ pilarId, points }))
+      : null;
 
-  if (rawPilares && typeof rawPilares === "object") {
-    return Object.entries(rawPilares).map(([pilarId, points]) => ({ pilarId, points }));
+  if (values) {
+    return values.filter((item) => {
+      if (!item || typeof item !== "object") return true;
+      return ![
+        item.selected,
+        item.selecionado,
+        item.checked,
+        item.marcado,
+      ].some((value) => value === false);
+    });
   }
 
   throw createHttpError("pilares deve ser uma lista de pilares com pontuação.", 400, {
