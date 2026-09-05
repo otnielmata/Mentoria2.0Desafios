@@ -462,7 +462,7 @@ function LoginScreen({ theme, onThemeChange, onLogin }) {
     <main className="login-shell">
       <section className="login-panel">
         <div className="brand">
-          <img className="brand-logo brand-icon" src="/m20-system-icon.jpeg" alt="M2.0" width="112" height="112" />
+          <img className="brand-logo" src="/logo-mentoria-wordmark.png" alt="Mentoria 2.0" width="132" height="61" />
           <div>
             <h1>Desafios Mentoria 2.0</h1>
             <p className="muted">Painel Alavanque</p>

@@ -101,18 +101,8 @@ input:disabled {
   object-position: left center;
 }
 
-.brand-icon {
-  width: 112px;
-  height: 112px;
-  object-position: center;
-}
-
 [data-theme="dark"] .brand-logo {
   filter: invert(1);
-}
-
-[data-theme="dark"] .brand-logo.brand-icon {
-  filter: none;
 }
 
 .sidebar .brand-logo {
