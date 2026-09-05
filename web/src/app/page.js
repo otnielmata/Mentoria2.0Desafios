@@ -4430,8 +4430,10 @@ function StudyPlanCalendar({
                     style={{ borderColor: event.color }}
                   >
                     <span className="calendar-dot" style={{ backgroundColor: event.color }} />
-                    {event.timeLabel ? `${event.timeLabel} ` : ""}
-                    {event.title}
+                    <span className="calendar-event-content">
+                      {event.timeLabel ? <span className="calendar-event-time">{event.timeLabel}</span> : null}
+                      <span className="calendar-event-title">{event.title}</span>
+                    </span>
                   </span>
                 ))}
                 {dayEvents.length > 3 ? <span className="calendar-more">+{dayEvents.length - 3} eventos</span> : null}
