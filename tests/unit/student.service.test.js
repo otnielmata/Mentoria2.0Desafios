@@ -27,6 +27,7 @@ jest.mock("../../src/models/user.model", () => ({
   find: jest.fn(),
   findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  deleteOne: jest.fn(),
   findOneAndDelete: jest.fn(),
   findOne: jest.fn(),
   findOneAndUpdate: jest.fn(),
@@ -289,5 +290,28 @@ describe("student.service", () => {
       falhas: 0,
       alunos: [expect.objectContaining({ email: "aluno.csv@email.com", discordJoined: false })],
     });
+  });
+
+  it("desfaz o aluno criado quando uma linha do CSV falha ao vincular a turma", async () => {
+    bcrypt.hash.mockResolvedValue("hash-csv");
+    Turma.findOne.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ _id: TURMA_ID, name: "Turma 1", code: "T1" }),
+    });
+    User.findOne.mockReturnValue({
+      lean: jest.fn().mockResolvedValue(null),
+    });
+    User.create.mockResolvedValue({ _id: STUDENT_ID, id: STUDENT_ID, name: "Aluno CSV", email: "aluno.csv@email.com" });
+    AlunoTurma.create.mockRejectedValue(new Error("falha no vínculo"));
+    User.deleteOne.mockResolvedValue({ acknowledged: true });
+
+    const result = await importStudentsFromCsv(
+      ADMIN_ID,
+      "Nome;E-mail;Senha Inicial;Turma\nAluno CSV;aluno.csv@email.com;Teste@123;Turma 1"
+    );
+
+    expect(result).toMatchObject({ total: 1, importados: 0, falhas: 1 });
+    expect(User.deleteOne).toHaveBeenCalledWith({ _id: STUDENT_ID });
+    expect(AlunoTurma.deleteMany).toHaveBeenCalledWith({ aluno: STUDENT_ID });
+    expect(Turma.updateOne).toHaveBeenCalledWith({ _id: TURMA_ID }, { $pull: { alunos: STUDENT_ID } });
   });
 });

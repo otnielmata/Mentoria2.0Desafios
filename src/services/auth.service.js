@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
 const { logInvalidLoginAttempt } = require("./audit.service");
-const { createHttpError, normalizeText } = require("./domain-utils");
+const { createHttpError, normalizeText, parseEmail, parsePassword, parsePersonName } = require("./domain-utils");
 const { generateToken } = require("./token.service");
 
 const ACTIVE_STATUSES = ["ativo", "active"];
@@ -9,17 +9,22 @@ const ACTIVE_STATUSES = ["ativo", "active"];
 function validateRegistrationPayload({ name, email, password }) {
   const details = [];
 
-  if (!name || typeof name !== "string" || !name.trim()) {
-    details.push({ field: "name", message: "Nome é obrigatório." });
+  try {
+    parsePersonName(name);
+  } catch (error) {
+    details.push({ field: "name", message: error.message });
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || typeof email !== "string" || !emailRegex.test(email.trim())) {
-    details.push({ field: "email", message: "E-mail inválido." });
+  try {
+    parseEmail(email);
+  } catch (error) {
+    details.push({ field: "email", message: error.message });
   }
 
-  if (!password || typeof password !== "string" || password.length < 6) {
-    details.push({ field: "password", message: "Senha deve ter ao menos 6 caracteres." });
+  try {
+    parsePassword(password);
+  } catch (error) {
+    details.push({ field: "password", message: error.message });
   }
 
   if (details.length > 0) {
@@ -81,16 +86,18 @@ function generateUserToken(user) {
 
 async function registerUser({ name, email, password }) {
   validateRegistrationPayload({ name, email, password });
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = parseEmail(email);
+  const normalizedName = parsePersonName(name);
+  const normalizedPassword = parsePassword(password);
 
   const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
     throw createHttpError("E-mail já está em uso.", 409, { code: "EMAIL_ALREADY_IN_USE" });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(normalizedPassword, 10);
   const user = await User.create({
-    name: name.trim(),
+    name: normalizedName,
     email: normalizedEmail,
     passwordHash,
     role: "aluno",
@@ -107,7 +114,7 @@ async function registerUser({ name, email, password }) {
 
 async function loginUser({ email, password, metadata = {} }) {
   validateLoginPayload({ email, password });
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = parseEmail(email);
   const { ip, userAgent } = metadata;
 
   const user = await User.findOne({ email: normalizedEmail });

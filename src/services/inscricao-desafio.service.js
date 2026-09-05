@@ -1,7 +1,8 @@
-require("../models/pilar.model");
-require("../models/turma.model");
+const Pilar = require("../models/pilar.model");
+const Turma = require("../models/turma.model");
 const AlunoTurma = require("../models/aluno-turma.model");
 const Desafio = require("../models/desafio.model");
+const EnvioDesafio = require("../models/envio-desafio.model");
 const GrupoDesafio = require("../models/grupo-desafio.model");
 const InscricaoDesafio = require("../models/inscricao-desafio.model");
 const User = require("../models/user.model");
@@ -26,6 +27,21 @@ const CONTACT_TYPES = ["whatsapp", "telegram", "discord"];
 const DEFAULT_GROUP_MODE = "normal";
 const ENGLISH_GROUP_MODE = "ingles";
 const GROUP_MODES = [DEFAULT_GROUP_MODE, ENGLISH_GROUP_MODE];
+const ACTIVE_TURMA_STATUS = "ativa";
+const groupLocks = new Map();
+
+function isDuplicateKeyError(error) {
+  return Boolean(error && (error.code === 11000 || error.codeName === "DuplicateKey"));
+}
+
+function withLock(lockMap, key, task) {
+  const previous = lockMap.get(key) || Promise.resolve();
+  const current = previous.catch(() => undefined).then(task);
+  lockMap.set(key, current);
+  return current.finally(() => {
+    if (lockMap.get(key) === current) lockMap.delete(key);
+  });
+}
 
 function normalizeGroupMode(value) {
   const modalidade = normalizeText(value) || DEFAULT_GROUP_MODE;
@@ -157,19 +173,36 @@ async function getAuthenticatedStudent(authenticatedUserId) {
   const user = await User.findById(authenticatedUserId).lean();
   if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
   if (normalizeText(user.role) !== STUDENT_ROLE) throw createHttpError("Apenas aluno pode se inscrever em desafios.", 403);
+  if (normalizeText(user.status || ACTIVE_STATUS) !== ACTIVE_STATUS) {
+    throw createHttpError("Aluno inativo não pode se inscrever em desafios.", 403, { code: "INACTIVE_USER" });
+  }
   return user;
 }
 
 async function findStudentTurma(student) {
   const activeLink = await AlunoTurma.findOne({ aluno: getEntityId(student), status: ACTIVE_LINK_STATUS }).sort({ createdAt: -1 }).lean();
-  if (activeLink && activeLink.turma) return getEntityId(activeLink.turma);
+  if (activeLink && activeLink.turma) {
+    const activeTurmaId = await findActiveTurmaId(activeLink.turma);
+    if (activeTurmaId) return activeTurmaId;
+  }
 
-  const firstUserTurma = Array.isArray(student.turmas) ? student.turmas[0] : null;
-  if (firstUserTurma) return getEntityId(firstUserTurma);
+  const userTurmas = Array.isArray(student.turmas) ? student.turmas : [];
+  for (const userTurma of userTurmas) {
+    const activeTurmaId = await findActiveTurmaId(userTurma);
+    if (activeTurmaId) return activeTurmaId;
+  }
 
   throw createHttpError("Aluno precisa estar vinculado a uma turma ativa para se inscrever em desafios.", 400, {
     code: "STUDENT_CLASS_REQUIRED",
   });
+}
+
+async function findActiveTurmaId(turma) {
+  const turmaId = getEntityId(turma);
+  if (!turmaId || typeof Turma.findById !== "function") return turmaId || null;
+  const query = Turma.findById(turmaId);
+  const record = typeof query.lean === "function" ? await query.lean() : await query;
+  return record && normalizeText(record.status || ACTIVE_TURMA_STATUS) === ACTIVE_TURMA_STATUS ? turmaId : null;
 }
 
 async function getActiveDesafio(desafioId) {
@@ -184,6 +217,10 @@ async function getActiveDesafio(desafioId) {
   if (normalizeText(desafio.status) !== ACTIVE_STATUS) {
     throw createHttpError("Apenas desafios ativos aceitam inscrição.", 400);
   }
+  const pilarRefs = [desafio.pilar, ...(Array.isArray(desafio.pilares) ? desafio.pilares.map((item) => item && item.pilar) : [])].filter(Boolean);
+  if (pilarRefs.some((pilar) => normalizeText(pilar.status || ACTIVE_STATUS) !== ACTIVE_STATUS)) {
+    throw createHttpError("Apenas desafios vinculados a pilares ativos aceitam inscrição.", 400, { code: "INACTIVE_PILAR" });
+  }
   return desafio;
 }
 
@@ -195,30 +232,68 @@ async function findOpenGroup({ desafioId, turmaId, maxParticipantes, modalidade 
     status: OPEN_GROUP_STATUS,
   }).sort({ createdAt: 1 });
 
-  return (grupos || []).find((grupo) => (grupo.participantes || []).length < maxParticipantes) || null;
+  const candidateGroups = (grupos || []).filter((grupo) => (grupo.participantes || []).length < maxParticipantes);
+  if (candidateGroups.length === 0 || typeof EnvioDesafio.find !== "function") return candidateGroups[0] || null;
+
+  const groupIds = candidateGroups.map(getEntityId).filter(Boolean);
+  const submitted = await EnvioDesafio.find({ grupo: { $in: groupIds }, status: { $ne: "cancelado" } }).select("grupo").lean();
+  const submittedGroupIds = new Set((submitted || []).map((envio) => getEntityId(envio.grupo)));
+  return candidateGroups.find((grupo) => !submittedGroupIds.has(getEntityId(grupo))) || null;
 }
 
 async function joinOrCreateGroup({ desafio, turmaId, alunoId, modalidade }) {
   const maxParticipantes = Number(desafio.maxParticipantes || 1);
-  let grupo = await findOpenGroup({ desafioId: getEntityId(desafio), turmaId, maxParticipantes, modalidade });
+  const desafioId = getEntityId(desafio);
+  const lockKey = `${desafioId}:${turmaId}:${modalidade}`;
 
-  if (!grupo) {
-    grupo = await GrupoDesafio.create({
-      desafio: getEntityId(desafio),
+  return withLock(groupLocks, lockKey, async () => {
+    const groupFilter = {
+      desafio: desafioId,
       turma: turmaId,
-      participantes: [alunoId],
-      maxParticipantes,
-      modalidade,
-      status: maxParticipantes === 1 ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS,
-    });
-    return grupo;
-  }
+      modalidade: modalidade === ENGLISH_GROUP_MODE ? ENGLISH_GROUP_MODE : { $in: [DEFAULT_GROUP_MODE, null] },
+      status: OPEN_GROUP_STATUS,
+    };
 
-  const participanteIds = (grupo.participantes || []).map(getEntityId);
-  if (!participanteIds.includes(alunoId)) participanteIds.push(alunoId);
-  grupo.participantes = participanteIds;
-  grupo.status = participanteIds.length >= maxParticipantes ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS;
-  return grupo.save();
+    const grupoDisponivel = await findOpenGroup({ desafioId, turmaId, maxParticipantes, modalidade });
+
+    // The atomic update prevents two requests from adding people to the same full group.
+    if (grupoDisponivel && typeof GrupoDesafio.findOneAndUpdate === "function") {
+      const grupoAtualizado = await GrupoDesafio.findOneAndUpdate(
+        {
+          ...groupFilter,
+          _id: getEntityId(grupoDisponivel),
+          $expr: { $lt: [{ $size: { $ifNull: ["$participantes", []] } }, "$maxParticipantes"] },
+        },
+        { $addToSet: { participantes: alunoId } },
+        { new: true }
+      );
+      if (grupoAtualizado) {
+        const total = (grupoAtualizado.participantes || []).length;
+        grupoAtualizado.status = total >= maxParticipantes ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS;
+        if (total >= maxParticipantes && typeof grupoAtualizado.save === "function") await grupoAtualizado.save();
+        return grupoAtualizado;
+      }
+    }
+
+    let grupo = grupoDisponivel;
+    if (!grupo) {
+      grupo = await GrupoDesafio.create({
+        desafio: desafioId,
+        turma: turmaId,
+        participantes: [alunoId],
+        maxParticipantes,
+        modalidade,
+        status: maxParticipantes === 1 ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS,
+      });
+      return grupo;
+    }
+
+    const participanteIds = (grupo.participantes || []).map(getEntityId);
+    if (!participanteIds.includes(alunoId)) participanteIds.push(alunoId);
+    grupo.participantes = participanteIds;
+    grupo.status = participanteIds.length >= maxParticipantes ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS;
+    return grupo.save();
+  });
 }
 
 async function populateInscricao(inscricaoId) {
@@ -246,22 +321,58 @@ async function subscribeToChallenge(authenticatedUserId, desafioId, payload = {}
   const student = await getAuthenticatedStudent(authenticatedUserId);
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
   const modalidade = normalizeGroupMode(getFirstValue(payload, ["modalidade", "modalidadeGrupo", "groupMode"]));
-  const existing = await InscricaoDesafio.findOne({ aluno: authenticatedUserId, desafio: id, status: SUBSCRIPTION_STATUS }).lean();
-  if (existing) {
-    throw createHttpError("Aluno já está inscrito neste desafio.", 409, { code: "CHALLENGE_ALREADY_SUBSCRIBED" });
+  const lockKey = `${authenticatedUserId}:${id}`;
+
+  return withLock(groupLocks, `subscription:${lockKey}`, async () => {
+    const existing = await InscricaoDesafio.findOne({ aluno: authenticatedUserId, desafio: id, status: SUBSCRIPTION_STATUS }).lean();
+    if (existing) {
+      throw createHttpError("Aluno já está inscrito neste desafio.", 409, { code: "CHALLENGE_ALREADY_SUBSCRIBED" });
+    }
+
+    const [desafio, turmaId] = await Promise.all([getActiveDesafio(id), findStudentTurma(student)]);
+    const grupo = await joinOrCreateGroup({ desafio, turmaId, alunoId: authenticatedUserId, modalidade });
+    let inscricao;
+    try {
+      inscricao = await InscricaoDesafio.create({
+        desafio: id,
+        aluno: authenticatedUserId,
+        turma: turmaId,
+        grupo: getEntityId(grupo),
+        modalidade,
+        status: SUBSCRIPTION_STATUS,
+      });
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      throw createHttpError("Aluno já está inscrito neste desafio.", 409, { code: "CHALLENGE_ALREADY_SUBSCRIBED" });
+    }
+    const populated = await populateInscricao(getEntityId(inscricao));
+    return serializeInscricao(populated || inscricao);
+  });
+}
+
+async function cancelSubscription(authenticatedUserId, inscricaoId) {
+  await getAuthenticatedStudent(authenticatedUserId);
+  const id = parseObjectId(inscricaoId, "Inscrição deve ser um identificador válido.");
+  const inscricao = await InscricaoDesafio.findOne({ _id: id, aluno: authenticatedUserId, status: SUBSCRIPTION_STATUS });
+  if (!inscricao) throw createHttpError("Inscrição ativa não encontrada.", 404, { code: "SUBSCRIPTION_NOT_FOUND" });
+
+  inscricao.status = "cancelado";
+  inscricao.canceledAt = new Date();
+  await inscricao.save();
+
+  const grupoId = getEntityId(inscricao.grupo);
+  if (grupoId && typeof GrupoDesafio.findById === "function") {
+    const grupo = await GrupoDesafio.findById(grupoId);
+    if (grupo && typeof grupo.save === "function") {
+      grupo.participantes = (grupo.participantes || []).map(getEntityId).filter((alunoId) => alunoId !== authenticatedUserId);
+      grupo.status = grupo.participantes.length === 0 ? "cancelado" : grupo.participantes.length >= Number(grupo.maxParticipantes || 1) ? COMPLETE_GROUP_STATUS : OPEN_GROUP_STATUS;
+      await grupo.save();
+    } else if (typeof GrupoDesafio.updateOne === "function") {
+      await GrupoDesafio.updateOne({ _id: grupoId }, { $pull: { participantes: authenticatedUserId } });
+    }
   }
 
-  const [desafio, turmaId] = await Promise.all([getActiveDesafio(id), findStudentTurma(student)]);
-  const grupo = await joinOrCreateGroup({ desafio, turmaId, alunoId: authenticatedUserId, modalidade });
-  const inscricao = await InscricaoDesafio.create({
-    desafio: id,
-    aluno: authenticatedUserId,
-    turma: turmaId,
-    grupo: getEntityId(grupo),
-    modalidade,
-    status: SUBSCRIPTION_STATUS,
-  });
-  const populated = await populateInscricao(getEntityId(inscricao));
+  const populated = await populateInscricao(id);
   return serializeInscricao(populated || inscricao);
 }
 
@@ -290,7 +401,13 @@ async function listMySubscriptions(authenticatedUserId) {
 
   return {
     inscricoes: (inscricoes || [])
-      .filter((inscricao) => inscricao.desafio && normalizeText(inscricao.desafio.status) === ACTIVE_STATUS && !isDeliveryDeadlineExpired(inscricao.desafio))
+      .filter(
+        (inscricao) =>
+          inscricao.desafio &&
+          normalizeText(inscricao.desafio.status) === ACTIVE_STATUS &&
+          !isDeliveryDeadlineExpired(inscricao.desafio) &&
+          (!inscricao.turma || typeof inscricao.turma !== "object" || normalizeText(inscricao.turma.status || ACTIVE_TURMA_STATUS) === ACTIVE_TURMA_STATUS)
+      )
       .map(serializeInscricao),
   };
 }
@@ -377,6 +494,7 @@ async function updateGroupContact(authenticatedUserId, grupoId, payload = {}) {
 }
 
 module.exports = {
+  cancelSubscription,
   listGroups,
   listMySubscriptions,
   subscribeToChallenge,

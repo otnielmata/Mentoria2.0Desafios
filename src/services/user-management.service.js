@@ -6,7 +6,10 @@ const {
   getEntityId,
   getFirstValue,
   normalizeText,
+  parseEmail,
   parseObjectId,
+  parsePassword,
+  parsePersonName,
   parseOptionalText,
   parsePagination,
   parseRequiredText,
@@ -82,9 +85,9 @@ async function assertUniqueEmail(email, ignoredUserId = null) {
 async function createManagedUser(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId);
 
-  const name = parseRequiredText(payload.name || payload.nome, "Nome");
-  const email = parseRequiredText(payload.email, "E-mail").toLowerCase();
-  const password = parseRequiredText(payload.password || payload.senha, "Senha");
+  const name = parsePersonName(payload.name || payload.nome, "Nome");
+  const email = parseEmail(payload.email, "E-mail");
+  const password = parsePassword(payload.password || payload.senha, "Senha");
   await assertUniqueEmail(email);
 
   const user = await User.create({
@@ -145,12 +148,12 @@ async function updateManagedUser(authenticatedUserId, userId, payload = {}) {
 
   const updates = {};
   let shouldRotateSession = false;
-  const name = parseOptionalText(payload.name || payload.nome, "Nome");
-  if (name) updates.name = name;
+  const nameValue = getFirstValue(payload, ["name", "nome"]);
+  if (nameValue !== undefined) updates.name = parsePersonName(nameValue, "Nome");
 
-  const email = parseOptionalText(payload.email, "E-mail");
-  if (email) {
-    const normalizedEmail = email.toLowerCase();
+  const emailValue = getFirstValue(payload, ["email"]);
+  if (emailValue !== undefined) {
+    const normalizedEmail = parseEmail(emailValue, "E-mail");
     if (normalizedEmail !== current.email) await assertUniqueEmail(normalizedEmail, id);
     updates.email = normalizedEmail;
   }
@@ -167,14 +170,19 @@ async function updateManagedUser(authenticatedUserId, userId, payload = {}) {
     if (updates.status !== current.status) shouldRotateSession = true;
   }
 
-  const password = parseOptionalText(payload.password || payload.senha || payload.newPassword || payload.novaSenha, "Senha");
-  if (password) {
+  const passwordValue = getFirstValue(payload, ["password", "senha", "newPassword", "novaSenha"]);
+  if (passwordValue !== undefined) {
+    const password = parsePassword(passwordValue, "Senha");
     updates.passwordHash = await bcrypt.hash(password, 10);
     shouldRotateSession = true;
   }
 
   if (shouldRotateSession) {
     updates.authVersion = Number(current.authVersion || 0) + 1;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw createHttpError("Informe ao menos uma alteração para atualizar o usuário.", 400, { code: "NO_CHANGES" });
   }
 
   const updatedUser = await User.findByIdAndUpdate(id, updates, { new: true }).lean();

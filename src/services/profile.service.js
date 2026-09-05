@@ -1,6 +1,13 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
-const { createHttpError, getEntityId, parseOptionalText } = require("./domain-utils");
+const {
+  createHttpError,
+  getEntityId,
+  hasOwn,
+  parseEmail,
+  parsePassword,
+  parsePersonName,
+} = require("./domain-utils");
 
 const FORBIDDEN_FIELDS = ["role", "status", "passwordHash", "turmas"];
 
@@ -54,12 +61,10 @@ async function updateMe(authenticatedUserId, payload = {}) {
     }
   });
 
-  const name = parseOptionalText(payload.name, "Nome");
-  if (name) updates.name = name;
+  if (hasOwn(payload, "name")) updates.name = parsePersonName(payload.name);
 
-  const email = parseOptionalText(payload.email, "E-mail");
-  if (email) {
-    const normalizedEmail = email.toLowerCase();
+  if (hasOwn(payload, "email")) {
+    const normalizedEmail = parseEmail(payload.email);
     if (normalizedEmail !== currentUser.email) {
       const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: authenticatedUserId } }).lean();
       if (existingUser) throw createHttpError("E-mail já está em uso.", 409, { code: "EMAIL_ALREADY_IN_USE" });
@@ -67,27 +72,33 @@ async function updateMe(authenticatedUserId, payload = {}) {
     updates.email = normalizedEmail;
   }
 
-  const newPassword = parseOptionalText(payload.password || payload.newPassword || payload.novaSenha, "Senha");
+  const rawNewPassword = hasOwn(payload, "password")
+    ? payload.password
+    : hasOwn(payload, "newPassword")
+      ? payload.newPassword
+      : payload.novaSenha;
+  const newPassword = rawNewPassword === undefined || rawNewPassword === null || rawNewPassword === "" ? undefined : parsePassword(rawNewPassword);
   let shouldRotateSession = false;
   if (newPassword) {
-    if (newPassword.length < 6) {
-      throw createHttpError("Senha deve ter ao menos 6 caracteres.", 400, {
-        code: "VALIDATION_ERROR",
-        details: [{ field: "password", message: "Senha deve ter ao menos 6 caracteres." }],
-      });
-    }
-
-    const currentPassword = parseOptionalText(payload.currentPassword || payload.senhaAtual, "Senha atual");
-    if (!currentPassword) {
+    const rawCurrentPassword = hasOwn(payload, "currentPassword") ? payload.currentPassword : payload.senhaAtual;
+    if (typeof rawCurrentPassword !== "string" || rawCurrentPassword.trim().length === 0) {
       throw createHttpError("Senha atual é obrigatória para alterar a senha.", 400, {
         code: "VALIDATION_ERROR",
         details: [{ field: "currentPassword", message: "Informe a senha atual." }],
       });
     }
+    const currentPassword = rawCurrentPassword;
 
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentUser.passwordHash);
     if (!isCurrentPasswordValid) {
       throw createHttpError("Senha atual inválida.", 401, { code: "INVALID_CURRENT_PASSWORD" });
+    }
+
+    if (newPassword === currentPassword || (await bcrypt.compare(newPassword, currentUser.passwordHash))) {
+      throw createHttpError("A nova senha deve ser diferente da senha atual.", 400, {
+        code: "SAME_PASSWORD",
+        details: [{ field: "newPassword", message: "Escolha uma senha diferente da atual." }],
+      });
     }
 
     updates.passwordHash = await bcrypt.hash(newPassword, 10);
@@ -96,6 +107,12 @@ async function updateMe(authenticatedUserId, payload = {}) {
 
   if (shouldRotateSession) {
     updates.authVersion = Number(currentUser.authVersion || 0) + 1;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw createHttpError("Informe ao menos uma alteração para salvar.", 400, {
+      code: "NO_CHANGES",
+    });
   }
 
   const user = await User.findByIdAndUpdate(authenticatedUserId, updates, { new: true }).lean();

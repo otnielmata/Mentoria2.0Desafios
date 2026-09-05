@@ -14,7 +14,27 @@ jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../src/models/envio-desafio.model", () => ({
+  exists: jest.fn(),
+}));
+
+jest.mock("../../src/models/grupo-desafio.model", () => ({
+  exists: jest.fn(),
+}));
+
+jest.mock("../../src/models/inscricao-desafio.model", () => ({
+  exists: jest.fn(),
+}));
+
+jest.mock("../../src/models/pontuacao.model", () => ({
+  exists: jest.fn(),
+}));
+
 const Desafio = require("../../src/models/desafio.model");
+const EnvioDesafio = require("../../src/models/envio-desafio.model");
+const GrupoDesafio = require("../../src/models/grupo-desafio.model");
+const InscricaoDesafio = require("../../src/models/inscricao-desafio.model");
+const Pontuacao = require("../../src/models/pontuacao.model");
 const Pilar = require("../../src/models/pilar.model");
 const User = require("../../src/models/user.model");
 const { createDesafio, disableDesafio, listDesafios, updateDesafio } = require("../../src/services/desafio.service");
@@ -28,6 +48,10 @@ describe("desafio.service difficulty", () => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
     Pilar.findById.mockResolvedValue({ _id: PILAR_ID, status: "ativo" });
+    EnvioDesafio.exists.mockResolvedValue(false);
+    GrupoDesafio.exists.mockResolvedValue(false);
+    InscricaoDesafio.exists.mockResolvedValue(false);
+    Pontuacao.exists.mockResolvedValue(false);
     Desafio.create.mockImplementation(async (payload) => ({ _id: "6814f12ab3f34872f7558f42", ...payload }));
     Desafio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
   });
@@ -41,6 +65,7 @@ describe("desafio.service difficulty", () => {
       points: 30,
       status: "ativo",
       type: "individual",
+      deliveryDate: "2099-01-01T00:00:00.000Z",
     });
 
     expect(Desafio.create).toHaveBeenCalledWith(
@@ -65,6 +90,7 @@ describe("desafio.service difficulty", () => {
       status: "ativo",
       type: "grupo",
       maxParticipantes: 4,
+      deliveryDate: "2099-01-01T00:00:00.000Z",
     });
 
     expect(Desafio.create).toHaveBeenCalledWith(
@@ -111,6 +137,7 @@ describe("desafio.service difficulty", () => {
         points: 20,
         type: "grupo",
         maxParticipantes: 6,
+        deliveryDate: "2099-01-01T00:00:00.000Z",
       })
     ).rejects.toMatchObject({
       statusCode: 400,
@@ -130,6 +157,7 @@ describe("desafio.service difficulty", () => {
       status: "ativo",
       type: "grupo",
       maxParticipantes: 5,
+      deliveryDate: "2099-01-01T00:00:00.000Z",
     });
 
     expect(Desafio.create).toHaveBeenCalledWith(
@@ -151,6 +179,7 @@ describe("desafio.service difficulty", () => {
       livePresentationPoints: 15,
       type: "grupo",
       maxParticipantes: 5,
+      deliveryDate: "2099-01-01T00:00:00.000Z",
     });
 
     expect(Desafio.create).toHaveBeenCalledWith(
@@ -171,6 +200,7 @@ describe("desafio.service difficulty", () => {
       points: 20,
       type: "individual",
       certificatePosted: true,
+      deliveryDate: "2099-01-01T00:00:00.000Z",
     });
 
     expect(Desafio.create).toHaveBeenCalledWith(
@@ -222,6 +252,7 @@ describe("desafio.service difficulty", () => {
         periodo: "semanal",
         limitePontos: 20,
       },
+      deliveryDate: "2099-01-01T00:00:00.000Z",
     });
 
     expect(Desafio.create).toHaveBeenCalledWith(

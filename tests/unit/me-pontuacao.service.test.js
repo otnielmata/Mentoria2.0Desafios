@@ -2,6 +2,10 @@ jest.mock("../../src/models/pontuacao.model", () => ({
   find: jest.fn(),
 }));
 
+jest.mock("../../src/models/turma.model", () => ({
+  find: jest.fn(),
+}));
+
 jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
@@ -15,6 +19,7 @@ jest.mock("../../src/services/plano-estudo.service", () => {
 });
 
 const Pontuacao = require("../../src/models/pontuacao.model");
+const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
 const planoEstudoService = require("../../src/services/plano-estudo.service");
 const { getMyPontuacoes } = require("../../src/services/me-pontuacao.service");
@@ -31,6 +36,15 @@ function mockPontuacaoFind(pontuacoes) {
     lean: jest.fn().mockResolvedValue(pontuacoes),
   };
   Pontuacao.find.mockReturnValue(query);
+  return query;
+}
+
+function mockTurmaFind(turmas) {
+  const query = {
+    select: jest.fn(() => query),
+    lean: jest.fn().mockResolvedValue(turmas),
+  };
+  Turma.find.mockReturnValue(query);
   return query;
 }
 
@@ -68,6 +82,7 @@ describe("me-pontuacao.service MR-94", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno", status: "ativo" });
+    mockTurmaFind([{ _id: TURMA_ID, status: "ativa" }]);
     mockPontuacaoFind([]);
     planoEstudoService.getChecklistSummaryFromFilters.mockResolvedValue({ totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] });
   });

@@ -1,5 +1,9 @@
 const Desafio = require("../models/desafio.model");
+const EnvioDesafio = require("../models/envio-desafio.model");
+const GrupoDesafio = require("../models/grupo-desafio.model");
+const InscricaoDesafio = require("../models/inscricao-desafio.model");
 const Pilar = require("../models/pilar.model");
+const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 const { getEffectiveChallengeStatus, inactivateExpiredChallenges } = require("./desafio-prazo.service");
 const {
@@ -8,6 +12,8 @@ const {
   getEntityId,
   getFirstValue,
   normalizeText,
+  parseBoundedText,
+  MAX_POINTS,
   parseDifficulty,
   parseObjectId,
   parseOptionalObjectId,
@@ -25,6 +31,7 @@ const ACTIVE_STATUS = "ativo";
 const ALLOWED_STATUSES = ["ativo", "inativo", "apagado"];
 const ALLOWED_RECURRENCE_PERIODS = ["diario", "semanal", "mensal"];
 const ALLOWED_RECURRENCE_ACTIONS = ["bloquear"];
+const MIN_SUPPORTED_DATE = new Date("2026-01-01T00:00:00.000Z");
 
 function serializePilar(pilar) {
   if (!pilar || typeof pilar !== "object") return pilar ? { id: getEntityId(pilar) } : null;
@@ -109,6 +116,18 @@ function parseOptionalDate(value, fieldName) {
       details: [{ field: fieldName, message: `${fieldName} deve ser uma data válida.` }],
     });
   }
+  if (date < MIN_SUPPORTED_DATE) {
+    throw createHttpError(`${fieldName} deve ser uma data a partir de 01/01/2026.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} deve ser uma data a partir de 01/01/2026.` }],
+    });
+  }
+  return date;
+}
+
+function parseRequiredDate(value, fieldName) {
+  const date = parseOptionalDate(value, fieldName);
+  if (!date) throw createHttpError(`${fieldName} é obrigatória.`, 400, { code: "VALIDATION_ERROR" });
   return date;
 }
 
@@ -149,14 +168,14 @@ function parsePoints(payload, difficulty, { required = false } = {}) {
   }
 
   const points = Number(rawPoints);
-  if (!Number.isFinite(points) || points <= 0) throw createHttpError("Pontuação deve ser maior que zero.", 400);
+  if (!Number.isFinite(points) || points <= 0 || points > MAX_POINTS) throw createHttpError(`Pontuação deve estar entre 1 e ${MAX_POINTS}.`, 400);
   return points;
 }
 
 function parsePilarPoints(value, index) {
   const points = Number(value);
-  if (!Number.isFinite(points) || points <= 0) {
-    throw createHttpError(`Pontuação do pilar ${index + 1} deve ser maior que zero.`, 400, {
+  if (!Number.isFinite(points) || points <= 0 || points > MAX_POINTS) {
+    throw createHttpError(`Pontuação do pilar ${index + 1} deve estar entre 1 e ${MAX_POINTS}.`, 400, {
       code: "VALIDATION_ERROR",
       details: [{ field: "pilares.points", message: "Informe uma pontuação maior que zero para cada pilar selecionado." }],
     });
@@ -169,7 +188,7 @@ function parseNonNegativePoints(payload, fields, fieldName) {
   const rawPoints = getFirstValue(payload, fields);
   if (rawPoints === undefined || rawPoints === null || rawPoints === "") return 0;
   const points = Number(rawPoints);
-  if (!Number.isFinite(points) || points < 0) throw createHttpError(`${fieldName} deve ser maior ou igual a zero.`, 400);
+  if (!Number.isFinite(points) || points < 0 || points > MAX_POINTS) throw createHttpError(`${fieldName} deve estar entre zero e ${MAX_POINTS}.`, 400);
   return points;
 }
 
@@ -345,7 +364,7 @@ function parseRecorrencia(payload = {}) {
     ]);
   const limitePontos = rawLimitePontos === undefined || rawLimitePontos === null || rawLimitePontos === "" ? null : Number(rawLimitePontos);
 
-  if (enabled && (!Number.isFinite(limitePontos) || limitePontos <= 0)) {
+  if (enabled && (!Number.isFinite(limitePontos) || limitePontos <= 0 || limitePontos > MAX_POINTS)) {
     throw createHttpError("limitePontos deve ser maior que zero para desafio recorrente.", 400);
   }
 
@@ -379,13 +398,22 @@ async function createDesafio(authenticatedUserId, payload = {}) {
   const pilares = await parsePilaresPontuacao(payload, difficulty, { required: true });
   const points = sumPilaresPoints(pilares);
   const type = parseType(getFirstValue(payload, ["type", "tipo"]));
+  const title = parseBoundedText(payload.title || payload.titulo, "Título", 160);
+  const description = parseBoundedText(payload.description || payload.descricao, "Descrição", 4000);
+  const deliveryDate = parseRequiredDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega");
+
+  if (typeof Desafio.findOne === "function") {
+    const duplicateQuery = Desafio.findOne({ title: new RegExp(`^${escapeRegex(title)}$`, "i"), status: { $ne: "apagado" } });
+    const duplicate = duplicateQuery && typeof duplicateQuery.lean === "function" ? await duplicateQuery.lean() : await duplicateQuery;
+    if (duplicate) throw createHttpError("Já existe um desafio com este título.", 409, { code: "DESAFIO_ALREADY_EXISTS" });
+  }
 
   const desafio = await Desafio.create({
     pilar: pilares[0].pilar,
     pilares,
-    title: parseRequiredText(payload.title || payload.titulo, "Título"),
-    description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
-    deliveryDate: parseOptionalDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega"),
+    title,
+    description,
+    deliveryDate,
     difficulty,
     points,
     livePresentationPoints: parseNonNegativePoints(
@@ -459,19 +487,21 @@ async function getDesafio(authenticatedUserId, desafioId) {
 async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode editar desafios.");
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
+  const currentDesafio = typeof Desafio.findById === "function" ? await Desafio.findById(id).lean() : null;
+  if (typeof Desafio.findById === "function" && !currentDesafio) throw createHttpError("Desafio não encontrado.", 404);
   const updates = {};
 
-  if (payload.title || payload.titulo) updates.title = parseRequiredText(payload.title || payload.titulo, "Título");
-  if (payload.description || payload.descricao) updates.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
+  if (payload.title !== undefined || payload.titulo !== undefined) updates.title = parseBoundedText(payload.title ?? payload.titulo, "Título", 160);
+  if (payload.description !== undefined || payload.descricao !== undefined) updates.description = parseBoundedText(payload.description ?? payload.descricao, "Descrição", 4000);
   if (
     payload.deliveryDate !== undefined ||
     payload.dataEntrega !== undefined ||
     payload.data_entrega !== undefined
   ) {
-    updates.deliveryDate = parseOptionalDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega");
+    updates.deliveryDate = parseRequiredDate(payload.deliveryDate ?? payload.dataEntrega ?? payload.data_entrega, "dataEntrega");
   }
-  if (payload.type || payload.tipo) updates.type = parseType(payload.type || payload.tipo);
-  if (payload.difficulty || payload.dificuldade) updates.difficulty = parseDifficulty(payload.difficulty || payload.dificuldade);
+  if (payload.type !== undefined || payload.tipo !== undefined) updates.type = parseType(payload.type ?? payload.tipo);
+  if (payload.difficulty !== undefined || payload.dificuldade !== undefined) updates.difficulty = parseDifficulty(payload.difficulty ?? payload.dificuldade);
 
   const difficulty = updates.difficulty || "facil";
   if (hasPilaresPayload(payload)) {
@@ -480,8 +510,8 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
     updates.pilares = pilares;
     updates.points = sumPilaresPoints(pilares);
   } else {
-    if (payload.pilarId || payload.pilar_id || payload.pilar) {
-      updates.pilar = parseObjectId(payload.pilarId || payload.pilar_id || payload.pilar, "Pilar deve ser um identificador válido.");
+    if (payload.pilarId !== undefined || payload.pilar_id !== undefined || payload.pilar !== undefined) {
+      updates.pilar = parseObjectId(payload.pilarId ?? payload.pilar_id ?? payload.pilar, "Pilar deve ser um identificador válido.");
       await assertActivePilar(updates.pilar);
     }
     if (payload.points !== undefined || payload.pontos !== undefined || updates.difficulty) updates.points = parsePoints(payload, difficulty);
@@ -510,10 +540,26 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
     );
   }
   if (payload.maxParticipantes !== undefined || payload.max_participantes !== undefined || payload.maxParticipants !== undefined) {
-    updates.maxParticipantes = parseMaxParticipantes(payload, updates.type || "grupo");
+    updates.maxParticipantes = parseMaxParticipantes(payload, updates.type || (currentDesafio && currentDesafio.type) || "grupo");
   }
   if (hasRecorrenciaFields(payload)) updates.recorrencia = parseRecorrencia(payload);
-  if (payload.status || payload.situacao) updates.status = parseStatus(payload.status || payload.situacao);
+  if (payload.status !== undefined || payload.situacao !== undefined) updates.status = parseStatus(payload.status ?? payload.situacao);
+
+  if (updates.title && typeof Desafio.findOne === "function") {
+    const duplicateQuery = Desafio.findOne({ _id: { $ne: id }, title: new RegExp(`^${escapeRegex(updates.title)}$`, "i"), status: { $ne: "apagado" } });
+    const duplicate = duplicateQuery && typeof duplicateQuery.lean === "function" ? await duplicateQuery.lean() : await duplicateQuery;
+    if (duplicate) throw createHttpError("Já existe um desafio com este título.", 409, { code: "DESAFIO_ALREADY_EXISTS" });
+  }
+
+  if (updates.maxParticipantes && typeof GrupoDesafio.find === "function") {
+    const grupos = await GrupoDesafio.find({ desafio: id }).lean();
+    if ((grupos || []).some((grupo) => (grupo.participantes || []).length > updates.maxParticipantes)) {
+      throw createHttpError("O novo limite não pode ser menor que o grupo já formado.", 400, { code: "GROUP_LIMIT_TOO_LOW" });
+    }
+    if (typeof GrupoDesafio.updateMany === "function") {
+      await GrupoDesafio.updateMany({ desafio: id, status: { $ne: "cancelado" } }, { $set: { maxParticipantes: updates.maxParticipantes } });
+    }
+  }
 
   const desafio = await Desafio.findByIdAndUpdate(id, updates, { new: true }).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
@@ -523,7 +569,12 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
 async function disableDesafio(authenticatedUserId, desafioId) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode apagar desafios.");
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
-  const desafio = await Desafio.findByIdAndUpdate(id, { status: "apagado" }, { new: true }).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
+  const historyQueries = [EnvioDesafio, GrupoDesafio, InscricaoDesafio, Pontuacao]
+    .filter((model) => typeof model.exists === "function")
+    .map((model) => model.exists({ desafio: id }));
+  const hasHistory = (await Promise.all(historyQueries)).some(Boolean);
+  const nextStatus = hasHistory ? "inativo" : "apagado";
+  const desafio = await Desafio.findByIdAndUpdate(id, { status: nextStatus }, { new: true }).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   return serializeDesafio(desafio);
 }

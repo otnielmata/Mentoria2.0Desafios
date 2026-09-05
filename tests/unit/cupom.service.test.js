@@ -13,6 +13,10 @@ jest.mock("../../src/models/pontuacao.model", () => ({
   find: jest.fn(),
 }));
 
+jest.mock("../../src/models/turma.model", () => ({
+  find: jest.fn(),
+}));
+
 jest.mock("../../src/models/user.model", () => ({
   countDocuments: jest.fn(),
   find: jest.fn(),
@@ -22,6 +26,7 @@ jest.mock("../../src/models/user.model", () => ({
 const Cupom = require("../../src/models/cupom.model");
 const PlanoEstudoItem = require("../../src/models/plano-estudo-item.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
+const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
 const {
   distributeLuckyNumbers,
@@ -53,6 +58,11 @@ function mockQuery(modelMethod, value) {
 describe("cupom.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const turmaQuery = {
+      lean: jest.fn().mockResolvedValue([]),
+      select: jest.fn(() => turmaQuery),
+    };
+    Turma.find.mockReturnValue(turmaQuery);
     Cupom.create.mockResolvedValue({});
     Cupom.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
     Cupom.updateOne.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
@@ -311,7 +321,7 @@ describe("cupom.service", () => {
     expect(Cupom.updateMany).not.toHaveBeenCalled();
     expect(Cupom.updateOne).toHaveBeenCalledTimes(1);
     expect(Cupom.updateOne).toHaveBeenCalledWith(
-      { _id: "cupom-1" },
+      { _id: "cupom-1", luckyNumber: null },
       {
         $set: {
           luckyNumber: 8,

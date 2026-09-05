@@ -64,8 +64,18 @@ async function listMySubscriptions(req, res, next) {
   }
 }
 
+async function cancelSubscription(req, res, next) {
+  try {
+    const inscricao = await inscricaoDesafioService.cancelSubscription(req.user.id, req.params.id);
+    return res.status(200).json({ inscricao });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   create,
+  cancelSubscription,
   disable,
   list,
   listMySubscriptions,

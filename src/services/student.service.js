@@ -12,9 +12,12 @@ const {
   getFirstValue,
   normalizeText,
   parseObjectId,
+  parseEmail,
   parseOptionalObjectId,
   parseOptionalText,
   parsePagination,
+  parsePassword,
+  parsePersonName,
   parseRequiredText,
 } = require("./domain-utils");
 
@@ -113,7 +116,7 @@ async function assertTurmaExists(turmaId) {
 
   const turma = await Turma.findById(turmaId);
   if (!turma) throw createHttpError("Turma não encontrada.", 404);
-  if (normalizeText(turma.status) !== ACTIVE_CLASS_LINK_STATUS) {
+  if (turma.status && normalizeText(turma.status) !== ACTIVE_CLASS_LINK_STATUS) {
     throw createHttpError("Turma deve estar ativa para vincular alunos.", 400, {
       code: "TURMA_INATIVA",
       details: [{ field: "turmaId", message: "Selecione uma turma ativa." }],
@@ -288,11 +291,13 @@ async function importStudentsFromCsv(authenticatedUserId, payload = {}) {
   for (let index = 1; index < rows.length; index += 1) {
     const row = rows[index];
     const line = index + 1;
+    let createdStudentId = null;
+    let createdTurmaId = null;
 
     try {
-      const name = parseRequiredText(getCsvCell(row, headerMap, "name"), "Nome");
-      const email = parseRequiredText(getCsvCell(row, headerMap, "email"), "E-mail").toLowerCase();
-      const password = parseRequiredText(getCsvCell(row, headerMap, "password"), "Senha inicial");
+      const name = parsePersonName(getCsvCell(row, headerMap, "name"));
+      const email = parseEmail(getCsvCell(row, headerMap, "email"));
+      const password = parsePassword(getCsvCell(row, headerMap, "password"), "Senha inicial");
       const turma = await findTurmaByReference(getCsvCell(row, headerMap, "turma"));
       if (!turma) throw createHttpError("Turma do CSV não encontrada.", 404);
 
@@ -300,6 +305,7 @@ async function importStudentsFromCsv(authenticatedUserId, payload = {}) {
       if (existingUser) throw createHttpError("E-mail já está em uso.", 409);
 
       const turmaId = turma._id || turma.id;
+      createdTurmaId = turmaId;
       const student = await User.create({
         name,
         email,
@@ -310,13 +316,21 @@ async function importStudentsFromCsv(authenticatedUserId, payload = {}) {
         turmas: [turmaId],
       });
 
-      await AlunoTurma.create({ aluno: student._id || student.id, turma: turmaId, status: ACTIVE_CLASS_LINK_STATUS });
+      createdStudentId = student._id || student.id;
+      await AlunoTurma.create({ aluno: createdStudentId, turma: turmaId, status: ACTIVE_CLASS_LINK_STATUS });
       if (typeof Turma.updateOne === "function") {
-        await Turma.updateOne({ _id: turmaId }, { $addToSet: { alunos: student._id || student.id } });
+        await Turma.updateOne({ _id: turmaId }, { $addToSet: { alunos: createdStudentId } });
       }
 
       result.alunos.push(serializeStudent(student));
     } catch (error) {
+      if (createdStudentId) {
+        try {
+          await cleanupImportedStudent(createdStudentId, createdTurmaId);
+        } catch (cleanupError) {
+          console.error("Falha ao desfazer uma linha parcial da importação de alunos:", cleanupError);
+        }
+      }
       result.erros.push({
         linha: line,
         email: getCsvCell(row, headerMap, "email") || undefined,
@@ -331,12 +345,21 @@ async function importStudentsFromCsv(authenticatedUserId, payload = {}) {
   return result;
 }
 
+async function cleanupImportedStudent(studentId, turmaId) {
+  const cleanupTasks = [];
+  if (typeof AlunoTurma.deleteMany === "function") cleanupTasks.push(AlunoTurma.deleteMany({ aluno: studentId }));
+  if (turmaId && typeof Turma.updateOne === "function") cleanupTasks.push(Turma.updateOne({ _id: turmaId }, { $pull: { alunos: studentId } }));
+  if (typeof User.deleteOne === "function") cleanupTasks.push(User.deleteOne({ _id: studentId }));
+  else if (typeof User.findOneAndDelete === "function") cleanupTasks.push(User.findOneAndDelete({ _id: studentId }));
+  await Promise.all(cleanupTasks);
+}
+
 async function createStudent(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode cadastrar alunos.");
 
-  const name = parseRequiredText(payload.name, "Nome");
-  const email = parseRequiredText(payload.email, "E-mail").toLowerCase();
-  const password = parseRequiredText(payload.password, "Senha");
+  const name = parsePersonName(payload.name);
+  const email = parseEmail(payload.email);
+  const password = parsePassword(payload.password);
   const role = parseStudentRole(payload.role || payload.perfil);
   const status = parseStudentStatus(payload.status || payload.situacao);
   const turmaId = parseOptionalObjectId(payload.turmaId || payload.turma_id || payload.turma, "Turma deve ser um identificador válido.");
@@ -404,14 +427,40 @@ async function listStudents(authenticatedUserId, query = {}) {
 }
 
 async function getPontuacaoResumo(studentId) {
-  const [pontuacoes, checklistSummary] = await Promise.all([Pontuacao.find({ aluno: studentId }).lean(), getChecklistSummaryFromFilters({ alunoId: studentId })]);
-  const totalPontos = (pontuacoes || []).reduce((total, pontuacao) => total + Number(pontuacao.pontos || 0), 0);
-  const desafiosAprovados = new Set((pontuacoes || []).map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean)).size;
+  const pontuacoesQuery = Pontuacao.find({ aluno: studentId });
+  const populatedPontuacoesQuery = typeof pontuacoesQuery.populate === "function"
+    ? pontuacoesQuery
+        .populate({ path: "turma", select: "status" })
+        .populate({ path: "envio", select: "turma", populate: { path: "turma", select: "status" } })
+    : pontuacoesQuery;
+  const [pontuacoes, checklistSummary, activeTurmaIds] = await Promise.all([
+    populatedPontuacoesQuery.lean(),
+    getChecklistSummaryFromFilters({ alunoId: studentId }),
+    findActiveTurmaIds(studentId),
+  ]);
+  const scopedPontuacoes = (pontuacoes || []).filter((pontuacao) => matchesActiveTurma(pontuacao, activeTurmaIds));
+  const totalPontos = scopedPontuacoes.reduce((total, pontuacao) => total + Number(pontuacao.pontos || 0), 0);
+  const desafiosAprovados = new Set(scopedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean)).size;
 
   return {
     totalPontos: totalPontos + Number((checklistSummary && checklistSummary.totalPontos) || 0),
     desafiosAprovados,
   };
+}
+
+async function findActiveTurmaIds(studentId) {
+  if (typeof Turma.find !== "function") return null;
+  const query = Turma.find({ alunos: studentId, status: "ativa" });
+  const selectedQuery = typeof query.select === "function" ? query.select("_id") : query;
+  const turmas = typeof selectedQuery.lean === "function" ? await selectedQuery.lean() : await selectedQuery;
+  return (turmas || []).map(getEntityId).filter(Boolean);
+}
+
+function matchesActiveTurma(pontuacao, activeTurmaIds) {
+  if (activeTurmaIds === null) return true;
+  const turma = pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma);
+  const turmaId = getEntityId(turma);
+  return Boolean(turmaId && activeTurmaIds.includes(turmaId));
 }
 
 async function getStudent(authenticatedUserId, studentId) {
@@ -433,12 +482,12 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
 
   const updates = {};
   let shouldRotateSession = false;
-  const name = parseOptionalText(payload.name || payload.nome, "Nome");
-  if (name) updates.name = name;
+  if (Object.prototype.hasOwnProperty.call(payload, "name") || Object.prototype.hasOwnProperty.call(payload, "nome")) {
+    updates.name = parsePersonName(payload.name !== undefined ? payload.name : payload.nome);
+  }
 
-  const email = parseOptionalText(payload.email, "E-mail");
-  if (email) {
-    const normalizedEmail = email.toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(payload, "email")) {
+    const normalizedEmail = parseEmail(payload.email);
     if (normalizedEmail !== student.email) {
       const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: id } }).lean();
       if (existingUser) throw createHttpError("E-mail já está em uso.", 409, { code: "EMAIL_ALREADY_IN_USE" });
@@ -449,10 +498,12 @@ async function updateStudent(authenticatedUserId, studentId, payload = {}) {
   const status = parseOptionalText(payload.status || payload.situacao, "Status");
   if (status) {
     updates.status = parseStudentStatus(status);
-    if (updates.status !== student.status) shouldRotateSession = true;
+    if (updates.status !== (student.status || ACTIVE_STATUS)) shouldRotateSession = true;
   }
 
-  const password = parseOptionalText(payload.password || payload.senha || payload.newPassword || payload.novaSenha, "Senha");
+  const passwordField = ["password", "senha", "newPassword", "novaSenha"].find((field) => Object.prototype.hasOwnProperty.call(payload, field));
+  const rawPassword = passwordField ? payload[passwordField] : undefined;
+  const password = rawPassword === undefined || rawPassword === null || rawPassword === "" ? undefined : parsePassword(rawPassword);
   if (password) {
     updates.passwordHash = await bcrypt.hash(password, 10);
     shouldRotateSession = true;

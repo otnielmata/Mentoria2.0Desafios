@@ -32,6 +32,7 @@ const {
 } = planoEstudoView;
 
 const LIST_PAGE_SIZE = 10;
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 
 function resolveApiBaseUrl() {
   const configuredBaseUrl = String(process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
@@ -92,7 +93,12 @@ function getRole(user) {
 }
 
 function getInitialView(user) {
-  return getRole(user) === "admin" ? "dashboard" : "inicio";
+  const role = getRole(user);
+  if (typeof window !== "undefined") {
+    const savedView = window.localStorage.getItem(`desafios.view.${role}`);
+    if (savedView) return savedView;
+  }
+  return role === "admin" ? "dashboard" : "inicio";
 }
 
 function getErrorMessage(error) {
@@ -186,6 +192,37 @@ function formatTurmaName(turma) {
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("pt-BR");
+}
+
+function formatRole(value) {
+  const labels = { aluno: "Aluno", professor: "Professor", admin: "Administrador" };
+  return labels[String(value || "").trim().toLowerCase()] || value || "Não informado";
+}
+
+function formatStatus(value) {
+  const labels = {
+    ativo: "Ativo",
+    inativo: "Inativo",
+    ativa: "Ativa",
+    inativa: "Inativa",
+    encerrada: "Encerrada",
+    pendente: "Pendente",
+    aprovado: "Aprovado",
+    reprovado: "Reprovado",
+    ajuste: "Em ajuste",
+    cancelado: "Cancelado",
+    inscrito: "Inscrito",
+    formando: "Formando",
+    completo: "Completo",
+    removida: "Removida",
+    apagado: "Apagado",
+  };
+  return labels[String(value || "").trim().toLowerCase()] || value || "Não informado";
+}
+
+function formatSubmissionType(value) {
+  const labels = { individual: "Individual", grupo: "Grupo" };
+  return labels[String(value || "").trim().toLowerCase()] || value || "Não informado";
 }
 
 function getLuckyNumberValues(value) {
@@ -307,6 +344,8 @@ function todaySuffix() {
 
 function readFileAsAttachment(file) {
   if (!file || !file.name) return Promise.resolve(null);
+  if (Number(file.size) <= 0) return Promise.reject(new Error("O anexo não pode estar vazio."));
+  if (Number(file.size) > MAX_ATTACHMENT_SIZE_BYTES) return Promise.reject(new Error("Cada anexo deve ter no máximo 10 MB."));
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -324,6 +363,7 @@ function readFileAsAttachment(file) {
 
 function readFileAsText(file) {
   if (!file || !file.name) return Promise.resolve("");
+  if (!/\.csv$/i.test(file.name)) return Promise.reject(new Error("Selecione um arquivo CSV (.csv)."));
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -398,12 +438,10 @@ function PaginationControls({ label, onPageChange, pagination }) {
   );
 }
 
-function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
-  const [mode, setMode] = useState("login");
+function LoginScreen({ theme, onThemeChange, onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -420,125 +458,50 @@ function LoginScreen({ theme, onThemeChange, onLogin, onRegister }) {
     }
   }
 
-  async function submitRegister(event) {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      await onRegister({ name, email, password });
-    } catch (registerError) {
-      setError(getErrorMessage(registerError));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <main className="login-shell">
       <section className="login-panel">
         <div className="brand">
-          <img className="brand-logo" src="/logo-mentoria-wordmark.png" alt="Mentoria 2.0" width="132" height="61" />
+          <img className="brand-logo brand-icon" src="/m20-system-icon.jpeg" alt="M2.0" width="112" height="112" />
           <div>
             <h1>Desafios Mentoria 2.0</h1>
             <p className="muted">Painel Alavanque</p>
           </div>
         </div>
 
-        {mode === "login" ? (
-          <form className="login-form" onSubmit={submitLogin}>
-            <label className="field">
-              <span>E-mail</span>
-              <input value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Senha</span>
-              <div className="password-input">
-                <input
-                  value={password}
-                  type={passwordVisible ? "text" : "password"}
-                  autoComplete="current-password"
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-                <button
-                  aria-label={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
-                  className="password-visibility"
-                  onClick={() => setPasswordVisible((visible) => !visible)}
-                  title={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
-                  type="button"
-                >
-                  <Icon name={passwordVisible ? "visibility_off" : "visibility"} />
-                </button>
-              </div>
-            </label>
-            {error ? <div className="alert">{error}</div> : null}
-            <button className="button with-icon" type="submit" disabled={loading}>
-              <ButtonIcon name="login" />
-              {loading ? "Entrando..." : "Entrar"}
-            </button>
-            <button
-              className="button ghost with-icon"
-              type="button"
-              onClick={() => {
-                setMode("register");
-                setName("");
-                setEmail("");
-                setPassword("");
-                setPasswordVisible(false);
-                setError("");
-              }}
-            >
-              <ButtonIcon name="person_add" />
-              Inscrever-se como aluno
-            </button>
-          </form>
-        ) : (
-          <form className="login-form" onSubmit={submitRegister}>
-            <label className="field">
-              <span>Nome completo</span>
-              <input value={name} autoComplete="name" onChange={(event) => setName(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>E-mail</span>
-              <input value={email} type="email" autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Senha</span>
-              <div className="password-input">
-                <input
-                  value={password}
-                  type={passwordVisible ? "text" : "password"}
-                  autoComplete="new-password"
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-                <button
-                  aria-label={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
-                  className="password-visibility"
-                  onClick={() => setPasswordVisible((visible) => !visible)}
-                  title={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
-                  type="button"
-                >
-                  <Icon name={passwordVisible ? "visibility_off" : "visibility"} />
-                </button>
-              </div>
-            </label>
-            {error ? <div className="alert">{error}</div> : null}
-            <button className="button with-icon" type="submit" disabled={loading}>
-              <ButtonIcon name="how_to_reg" />
-              {loading ? "Inscrevendo..." : "Criar inscrição"}
-            </button>
-            <button
-              className="button ghost with-icon"
-              type="button"
-              onClick={() => {
-                setMode("login");
-                setPasswordVisible(false);
-              }}
-            >
-              <ButtonIcon name="arrow_back" />
-              Voltar para login
-            </button>
-          </form>
-        )}
+        <form className="login-form" onSubmit={submitLogin}>
+          <label className="field">
+            <span>E-mail</span>
+            <input value={email} autoComplete="email" maxLength={255} onChange={(event) => setEmail(event.target.value)} required type="email" />
+          </label>
+          <label className="field">
+            <span>Senha</span>
+            <div className="password-input">
+              <input
+                value={password}
+                type={passwordVisible ? "text" : "password"}
+                autoComplete="current-password"
+                minLength={6}
+                required
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                aria-label={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+                className="password-visibility"
+                onClick={() => setPasswordVisible((visible) => !visible)}
+                title={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+                type="button"
+              >
+                <Icon name={passwordVisible ? "visibility_off" : "visibility"} />
+              </button>
+            </div>
+          </label>
+          {error ? <div className="alert">{error}</div> : null}
+          <button className="button with-icon" type="submit" disabled={loading}>
+            <ButtonIcon name="login" />
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
 
         <div className="actions">
           <IconButton className="button ghost" icon={theme === "dark" ? "light_mode" : "dark_mode"} label={`Tema ${theme === "dark" ? "claro" : "escuro"}`} onClick={onThemeChange} />
@@ -561,7 +524,7 @@ function Sidebar({ activeView, menu, onNavigate, onLogout, user }) {
         <img className="brand-logo" src="/logo-mentoria-wordmark.png" alt="Mentoria 2.0" width="108" height="50" />
         <div>
           <h3>{user.name}</h3>
-          <p className="muted">{user.role}</p>
+          <p className="muted">{formatRole(user.role)}</p>
         </div>
       </div>
 
@@ -729,15 +692,15 @@ function ConfigurationView({ apiClient }) {
         <form className="form-grid" onSubmit={createUser}>
           <label className="field">
             <span>Nome</span>
-            <input name="name" required placeholder="Nome completo" />
+            <input name="name" maxLength={120} required placeholder="Nome completo" />
           </label>
           <label className="field">
             <span>E-mail</span>
-            <input name="email" required type="email" placeholder="usuario@exemplo.com" />
+            <input name="email" maxLength={255} required type="email" placeholder="usuario@exemplo.com" />
           </label>
           <label className="field">
             <span>Senha inicial</span>
-            <input name="password" required type="password" defaultValue="Teste@123" />
+            <input name="password" minLength={6} required type="password" defaultValue="Teste@123" />
           </label>
           <label className="field">
             <span>Perfil</span>
@@ -770,15 +733,15 @@ function ConfigurationView({ apiClient }) {
           <form className="form-grid" key={editing.id} onSubmit={updateUser}>
             <label className="field">
               <span>Nome</span>
-              <input name="editName" required defaultValue={editing.name} />
+              <input name="editName" maxLength={120} required defaultValue={editing.name} />
             </label>
             <label className="field">
               <span>E-mail</span>
-              <input name="editEmail" required type="email" defaultValue={editing.email} />
+              <input name="editEmail" maxLength={255} required type="email" defaultValue={editing.email} />
             </label>
             <label className="field">
               <span>Nova senha</span>
-              <input name="editPassword" type="password" placeholder="Preencha apenas se for alterar" />
+              <input name="editPassword" minLength={6} type="password" placeholder="Preencha apenas se for alterar" />
             </label>
             <label className="field">
               <span>Perfil</span>
@@ -849,8 +812,8 @@ function ConfigurationView({ apiClient }) {
               <tr key={managedUser.id}>
                 <td>{managedUser.name}</td>
                 <td>{managedUser.email}</td>
-                <td>{managedUser.role}</td>
-                <td>{managedUser.status}</td>
+                <td>{formatRole(managedUser.role)}</td>
+                <td>{formatStatus(managedUser.status)}</td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${managedUser.name}`} onClick={() => setEditing(managedUser)} />
@@ -871,6 +834,8 @@ function ProfileView({ apiClient, user, onUserChange }) {
   const [profile, setProfile] = useState(user);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [currentPasswordVisible, setCurrentPasswordVisible] = useState(false);
+  const [newPasswordVisible, setNewPasswordVisible] = useState(false);
 
   async function load() {
     setError("");
@@ -888,7 +853,8 @@ function ProfileView({ apiClient, user, onUserChange }) {
 
   async function updateProfile(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const newPassword = String(data.get("newPassword") || "").trim();
     const currentPassword = String(data.get("currentPassword") || "").trim();
     const body = {
@@ -907,8 +873,8 @@ function ProfileView({ apiClient, user, onUserChange }) {
       const updatedUser = getProfileUser(result);
       setProfile(updatedUser);
       onUserChange(updatedUser);
-      event.currentTarget.elements.currentPassword.value = "";
-      event.currentTarget.elements.newPassword.value = "";
+      form.elements.currentPassword.value = "";
+      form.elements.newPassword.value = "";
       setFeedback("Perfil atualizado com sucesso.");
     } catch (updateError) {
       setError(getErrorMessage(updateError));
@@ -932,7 +898,7 @@ function ProfileView({ apiClient, user, onUserChange }) {
         <form className="form-grid" key={`${profile.id || profile.email || "perfil"}-${profile.name || ""}`} onSubmit={updateProfile}>
           <label className="field">
             <span>Nome completo</span>
-            <input name="name" required defaultValue={profile.name} />
+            <input name="name" maxLength={120} required defaultValue={profile.name} />
           </label>
           <label className="field">
             <span>E-mail</span>
@@ -940,11 +906,33 @@ function ProfileView({ apiClient, user, onUserChange }) {
           </label>
           <label className="field">
             <span>Senha atual</span>
-            <input name="currentPassword" type="password" autoComplete="current-password" />
+            <div className="password-input">
+              <input name="currentPassword" type={currentPasswordVisible ? "text" : "password"} autoComplete="current-password" />
+              <button
+                aria-label={currentPasswordVisible ? "Ocultar senha atual" : "Mostrar senha atual"}
+                className="password-visibility"
+                onClick={() => setCurrentPasswordVisible((visible) => !visible)}
+                title={currentPasswordVisible ? "Ocultar senha atual" : "Mostrar senha atual"}
+                type="button"
+              >
+                <Icon name={currentPasswordVisible ? "visibility_off" : "visibility"} />
+              </button>
+            </div>
           </label>
           <label className="field">
             <span>Nova senha</span>
-            <input name="newPassword" type="password" autoComplete="new-password" />
+            <div className="password-input">
+              <input name="newPassword" type={newPasswordVisible ? "text" : "password"} autoComplete="new-password" />
+              <button
+                aria-label={newPasswordVisible ? "Ocultar nova senha" : "Mostrar nova senha"}
+                className="password-visibility"
+                onClick={() => setNewPasswordVisible((visible) => !visible)}
+                title={newPasswordVisible ? "Ocultar nova senha" : "Mostrar nova senha"}
+                type="button"
+              >
+                <Icon name={newPasswordVisible ? "visibility_off" : "visibility"} />
+              </button>
+            </div>
           </label>
             <button className="button with-icon" type="submit">
               <ButtonIcon name="save" />
@@ -959,11 +947,11 @@ function ProfileView({ apiClient, user, onUserChange }) {
           <tbody>
             <tr>
               <th>Perfil</th>
-              <td>{profile.role}</td>
+              <td>{formatRole(profile.role)}</td>
             </tr>
             <tr>
               <th>Status</th>
-              <td>{profile.status}</td>
+              <td>{formatStatus(profile.status)}</td>
             </tr>
             <tr>
               <th>Turma</th>
@@ -1499,15 +1487,15 @@ function AdminStudentsView({ apiClient }) {
         <form className="form-grid" onSubmit={createStudent}>
           <label className="field">
             <span>Nome</span>
-            <input name="name" required placeholder={`Aluno ${todaySuffix()}`} />
+            <input name="name" maxLength={120} required placeholder={`Aluno ${todaySuffix()}`} />
           </label>
           <label className="field">
             <span>E-mail</span>
-            <input name="email" required type="email" placeholder="aluno@exemplo.com" />
+            <input name="email" maxLength={255} required type="email" placeholder="aluno@exemplo.com" />
           </label>
           <label className="field">
             <span>Senha inicial</span>
-            <input name="password" required type="password" defaultValue="Teste@123" />
+            <input name="password" minLength={6} required type="password" defaultValue="Teste@123" />
           </label>
           <label className="field">
             <span>Turma</span>
@@ -1556,11 +1544,11 @@ function AdminStudentsView({ apiClient }) {
           <form className="form-grid" onSubmit={updateStudent}>
             <label className="field">
               <span>Nome</span>
-              <input name="editName" required defaultValue={editing.name} />
+              <input name="editName" maxLength={120} required defaultValue={editing.name} />
             </label>
             <label className="field">
               <span>E-mail</span>
-              <input name="editEmail" required type="email" defaultValue={editing.email} />
+              <input name="editEmail" maxLength={255} required type="email" defaultValue={editing.email} />
             </label>
             <label className="field">
               <span>Status</span>
@@ -1582,7 +1570,7 @@ function AdminStudentsView({ apiClient }) {
             </label>
             <label className="field">
               <span>Nova senha</span>
-              <input name="editPassword" type="password" placeholder="Preencha apenas se for alterar" />
+              <input name="editPassword" minLength={6} type="password" placeholder="Preencha apenas se for alterar" />
             </label>
             <label className="checkbox-field span-2">
               <input name="editDiscordJoined" type="checkbox" defaultChecked={editing.discordJoined === true || editing.entrouNoDiscord === true} />
@@ -1625,7 +1613,7 @@ function AdminStudentsView({ apiClient }) {
                     {student.discordJoined || student.entrouNoDiscord ? "Sim" : "Não"}
                   </span>
                 </td>
-                <td>{student.status}</td>
+                <td>{formatStatus(student.status)}</td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${student.name}`} onClick={() => setEditing(student)} />
@@ -1957,19 +1945,19 @@ function AdminTurmasView({ apiClient }) {
         <form className="form-grid" onSubmit={createTurma}>
           <label className="field">
             <span>Nome da turma</span>
-            <input name="name" required placeholder={`Turma ${todaySuffix()}`} />
+            <input name="name" maxLength={120} required placeholder={`Turma ${todaySuffix()}`} />
           </label>
           <label className="field">
             <span>Código</span>
-            <input name="code" placeholder="M2-2026" />
+            <input name="code" maxLength={80} placeholder="M2-2026" />
           </label>
           <label className="field">
             <span>Início</span>
-            <input name="startDate" type="date" />
+            <input name="startDate" min="2026-01-01" type="date" />
           </label>
           <label className="field">
             <span>Descrição</span>
-            <input name="description" placeholder="Mentoria 2.0" />
+            <input name="description" maxLength={4000} placeholder="Mentoria 2.0" />
           </label>
           <IconButton className="button" disabled={creating} icon="add_business" label="Cadastrar turma" type="submit" />
         </form>
@@ -1984,19 +1972,19 @@ function AdminTurmasView({ apiClient }) {
           <form className="form-grid" key={editing.id} onSubmit={updateTurma}>
             <label className="field">
               <span>Nome da turma</span>
-              <input name="editName" required defaultValue={editing.name} />
+              <input name="editName" maxLength={120} required defaultValue={editing.name} />
             </label>
             <label className="field">
               <span>Código</span>
-              <input name="editCode" defaultValue={editing.code || ""} />
+              <input name="editCode" maxLength={80} defaultValue={editing.code || ""} />
             </label>
             <label className="field">
               <span>Início</span>
-              <input name="editStartDate" type="date" defaultValue={formatDateInputValue(editing.startDate || editing.data_inicio)} />
+              <input name="editStartDate" min="2026-01-01" type="date" defaultValue={formatDateInputValue(editing.startDate || editing.data_inicio)} />
             </label>
             <label className="field">
               <span>Fim</span>
-              <input name="editEndDate" type="date" defaultValue={formatDateInputValue(editing.endDate || editing.data_fim)} />
+              <input name="editEndDate" min="2026-01-01" type="date" defaultValue={formatDateInputValue(editing.endDate || editing.data_fim)} />
             </label>
             <label className="field">
               <span>Status</span>
@@ -2007,7 +1995,7 @@ function AdminTurmasView({ apiClient }) {
             </label>
             <label className="field span-2">
               <span>Descrição</span>
-              <textarea name="editDescription" defaultValue={editing.description || ""} />
+              <textarea maxLength={4000} name="editDescription" defaultValue={editing.description || ""} />
             </label>
             <IconButton className="button" icon="save" label="Salvar turma" type="submit" />
           </form>
@@ -2049,7 +2037,7 @@ function AdminTurmasView({ apiClient }) {
                 <td>{turma.code || "-"}</td>
                 <td>{formatDate(turma.startDate || turma.data_inicio)}</td>
                 <td>{formatDate(turma.endDate || turma.data_fim)}</td>
-                <td>{turma.status}</td>
+                <td>{formatStatus(turma.status)}</td>
                 <td>{formatNumber(turma.quantidadeAlunos)}</td>
                 <td>
                   <div className="actions table-actions">
@@ -2176,7 +2164,7 @@ function AdminPilaresView({ apiClient }) {
     try {
       if (pilar.status === "ativo") {
         await apiClient.request({ method: "DELETE", path: `/pilares/${pilar.id}` });
-        setFeedback("Pilar excluído da lista ativa.");
+        setFeedback("Pilar inativado com sucesso.");
       } else {
         await apiClient.request({ method: "PATCH", path: `/pilares/${pilar.id}` }, { body: { status: "ativo" } });
         setFeedback("Pilar ativado.");
@@ -2202,11 +2190,11 @@ function AdminPilaresView({ apiClient }) {
         <form className="form-grid" onSubmit={createPilar}>
           <label className="field">
             <span>Nome</span>
-            <input name="name" required placeholder="Novo pilar" />
+            <input name="name" maxLength={120} required placeholder="Novo pilar" />
           </label>
           <label className="field">
             <span>Descrição</span>
-            <input name="description" placeholder="Resumo do pilar" />
+            <input name="description" maxLength={4000} placeholder="Resumo do pilar" />
           </label>
           <IconButton className="button" disabled={creating} icon="add_circle" label="Cadastrar pilar" type="submit" />
         </form>
@@ -2221,7 +2209,7 @@ function AdminPilaresView({ apiClient }) {
           <form className="form-grid" onSubmit={updatePilar}>
             <label className="field">
               <span>Nome</span>
-              <input name="editName" required defaultValue={editing.name} />
+              <input name="editName" maxLength={120} required defaultValue={editing.name} />
             </label>
             <label className="field">
               <span>Status</span>
@@ -2232,7 +2220,7 @@ function AdminPilaresView({ apiClient }) {
             </label>
             <label className="field span-2">
               <span>Descrição</span>
-              <textarea name="editDescription" defaultValue={editing.description || ""} />
+              <textarea maxLength={4000} name="editDescription" defaultValue={editing.description || ""} />
             </label>
             <IconButton className="button" icon="save" label="Salvar pilar" type="submit" />
           </form>
@@ -2264,7 +2252,7 @@ function AdminPilaresView({ apiClient }) {
               <tr key={pilar.id}>
                 <td>{pilar.name}</td>
                 <td>{pilar.description || "-"}</td>
-                <td>{pilar.status}</td>
+                <td>{formatStatus(pilar.status)}</td>
                 <td>{pilar.isDefault ? "padrão" : "manual"}</td>
                 <td>
                   <div className="actions table-actions">
@@ -2426,8 +2414,8 @@ function AdminDesafiosView({ apiClient }) {
     setFeedback("");
     setError("");
     try {
-      await apiClient.request({ method: "DELETE", path: `/desafios/${desafio.id}` });
-      setFeedback("Desafio apagado.");
+      const result = await apiClient.request({ method: "DELETE", path: `/desafios/${desafio.id}` });
+      setFeedback(result && result.desafio && result.desafio.status === "inativo" ? "Desafio inativado para preservar o histórico." : "Desafio apagado.");
       if (editing && editing.id === desafio.id) setEditing(null);
       await load();
     } catch (deleteError) {
@@ -2450,11 +2438,11 @@ function AdminDesafiosView({ apiClient }) {
         <form className="form-grid" onSubmit={createDesafio}>
           <label className="field">
             <span>Título</span>
-            <input name="title" required placeholder={`Desafio ${todaySuffix()}`} />
+            <input name="title" maxLength={160} required placeholder={`Desafio ${todaySuffix()}`} />
           </label>
           <label className="field">
             <span>Pontos apresentação ao vivo</span>
-            <input name="livePresentationPoints" required type="number" min="0" defaultValue="0" />
+            <input name="livePresentationPoints" required type="number" min="0" max="1000000" defaultValue="0" />
           </label>
           <div className="field span-2">
             <span>Pilares e pontuação</span>
@@ -2465,14 +2453,14 @@ function AdminDesafiosView({ apiClient }) {
                     <input name="PilarIds" type="checkbox" value={pilar.id} />
                     {pilar.name}
                   </label>
-                  <input aria-label={`Pontos para ${pilar.name}`} name={`PilarPoints_${pilar.id}`} type="number" min="1" defaultValue="10" />
+                  <input aria-label={`Pontos para ${pilar.name}`} name={`PilarPoints_${pilar.id}`} type="number" min="1" max="1000000" defaultValue="10" />
                 </div>
               ))}
             </div>
           </div>
           <label className="field">
             <span>Data limite de entrega</span>
-            <input name="deliveryDate" type="date" />
+            <input name="deliveryDate" required type="date" min="2026-01-01" />
           </label>
           <label className="field">
             <span>Participantes por grupo</span>
@@ -2491,7 +2479,7 @@ function AdminDesafiosView({ apiClient }) {
           </label>
           <label className="field span-2">
             <span>Descrição</span>
-            <textarea name="description" required placeholder="Descreva o que o aluno deve executar." />
+            <textarea maxLength={4000} name="description" required placeholder="Descreva o que o aluno deve executar." />
           </label>
           <IconButton className="button" disabled={creating} icon="add_task" label="Cadastrar desafio" type="submit" />
         </form>
@@ -2509,7 +2497,7 @@ function AdminDesafiosView({ apiClient }) {
           <form className="form-grid" key={editing.id} onSubmit={updateDesafio}>
             <label className="field">
               <span>Título</span>
-              <input name="editTitle" required defaultValue={editing.title} />
+              <input name="editTitle" maxLength={160} required defaultValue={editing.title} />
             </label>
             <label className="field">
               <span>Pontos apresentação ao vivo</span>
@@ -2518,6 +2506,7 @@ function AdminDesafiosView({ apiClient }) {
                 required
                 type="number"
                 min="0"
+                max="1000000"
                 defaultValue={editing.livePresentationPoints || editing.pontosApresentacaoAoVivo || 0}
               />
             </label>
@@ -2535,6 +2524,7 @@ function AdminDesafiosView({ apiClient }) {
                       name={`editPilarPoints_${pilar.id}`}
                       type="number"
                       min="1"
+                      max="1000000"
                       defaultValue={getPilarPointValue(editing, pilar.id, 10)}
                     />
                   </div>
@@ -2543,7 +2533,7 @@ function AdminDesafiosView({ apiClient }) {
             </div>
             <label className="field">
               <span>Data limite de entrega</span>
-              <input name="editDeliveryDate" type="date" defaultValue={formatDateInputValue(editing.deliveryDate || editing.dataEntrega)} />
+              <input name="editDeliveryDate" required type="date" min="2026-01-01" defaultValue={formatDateInputValue(editing.deliveryDate || editing.dataEntrega)} />
             </label>
             <label className="field">
               <span>Participantes por grupo</span>
@@ -2562,7 +2552,7 @@ function AdminDesafiosView({ apiClient }) {
             </label>
             <label className="field span-2">
               <span>Descrição</span>
-              <textarea name="editDescription" required defaultValue={editing.description || ""} />
+              <textarea maxLength={4000} name="editDescription" required defaultValue={editing.description || ""} />
             </label>
             <IconButton className="button" icon="save" label="Salvar desafio" type="submit" />
           </form>
@@ -2607,7 +2597,7 @@ function AdminDesafiosView({ apiClient }) {
                 </td>
                 <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
                 <td>{desafio.maxParticipantes}</td>
-                <td>{desafio.status}</td>
+                <td>{formatStatus(desafio.status)}</td>
                 <td>
                   <div className="actions table-actions">
                     <IconButton icon="edit" label={`Editar ${desafio.title}`} onClick={() => setEditing(desafio)} />
@@ -2643,6 +2633,11 @@ function AdminApprovalsView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [evaluatingId, setEvaluatingId] = useState("");
+  const [extraPoints, setExtraPoints] = useState([]);
+  const [editingExtra, setEditingExtra] = useState(null);
+  const [creatingExtra, setCreatingExtra] = useState(false);
+  const [updatingExtra, setUpdatingExtra] = useState(false);
 
   function buildApprovalsPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/envios-desafios/aprovacoes", {
@@ -2658,15 +2653,17 @@ function AdminApprovalsView({ apiClient }) {
     setError("");
     setLoading(true);
     try {
-      const [result, studentsResult, pilaresResult] = await Promise.all([
+      const [result, studentsResult, pilaresResult, extraPointsResult] = await Promise.all([
         apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) }),
-        apiClient.request({ method: "GET", path: "/alunos?limit=10" }),
+        apiClient.request({ method: "GET", path: "/alunos?limit=100" }),
         apiClient.request({ method: "GET", path: "/pilares?limit=100&status=ativo" }),
+        apiClient.request({ method: "GET", path: "/pontuacoes/extras?limit=100" }),
       ]);
       setEnvios(getArray(result, "envios"));
       setPagination(getPagination(result));
       setStudents(getArray(studentsResult, "alunos"));
       setPilares(getArray(pilaresResult, "pilares"));
+      setExtraPoints(getArray(extraPointsResult, "pontosExtras").length > 0 ? getArray(extraPointsResult, "pontosExtras") : getArray(extraPointsResult, "pontuacoes"));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -2680,7 +2677,7 @@ function AdminApprovalsView({ apiClient }) {
       const result = await apiClient.request({
         method: "GET",
         path: buildListPath("/alunos", {
-          limit: 10,
+          limit: 100,
           page: 1,
           search,
         }),
@@ -2724,6 +2721,7 @@ function AdminApprovalsView({ apiClient }) {
     const decision = event.nativeEvent.submitter ? event.nativeEvent.submitter.value : "aprovado";
     setFeedback("");
     setError("");
+    setEvaluatingId(envio.id);
     try {
       await apiClient.request(
         { method: "PATCH", path: "/envios-desafios/aprovacoes" },
@@ -2740,6 +2738,8 @@ function AdminApprovalsView({ apiClient }) {
       await load();
     } catch (evaluationError) {
       setError(getErrorMessage(evaluationError));
+    } finally {
+      setEvaluatingId("");
     }
   }
 
@@ -2756,6 +2756,7 @@ function AdminApprovalsView({ apiClient }) {
       return;
     }
 
+    setCreatingExtra(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/pontuacoes/extras" },
@@ -2773,8 +2774,39 @@ function AdminApprovalsView({ apiClient }) {
       setStudentSearch("");
       setStudentOptionsOpen(false);
       setFeedback("Pontuação extra cadastrada para o aluno.");
+      await load();
     } catch (extraPointsError) {
       setError(getErrorMessage(extraPointsError));
+    } finally {
+      setCreatingExtra(false);
+    }
+  }
+
+  async function updateExtraPoint(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setUpdatingExtra(true);
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: `/pontuacoes/extras/${editingExtra.id}` },
+        {
+          body: {
+            pilarId: data.get("editExtraPilarId"),
+            pontos: Number(data.get("editExtraPontos") || 0),
+            motivo: data.get("editExtraMotivo") || undefined,
+          },
+        }
+      );
+      setEditingExtra(null);
+      setFeedback("Pontuação extra atualizada.");
+      await load();
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    } finally {
+      setUpdatingExtra(false);
     }
   }
 
@@ -2821,6 +2853,44 @@ function AdminApprovalsView({ apiClient }) {
           </label>
           <IconButton icon="filter_alt" label="Filtrar aprovações" type="submit" />
         </form>
+        <div className="stack-list">
+          <h3>Histórico de pontos extras</h3>
+          {extraPoints.length === 0 ? <Notice message="Nenhum ponto extra cadastrado." /> : null}
+          {extraPoints.map((item) => (
+            <div className="status-item" key={item.id}>
+              <strong>{item.aluno ? item.aluno.name : "Aluno não informado"} · {formatNumber(item.pontos)} pontos</strong>
+              <span className="muted">{item.pilar ? item.pilar.name : "Pilar não informado"} · {item.motivo || "Sem motivo informado"}</span>
+              <div className="actions">
+                <IconButton icon="edit" label={`Editar pontuação extra de ${item.aluno ? item.aluno.name : "aluno"}`} onClick={() => setEditingExtra(item)} />
+              </div>
+            </div>
+          ))}
+        </div>
+        {editingExtra ? (
+          <form className="form-grid" onSubmit={updateExtraPoint}>
+            <div className="field span-2">
+              <span>Editando pontos de {editingExtra.aluno ? editingExtra.aluno.name : "aluno"}</span>
+            </div>
+            <label className="field">
+              <span>Pilar</span>
+              <select name="editExtraPilarId" required defaultValue={editingExtra.pilar ? editingExtra.pilar.id : ""}>
+                {pilares.map((pilar) => <option key={pilar.id} value={pilar.id}>{pilar.name}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>Pontos</span>
+              <input name="editExtraPontos" required min="1" max="1000000" type="number" defaultValue={editingExtra.pontos} />
+            </label>
+            <label className="field span-2">
+              <span>Motivo</span>
+              <input name="editExtraMotivo" defaultValue={editingExtra.motivo || ""} />
+            </label>
+            <div className="actions span-2">
+              <IconButton className="button" disabled={updatingExtra} icon="save" label="Salvar pontuação extra" type="submit" />
+              <IconButton className="button ghost" disabled={updatingExtra} icon="close" label="Cancelar edição da pontuação extra" onClick={() => setEditingExtra(null)} />
+            </div>
+          </form>
+        ) : null}
       </section>
 
       <section className="panel">
@@ -2880,9 +2950,15 @@ function AdminApprovalsView({ apiClient }) {
           </label>
           <label className="field">
             <span>Motivo</span>
-            <input name="extraMotivo" placeholder="Ex.: participação, mentoria, contribuição" />
+            <input maxLength={255} name="extraMotivo" placeholder="Ex.: participação, mentoria, contribuição" />
           </label>
-          <IconButton className="button" icon="add_circle" label="Cadastrar pontos extras" type="submit" />
+          <IconButton
+            className="button"
+            disabled={creatingExtra}
+            icon="add_circle"
+            label={creatingExtra ? "Cadastrando pontos extras" : "Cadastrar pontos extras"}
+            type="submit"
+          />
         </form>
       </section>
 
@@ -2897,7 +2973,7 @@ function AdminApprovalsView({ apiClient }) {
                 Responsável: {envio.aluno ? envio.aluno.name : "Aluno não informado"} · Turma: {formatTurmaName(envio.turma)}
               </p>
             </div>
-            <span className="badge warn">{envio.status}</span>
+                <span className="badge warn">{formatStatus(envio.status)}</span>
           </div>
           <div className="status-grid">
             <div className="status-item">
@@ -2940,18 +3016,21 @@ function AdminApprovalsView({ apiClient }) {
                 <span>Este grupo apresentou o desafio em evento ao vivo</span>
               </label>
               <div className="actions span-2">
-                <button className="button with-icon" type="submit" name="decision" value="aprovado">
+                <button className="button with-icon" disabled={evaluatingId === envio.id} type="submit" name="decision" value="aprovado">
                   <ButtonIcon name="check_circle" />
                   Aprovar
                 </button>
-                <button className="button secondary with-icon" type="submit" name="decision" value="reprovado">
+                <button className="button secondary with-icon" disabled={evaluatingId === envio.id} type="submit" name="decision" value="reprovado">
                   <ButtonIcon name="cancel" />
                   Reprovar
                 </button>
               </div>
             </form>
           ) : (
-            <Notice message="Envio já avaliado. Use o filtro de status para consultar outros registros." />
+            <Notice
+              message={envio.feedback ? `Feedback registrado: ${envio.feedback}` : "Envio já avaliado. Use o filtro de status para consultar outros registros."}
+              type={envio.status === "reprovado" || envio.status === "ajuste" ? "error" : undefined}
+            />
           )}
         </section>
       ))}
@@ -3469,7 +3548,7 @@ function AdminReportsView({ apiClient }) {
 }
 
 function isEditableSubmission(status) {
-  return ["pendente", "ajuste"].includes(String(status || "").trim().toLowerCase());
+  return ["pendente", "ajuste", "reprovado"].includes(String(status || "").trim().toLowerCase());
 }
 
 function StudentChallengesView({ apiClient }) {
@@ -3479,6 +3558,7 @@ function StudentChallengesView({ apiClient }) {
   const [selectedInscricaoId, setSelectedInscricaoId] = useState("");
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [subscribingId, setSubscribingId] = useState("");
 
   async function load() {
     setError("");
@@ -3507,6 +3587,7 @@ function StudentChallengesView({ apiClient }) {
   async function subscribe(desafioId, modalidade = "normal") {
     setFeedback("");
     setError("");
+    setSubscribingId(desafioId);
     try {
       await apiClient.request(
         { method: "POST", path: `/desafios/${desafioId}/inscricoes` },
@@ -3520,6 +3601,21 @@ function StudentChallengesView({ apiClient }) {
       await load();
     } catch (subscribeError) {
       setError(getErrorMessage(subscribeError));
+    } finally {
+      setSubscribingId("");
+    }
+  }
+
+  async function cancelSubscription(inscricao) {
+    if (!inscricao || (typeof window !== "undefined" && !window.confirm(`Cancelar a inscrição em "${inscricao.desafio ? inscricao.desafio.title : "este desafio"}"?`))) return;
+    setFeedback("");
+    setError("");
+    try {
+      await apiClient.request({ method: "DELETE", path: `/desafios/inscricoes/${inscricao.id}` });
+      setFeedback("Inscrição cancelada. Você poderá se inscrever novamente enquanto o desafio estiver aberto.");
+      await load();
+    } catch (cancelError) {
+      setError(getErrorMessage(cancelError));
     }
   }
 
@@ -3584,8 +3680,13 @@ function StudentChallengesView({ apiClient }) {
 
   function getFirstEvidence(envio) {
     const evidencias = getArray(envio, "evidencias");
-    const first = evidencias.find((item) => typeof item === "string" && item.trim());
-    return first || "";
+    const first = evidencias.find((item) => {
+      if (typeof item === "string") return item.trim();
+      if (!item || typeof item !== "object") return false;
+      return item.url || item.link || item.text || item.texto;
+    });
+    if (typeof first === "string") return first;
+    return first && (first.url || first.link || first.text || first.texto) ? first.url || first.link || first.text || first.texto : "";
   }
 
   function selectEnvioForEdit(envio) {
@@ -3601,7 +3702,6 @@ function StudentChallengesView({ apiClient }) {
     const form = event.currentTarget;
     const data = new FormData(form);
     const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId);
-    const anexo = await readFileAsAttachment(data.get("anexo"));
     const evidencia = String(data.get("evidencia") || "").trim();
     const existingEnvio = findEnvioForInscricao(selectedInscricao);
     setFeedback("");
@@ -3622,13 +3722,15 @@ function StudentChallengesView({ apiClient }) {
       return;
     }
 
+    let anexo = null;
     const body = {
       description: data.get("description"),
       evidencias: evidencia ? [evidencia] : [],
     };
-    if (anexo) body.anexos = [anexo];
 
     try {
+      anexo = await readFileAsAttachment(data.get("anexo"));
+      if (anexo) body.anexos = [anexo];
       if (existingEnvio) {
         await apiClient.request({ method: "PATCH", path: `/envios-desafios/${existingEnvio.id}` }, { body });
         setFeedback("Envio do grupo atualizado. Todos os integrantes continuam vendo a mesma versão.");
@@ -3699,15 +3801,21 @@ function StudentChallengesView({ apiClient }) {
                   <td>
                     <div className="actions table-actions">
                       {subscriptionState.showNormal ? (
-                        <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled} onClick={() => subscribe(desafio.id, "normal")}>
+                          <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled || subscribingId === desafio.id} onClick={() => subscribe(desafio.id, "normal")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
                           {isSubscribed ? "Inscrito" : "Inscrever-se"}
                         </button>
                       ) : null}
                       {subscriptionState.showEnglish ? (
-                        <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled} onClick={() => subscribe(desafio.id, "ingles")}>
+                        <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled || subscribingId === desafio.id} onClick={() => subscribe(desafio.id, "ingles")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "translate"} />
                           {isSubscribed ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
+                        </button>
+                      ) : null}
+                      {isSubscribed ? (
+                        <button className="button ghost with-icon" type="button" disabled={subscribingId === desafio.id} onClick={() => cancelSubscription(inscricao)}>
+                          <ButtonIcon name="unsubscribe" />
+                          Cancelar inscrição
                         </button>
                       ) : null}
                     </div>
@@ -3730,11 +3838,14 @@ function StudentChallengesView({ apiClient }) {
           <Notice
             message={
               selectedEnvioEditable
-                ? "Este grupo já possui um envio. Você pode editar enquanto estiver pendente ou em ajuste."
+                ? selectedEnvio.status === "reprovado"
+                  ? "Este envio foi reprovado e pode ser corrigido e reenviado."
+                  : "Este grupo já possui um envio. Você pode editar enquanto estiver pendente ou em ajuste."
                 : "Este grupo já teve o envio aprovado ou encerrado. A edição está bloqueada."
             }
           />
         ) : null}
+        {selectedEnvio && selectedEnvio.feedback ? <Notice message={`Feedback da avaliação: ${selectedEnvio.feedback}`} type="error" /> : null}
         <form className="form-grid" key={(selectedEnvio && selectedEnvio.id) || selectedInscricaoId || "novo-envio"} onSubmit={submitEnvio}>
           <label className="field span-2">
             <span>Desafio inscrito</span>
@@ -3759,16 +3870,22 @@ function StudentChallengesView({ apiClient }) {
           </div>
           <label className="field span-2">
             <span>Descrição</span>
-            <textarea name="description" required defaultValue={(selectedEnvio && selectedEnvio.description) || ""} placeholder="Descreva o que foi feito." />
+            <textarea maxLength={4000} name="description" required defaultValue={(selectedEnvio && selectedEnvio.description) || ""} placeholder="Descreva o que foi feito." />
           </label>
           <label className="field span-2">
             <span>Evidência/link/comprovante opcional</span>
-            <input name="evidencia" defaultValue={getFirstEvidence(selectedEnvio)} placeholder="https://..." />
+            <input maxLength={2048} name="evidencia" defaultValue={getFirstEvidence(selectedEnvio)} placeholder="https://..." />
           </label>
           <label className="field span-2">
             <span>Anexo opcional</span>
             <input name="anexo" type="file" />
           </label>
+          {selectedEnvio && getArray(selectedEnvio, "anexos").length > 0 ? (
+            <div className="status-item span-2">
+              <span className="muted">Anexo atual</span>
+              <LinkList download items={selectedEnvio.anexos} />
+            </div>
+          ) : null}
           <button className="button with-icon" type="submit" disabled={!selectedEnvioEditable}>
             <ButtonIcon name={selectedEnvio ? "save" : "send"} />
             {selectedEnvio ? "Atualizar envio" : "Enviar para aprovação"}
@@ -3802,8 +3919,11 @@ function StudentChallengesView({ apiClient }) {
                     <div className="muted">{challengeActive ? "Desafio ativo" : "Desafio inativo"}</div>
                   </td>
                   <td>{envio.aluno ? envio.aluno.name : "Integrante do grupo"}</td>
-                  <td>{envio.type}</td>
-                  <td>{envio.status}</td>
+                  <td>{formatSubmissionType(envio.type)}</td>
+                    <td>
+                      {formatStatus(envio.status)}
+                      {envio.feedback ? <div className="muted">Feedback: {envio.feedback}</div> : null}
+                    </td>
                   <td>
                     <strong>{formatNumber(getSubmissionParticipantCount(envio))}</strong>
                     <div className="muted">{participantNames.length > 0 ? participantNames.join(", ") : "Integrantes não informados"}</div>
@@ -3943,7 +4063,7 @@ function StudentChecklistView({ apiClient }) {
           </div>
           <div className="status-item">
             <span className="muted">Quando não pontua</span>
-            <strong>Após 7 dias = 0 ponto</strong>
+            <strong>Mais de 7 dias depois = 0 ponto</strong>
             <span className="muted">Se houver mais de uma tarefa no mesmo dia, o dia só pontua quando todas forem concluídas.</span>
           </div>
         </div>
@@ -4124,6 +4244,7 @@ function StudentScoreView({ apiClient }) {
               <th>Desafio</th>
               <th>Pilares</th>
               <th>Pontos</th>
+              <th>Composição</th>
               <th>Turma</th>
             </tr>
           </thead>
@@ -4133,6 +4254,7 @@ function StudentScoreView({ apiClient }) {
                 <td>{item.desafio ? item.desafio.title : item.source === "pontuacao_extra" ? "Pontuação extra" : "Desafio sem título"}</td>
                 <td>{formatPilarPoints(item)}</td>
                 <td>{formatNumber(item.pontos)}</td>
+                <td>{item.descricaoPontuacao || (item.apresentacaoAoVivo ? `${formatNumber(item.pontosBase)} base + ${formatNumber(item.bonusApresentacaoAoVivo)} apresentação ao vivo` : "")}</td>
                 <td>{item.turma ? item.turma.name : "-"}</td>
               </tr>
             ))}
@@ -4206,7 +4328,7 @@ function StudentGroupsView({ apiClient }) {
                     {grupo.turma ? grupo.turma.name : "-"} | {formatNumber(grupo.totalParticipantes)} de {formatNumber(grupo.maxParticipantes)} participantes | Modalidade: {grupo.modalidade === "ingles" ? "Inglês" : "Normal"}
                   </p>
                 </div>
-                <span className={`badge ${grupo.status === "completo" ? "ok" : "warn"}`}>{grupo.status}</span>
+                <span className={`badge ${grupo.status === "completo" ? "ok" : "warn"}`}>{formatStatus(grupo.status)}</span>
               </div>
               <div className="participant-list">
                 {getArray(grupo, "participantes").map((participante) => (
@@ -4349,6 +4471,7 @@ function StudentPlanoEstudoView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const calendar = useMemo(
     () => buildCalendarViewModel({ ...monthRef, events, showMentoria: filters.showMentoria, showPersonal: filters.showPersonal }),
@@ -4401,6 +4524,7 @@ function StudentPlanoEstudoView({ apiClient }) {
     const shouldReplicateWeek = data.get("replicateWeek") === "on";
     setFeedback("");
     setError("");
+    setCreating(true);
     try {
       if (shouldReplicateWeek) {
         const weeklyQuery = buildWeeklyStudyQuery(startAt);
@@ -4462,6 +4586,8 @@ function StudentPlanoEstudoView({ apiClient }) {
       await loadAgenda();
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -4626,7 +4752,7 @@ function StudentPlanoEstudoView({ apiClient }) {
           <form className="form-grid" key={editingItem.id} onSubmit={updatePersonalItem}>
             <label className="field span-2">
               <span>Título</span>
-              <input defaultValue={editingItem.title} name="editTitle" required />
+            <input defaultValue={editingItem.title} maxLength={160} name="editTitle" required />
             </label>
             <label className="field">
               <span>Início</span>
@@ -4638,7 +4764,7 @@ function StudentPlanoEstudoView({ apiClient }) {
             </label>
             <label className="field span-2">
               <span>Observações</span>
-              <textarea defaultValue={editingItem.notes || ""} name="editNotes" />
+              <textarea defaultValue={editingItem.notes || ""} maxLength={4000} name="editNotes" />
             </label>
             <label className="field">
               <span>Cor</span>
@@ -4659,7 +4785,7 @@ function StudentPlanoEstudoView({ apiClient }) {
         <form className="form-grid calendar-form" onSubmit={createPersonalItem}>
           <label className="field span-2">
             <span>Título</span>
-            <input name="title" required placeholder="Revisar conteúdo do módulo" />
+            <input name="title" maxLength={160} required placeholder="Revisar conteúdo do módulo" />
           </label>
           <label className="field">
             <span>Início</span>
@@ -4673,11 +4799,11 @@ function StudentPlanoEstudoView({ apiClient }) {
           </label>
           <label className="field">
             <span>Fim</span>
-            <input name="endAt" type="datetime-local" />
+            <input min="2026-01-01T00:00" name="endAt" type="datetime-local" />
           </label>
           <label className="field span-2">
             <span>Observações</span>
-            <textarea name="notes" placeholder="Detalhes do seu estudo" />
+            <textarea maxLength={4000} name="notes" placeholder="Detalhes do seu estudo" />
           </label>
           <label className="checkbox-field span-2">
             <input name="replicateWeek" type="checkbox" />
@@ -4687,7 +4813,7 @@ function StudentPlanoEstudoView({ apiClient }) {
             <span>Cor</span>
             <input defaultValue="#8502ab" name="color" type="color" />
           </label>
-          <IconButton className="button" icon="add" label="Adicionar planejamento" type="submit" />
+          <IconButton className="button" disabled={creating} icon="add" label={creating ? "Adicionando planejamento" : "Adicionar planejamento"} type="submit" />
         </form>
       </section>
     </div>
@@ -4706,6 +4832,7 @@ function AdminPlanoEstudoView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const calendar = useMemo(
     () => buildCalendarViewModel({ ...monthRef, events, showMentoria: true, showPersonal: false }),
@@ -4766,6 +4893,7 @@ function AdminPlanoEstudoView({ apiClient }) {
     const data = new FormData(form);
     setFeedback("");
     setError("");
+    setCreating(true);
     try {
       await apiClient.request(
         { method: "POST", path: "/eventos-ao-vivo" },
@@ -4789,6 +4917,8 @@ function AdminPlanoEstudoView({ apiClient }) {
       await loadEvents();
     } catch (createError) {
       setError(getErrorMessage(createError));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -4973,7 +5103,7 @@ function AdminPlanoEstudoView({ apiClient }) {
           <form className="form-grid" key={editingEvent.id} onSubmit={updateEvent}>
             <label className="field span-2">
               <span>Título</span>
-              <input defaultValue={editingEvent.title} name="editTitle" required />
+              <input defaultValue={editingEvent.title} maxLength={160} name="editTitle" required />
             </label>
             <label className="field">
               <span>Turma</span>
@@ -4995,11 +5125,11 @@ function AdminPlanoEstudoView({ apiClient }) {
             </label>
             <label className="field">
               <span>Início</span>
-              <input defaultValue={formatDateTimeInputValue(editingEvent.startAt)} name="editStartAt" required type="datetime-local" />
+              <input defaultValue={formatDateTimeInputValue(editingEvent.startAt)} min="2026-01-01T00:00" name="editStartAt" required type="datetime-local" />
             </label>
             <label className="field">
               <span>Fim</span>
-              <input defaultValue={formatDateTimeInputValue(editingEvent.endAt)} name="editEndAt" type="datetime-local" />
+              <input defaultValue={formatDateTimeInputValue(editingEvent.endAt)} min="2026-01-01T00:00" name="editEndAt" type="datetime-local" />
             </label>
             <label className="field">
               <span>Semana</span>
@@ -5007,7 +5137,7 @@ function AdminPlanoEstudoView({ apiClient }) {
             </label>
             <label className="field">
               <span>Convidado</span>
-              <input defaultValue={editingEvent.guestName || ""} name="editGuestName" />
+              <input defaultValue={editingEvent.guestName || ""} maxLength={120} name="editGuestName" />
             </label>
             <label className="field">
               <span>Status</span>
@@ -5018,11 +5148,11 @@ function AdminPlanoEstudoView({ apiClient }) {
             </label>
             <label className="field span-2">
               <span>Descrição</span>
-              <textarea defaultValue={editingEvent.notes || ""} name="editDescription" />
+              <textarea defaultValue={editingEvent.notes || ""} maxLength={4000} name="editDescription" />
             </label>
             <label className="field span-2">
               <span>Link</span>
-              <input defaultValue={editingEvent.link || ""} name="editLink" />
+              <input defaultValue={editingEvent.link || ""} maxLength={2048} name="editLink" />
             </label>
             <IconButton className="button" icon="save" label="Salvar evento" type="submit" />
           </form>
@@ -5039,7 +5169,7 @@ function AdminPlanoEstudoView({ apiClient }) {
         <form className="form-grid calendar-form" onSubmit={createEvent}>
           <label className="field span-2">
             <span>Título</span>
-            <input name="title" required placeholder="Lógica e Programação" />
+            <input name="title" maxLength={160} required placeholder="Lógica e Programação" />
           </label>
           <label className="field">
             <span>Turma</span>
@@ -5067,6 +5197,7 @@ function AdminPlanoEstudoView({ apiClient }) {
             <input
               defaultValue={selectedDay ? `${selectedDay.key}T19:00` : ""}
               key={selectedDay ? selectedDay.key : "new-event-start"}
+              min="2026-01-01T00:00"
               name="startAt"
               required
               type="datetime-local"
@@ -5074,7 +5205,7 @@ function AdminPlanoEstudoView({ apiClient }) {
           </label>
           <label className="field">
             <span>Fim</span>
-            <input name="endAt" type="datetime-local" />
+            <input min="2026-01-01T00:00" name="endAt" type="datetime-local" />
           </label>
           <label className="field">
             <span>Semana</span>
@@ -5082,17 +5213,17 @@ function AdminPlanoEstudoView({ apiClient }) {
           </label>
           <label className="field">
             <span>Convidado</span>
-            <input name="guestName" placeholder="Matheus Leão" />
+            <input maxLength={120} name="guestName" placeholder="Matheus Leão" />
           </label>
           <label className="field span-2">
             <span>Descrição</span>
-            <textarea name="description" placeholder="Detalhes do evento" />
+            <textarea maxLength={4000} name="description" placeholder="Detalhes do evento" />
           </label>
           <label className="field span-2">
             <span>Link</span>
-            <input name="link" placeholder="https://..." />
+            <input maxLength={2048} name="link" placeholder="https://..." />
           </label>
-          <IconButton className="button" icon="add" label="Cadastrar evento" type="submit" />
+          <IconButton className="button" disabled={creating} icon="add" label={creating ? "Cadastrando evento" : "Cadastrar evento"} type="submit" />
         </form>
       </section>
     </div>
@@ -5108,6 +5239,7 @@ function Workspace({ apiBaseUrl, apiClient, onLogout, onThemeChange, onUserChang
   function navigate(item) {
     setSelectedMenu(item);
     setActiveView(item.key);
+    window.localStorage.setItem(`desafios.view.${role}`, item.key);
   }
 
   return (
@@ -5188,6 +5320,25 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
+    function handleStorage(event) {
+      if (event.key !== "desafios.session") return;
+      if (!event.newValue) {
+        setSession(null);
+        return;
+      }
+
+      try {
+        setSession(JSON.parse(event.newValue));
+      } catch {
+        setSession(null);
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem("desafios.theme", theme);
   }, [theme]);
@@ -5217,13 +5368,6 @@ export default function Page() {
 
   async function login(credentials) {
     const result = await apiClient.request({ method: "POST", path: "/auth/login" }, { body: credentials });
-    const nextSession = { token: result.token, user: result.user };
-    window.localStorage.setItem("desafios.session", JSON.stringify(nextSession));
-    setSession(nextSession);
-  }
-
-  async function registerStudent(payload) {
-    const result = await apiClient.request({ method: "POST", path: "/auth/register" }, { body: payload });
     const nextSession = { token: result.token, user: result.user };
     window.localStorage.setItem("desafios.session", JSON.stringify(nextSession));
     setSession(nextSession);
@@ -5266,7 +5410,7 @@ export default function Page() {
           user={session.user}
         />
       ) : (
-        <LoginScreen theme={theme} onThemeChange={toggleTheme} onLogin={login} onRegister={registerStudent} />
+        <LoginScreen theme={theme} onThemeChange={toggleTheme} onLogin={login} />
       )}
     </div>
   );

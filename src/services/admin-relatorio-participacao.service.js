@@ -267,6 +267,7 @@ async function findEnviosByGroups(groupIds) {
 async function findPontuacoes() {
   return Pontuacao.find({})
     .populate({ path: "aluno", select: "name email role status turmas" })
+    .populate({ path: "turma", select: "name code description status" })
     .populate({
       path: "envio",
       select: "status turma createdAt approvedAt evaluatedAt approvedBy evaluatedBy",
@@ -368,11 +369,6 @@ function matchesTurmaByEnvio(entity, filters) {
   return getEntityId(entity.turma) === filters.turmaId;
 }
 
-function alunoHasTurma(pontuacao, turmaId) {
-  const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
-  return turmas.some((turma) => getEntityId(turma) === turmaId);
-}
-
 function matchesPontuacaoFilters(pontuacao, filters) {
   if (
     pontuacao &&
@@ -383,7 +379,7 @@ function matchesPontuacaoFilters(pontuacao, filters) {
     return (
       matchesDate(pontuacao, filters) &&
       matchesPilar(pontuacao, filters) &&
-      (!filters.turmaId || alunoHasTurma(pontuacao, filters.turmaId))
+      (!filters.turmaId || getEntityId(pontuacao.turma) === filters.turmaId)
     );
   }
 
@@ -395,7 +391,7 @@ function matchesPontuacaoFilters(pontuacao, filters) {
     Number.isFinite(Number(pontuacao.pontos)) &&
     matchesDate(pontuacao.envio, filters) &&
     matchesPilar(pontuacao, filters) &&
-    (!filters.turmaId || getEntityId(pontuacao.envio.turma) === filters.turmaId)
+    (!filters.turmaId || getEntityId(pontuacao.turma || pontuacao.envio.turma) === filters.turmaId)
   );
 }
 
@@ -748,7 +744,11 @@ function buildParticipationByTurma(envios, pontuacoes) {
   });
 
   pontuacoes.forEach((pontuacao) => {
-    const turmas = pontuacao.envio && pontuacao.envio.turma ? [pontuacao.envio.turma] : pontuacao.aluno && Array.isArray(pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+    const turmas = pontuacao.turma
+      ? [pontuacao.turma]
+      : pontuacao.envio && pontuacao.envio.turma
+        ? [pontuacao.envio.turma]
+        : [];
     const turmasToScore = turmas.length > 0 ? turmas : [null];
 
     turmasToScore.forEach((turma) => {

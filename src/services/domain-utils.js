@@ -7,6 +7,13 @@ const DIFFICULTY_POINTS = {
   extra: 50,
 };
 
+const MAX_PERSON_NAME_LENGTH = 120;
+const MAX_TITLE_LENGTH = 160;
+const MAX_DESCRIPTION_LENGTH = 4000;
+const MAX_SHORT_TEXT_LENGTH = 255;
+const MAX_URL_LENGTH = 2048;
+const MAX_POINTS = 1000000;
+
 function createHttpError(message, statusCode = 500, options = {}) {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -91,6 +98,71 @@ function parseRequiredText(value, fieldName) {
   }
 
   return value.trim();
+}
+
+function parseBoundedText(value, fieldName, maxLength, { required = true } = {}) {
+  const text = required ? parseRequiredText(value, fieldName) : parseOptionalText(value, fieldName);
+  if (text === undefined) return undefined;
+  if (text.length > maxLength) {
+    throw createHttpError(`${fieldName} deve ter no máximo ${maxLength} caracteres.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} deve ter no máximo ${maxLength} caracteres.` }],
+    });
+  }
+  return text;
+}
+
+function parsePersonName(value, fieldName = "Nome") {
+  const name = parseBoundedText(value, fieldName, MAX_PERSON_NAME_LENGTH);
+  if (!/^[\p{L}]+(?:[ '-][\p{L}]+)*$/u.test(name)) {
+    throw createHttpError(`${fieldName} deve conter apenas letras, espaços, hífens ou apóstrofos.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} possui caracteres inválidos.` }],
+    });
+  }
+  return name;
+}
+
+function parseEmail(value, fieldName = "E-mail") {
+  const email = parseBoundedText(value, fieldName, MAX_SHORT_TEXT_LENGTH);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw createHttpError(`${fieldName} inválido.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} inválido.` }],
+    });
+  }
+  return email.toLowerCase();
+}
+
+function parsePassword(value, fieldName = "Senha") {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw createHttpError(`${fieldName} é obrigatória.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} é obrigatória.` }],
+    });
+  }
+  if (value.length < 6) {
+    throw createHttpError(`${fieldName} deve ter ao menos 6 caracteres.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} deve ter ao menos 6 caracteres.` }],
+    });
+  }
+  return value;
+}
+
+function parseOptionalUrl(value, fieldName = "Link") {
+  const url = parseBoundedText(value, fieldName, MAX_URL_LENGTH, { required: false });
+  if (url === undefined) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('protocol');
+  } catch {
+    throw createHttpError(`${fieldName} deve ser uma URL válida iniciando com http:// ou https://.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: fieldName, message: `${fieldName} deve ser uma URL válida.` }],
+    });
+  }
+  return url;
 }
 
 function parsePositiveInteger(value, fieldName, fallback, max = 100) {
@@ -204,6 +276,12 @@ function toIsoDate(value) {
 
 module.exports = {
   DIFFICULTY_POINTS,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_PERSON_NAME_LENGTH,
+  MAX_POINTS,
+  MAX_SHORT_TEXT_LENGTH,
+  MAX_TITLE_LENGTH,
+  MAX_URL_LENGTH,
   assertObjectPayload,
   buildPagination,
   createHttpError,
@@ -214,10 +292,15 @@ module.exports = {
   normalizeText,
   omitUndefined,
   parseDifficulty,
+  parseBoundedText,
+  parseEmail,
   parseObjectId,
   parseOptionalObjectId,
+  parseOptionalUrl,
   parseOptionalText,
   parsePagination,
+  parsePassword,
+  parsePersonName,
   parsePeriod,
   parseRequiredText,
   pointsForDifficulty,

@@ -11,6 +11,10 @@ jest.mock("../../src/models/pontuacao.model", () => ({
   find: jest.fn(),
 }));
 
+jest.mock("../../src/models/turma.model", () => ({
+  find: jest.fn(),
+}));
+
 jest.mock("../../src/models/pilar.model", () => ({
   findById: jest.fn(),
 }));
@@ -37,6 +41,7 @@ const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Pilar = require("../../src/models/pilar.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
+const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
 const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("../../src/services/cupom.service");
@@ -56,9 +61,11 @@ const LEGACY_PARTICIPANT_ID = "6814f12ab3f34872f7558f45";
 const PILAR_ID = "6814f12ab3f34872f7558f51";
 
 function mockLean(modelMethod, value) {
-  modelMethod.mockReturnValue({
+  const query = {
+    select: jest.fn(() => query),
     lean: jest.fn().mockResolvedValue(value),
-  });
+  };
+  modelMethod.mockReturnValue(query);
 }
 
 describe("pontuacao.service MR-94", () => {
@@ -67,6 +74,7 @@ describe("pontuacao.service MR-94", () => {
     mockLean(EnvioDesafio.find, []);
     mockLean(ParticipanteEnvio.find, []);
     mockLean(Pontuacao.find, []);
+    mockLean(Turma.find, []);
     Pontuacao.create.mockResolvedValue([]);
     User.findById.mockImplementation((id) =>
       Promise.resolve(id === OWNER_ID ? { _id: OWNER_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo" } : { _id: id, role: "professor" })

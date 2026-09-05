@@ -101,8 +101,18 @@ input:disabled {
   object-position: left center;
 }
 
+.brand-icon {
+  width: 112px;
+  height: 112px;
+  object-position: center;
+}
+
 [data-theme="dark"] .brand-logo {
   filter: invert(1);
+}
+
+[data-theme="dark"] .brand-logo.brand-icon {
+  filter: none;
 }
 
 .sidebar .brand-logo {
@@ -976,6 +986,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   overflow: hidden;
   padding: 2px 4px;
   border-left: 3px solid transparent;
@@ -1013,6 +1024,18 @@ h3 {
   background: var(--surface-soft);
   color: var(--text);
   text-align: left;
+}
+
+.calendar-day-item > div,
+.detail-grid > div,
+.calendar-event-chip > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.calendar-day-item strong,
+.detail-grid strong {
+  overflow-wrap: anywhere;
 }
 
 .detail-grid {
@@ -1061,6 +1084,15 @@ h3 {
 
   .calendar-grid {
     min-width: 720px;
+  }
+
+  .panel {
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .table {
+    min-width: 680px;
   }
 
   .calendar-cell {

@@ -11,6 +11,7 @@ const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 router.post("/desafios", authMiddleware, authorizeRoles(adminRoles), desafioController.create);
 router.get("/desafios/inscricoes/minhas", authMiddleware, authorizeRoles([User.userRoles.student]), desafioController.listMySubscriptions);
 router.get("/desafios", authMiddleware, authorizeRoles(authenticatedRoles), desafioController.list);
+router.delete("/desafios/inscricoes/:id", authMiddleware, authorizeRoles([User.userRoles.student]), desafioController.cancelSubscription);
 router.post("/desafios/:id/inscricoes", authMiddleware, authorizeRoles([User.userRoles.student]), desafioController.subscribe);
 router.get("/desafios/:id", authMiddleware, authorizeRoles(authenticatedRoles), desafioController.show);
 router.patch("/desafios/:id", authMiddleware, authorizeRoles(adminRoles), desafioController.update);

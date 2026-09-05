@@ -5,6 +5,7 @@ const ENDPOINT_UNAVAILABLE_MESSAGE = "Funcionalidade indisponível no momento. T
 const API_CONNECTION_ERROR_CODE = "API_CONNECTION_ERROR";
 const API_CONNECTION_ERROR_MESSAGE = "Não foi possível conectar à API. Aguarde alguns segundos e tente atualizar a tela.";
 const MUTATION_METHODS = ["POST", "PATCH", "PUT", "DELETE"];
+const SESSION_ERROR_CODES = new Set(["AUTHENTICATION_REQUIRED", "SESSION_INVALID", "INACTIVE_USER", "SESSION_REVOKED", "TOKEN_INVALID"]);
 
 class ApiClientError extends Error {
   constructor(message, options = {}) {
@@ -114,13 +115,16 @@ function createApiClient(options = {}) {
     }
 
     if (response.status === 401) {
-      onUnauthorized({ endpoint: getEndpointPath(endpoint), status: response.status });
-      throw new ApiClientError((body && body.message) || "Sessão expirada. Faça login novamente.", {
+      const code = (body && body.code) || "UNAUTHORIZED";
+      const message = (body && body.message) || "Sessão expirada. Faça login novamente.";
+      const shouldClearSession = SESSION_ERROR_CODES.has(code) || /token|sessão|usuário inativo/i.test(message);
+      if (shouldClearSession) onUnauthorized({ endpoint: getEndpointPath(endpoint), status: response.status });
+      throw new ApiClientError(message, {
         status: 401,
-        code: (body && body.code) || "UNAUTHORIZED",
+        code,
         endpoint: getEndpointPath(endpoint),
         details: body && body.details,
-        shouldClearSession: true,
+        shouldClearSession,
       });
     }
 

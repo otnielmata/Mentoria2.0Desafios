@@ -64,7 +64,7 @@ describe("profile.service", () => {
       passwordHash: "hash-atual",
       turmas: [],
     });
-    bcrypt.compare.mockResolvedValue(true);
+    bcrypt.compare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     bcrypt.hash.mockResolvedValue("novo-hash");
     User.findByIdAndUpdate.mockReturnValue({
       lean: jest.fn().mockResolvedValue({

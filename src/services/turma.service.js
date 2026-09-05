@@ -6,10 +6,10 @@ const {
   createHttpError,
   getEntityId,
   normalizeText,
+  parseBoundedText,
   parseObjectId,
   parseOptionalText,
   parsePagination,
-  parseRequiredText,
   toIsoDate,
 } = require("./domain-utils");
 
@@ -17,6 +17,7 @@ const ADMIN_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
 const ACTIVE_TURMA_STATUS = "ativa";
 const CLOSED_STATUS = "encerrada";
+const MIN_SUPPORTED_DATE = new Date("2026-01-01T00:00:00.000Z");
 
 function serializeTurma(turma, alunos = []) {
   const startDate = toIsoDate(turma.startDate);
@@ -57,6 +58,7 @@ function parseDateField(value, fieldName) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) throw createHttpError(`${fieldName} deve ser uma data válida.`, 400);
+  if (date < MIN_SUPPORTED_DATE) throw createHttpError(`${fieldName} deve ser uma data a partir de 01/01/2026.`, 400);
   return date;
 }
 
@@ -66,19 +68,37 @@ function assertValidPeriod(startDate, endDate) {
   }
 }
 
+function parseTurmaStatus(value) {
+  const status = normalizeText(value || ACTIVE_TURMA_STATUS);
+  if (![ACTIVE_TURMA_STATUS, CLOSED_STATUS].includes(status)) {
+    throw createHttpError("Status deve ser ativa ou encerrada.", 400);
+  }
+  return status;
+}
+
 async function createTurma(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode cadastrar turmas.");
   const startDate = parseDateField(payload.startDate || payload.data_inicio, "data_inicio");
   const endDate = parseDateField(payload.endDate || payload.data_fim, "data_fim");
   assertValidPeriod(startDate, endDate);
 
+  const name = parseBoundedText(payload.name || payload.nome, "Nome", 120);
+  const code = parseBoundedText(payload.code || payload.codigo, "Código", 80, { required: false }) || null;
+  if (typeof Turma.findOne === "function") {
+    const duplicateQuery = Turma.findOne({
+      $or: [{ name: new RegExp(`^${escapeRegex(name)}$`, "i") }, ...(code ? [{ code: new RegExp(`^${escapeRegex(code)}$`, "i") }] : [])],
+    });
+    const duplicate = duplicateQuery && typeof duplicateQuery.lean === "function" ? await duplicateQuery.lean() : await duplicateQuery;
+    if (duplicate) throw createHttpError("Já existe uma turma com este nome ou código.", 409, { code: "TURMA_ALREADY_EXISTS" });
+  }
+
   const turma = await Turma.create({
-    name: parseRequiredText(payload.name || payload.nome, "Nome"),
-    code: parseOptionalText(payload.code || payload.codigo, "Código") || null,
-    description: parseOptionalText(payload.description || payload.descricao, "Descrição") || null,
+    name,
+    code,
+    description: parseBoundedText(payload.description || payload.descricao, "Descrição", 4000, { required: false }) || null,
     startDate,
     endDate,
-    status: payload.status || ACTIVE_TURMA_STATUS,
+    status: parseTurmaStatus(payload.status),
   });
 
   return serializeTurma(turma);
@@ -87,7 +107,12 @@ async function createTurma(authenticatedUserId, payload = {}) {
 async function listTurmas(authenticatedUserId, query = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode listar turmas.");
   const filters = {};
-  if (query.status) filters.status = String(query.status).trim();
+  if (query.status) {
+    const status = String(query.status).trim();
+    if (!['todos', 'all'].includes(status.toLowerCase())) filters.status = status;
+  } else {
+    filters.status = ACTIVE_TURMA_STATUS;
+  }
   const search = parseOptionalText(query.search || query.q || query.nome || query.name, "Busca");
   if (search) {
     const searchRegex = new RegExp(escapeRegex(search), "i");
@@ -119,12 +144,12 @@ async function updateTurma(authenticatedUserId, turmaId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode editar turmas.");
   const id = parseObjectId(turmaId, "Turma deve ser um identificador válido.");
   const updates = {};
-  if (payload.name || payload.nome) updates.name = parseRequiredText(payload.name || payload.nome, "Nome");
-  if (payload.code !== undefined || payload.codigo !== undefined) updates.code = parseOptionalText(payload.code || payload.codigo, "Código") || null;
+  if (payload.name !== undefined || payload.nome !== undefined) updates.name = parseBoundedText(payload.name ?? payload.nome, "Nome", 120);
+  if (payload.code !== undefined || payload.codigo !== undefined) updates.code = parseBoundedText(payload.code ?? payload.codigo, "Código", 80, { required: false }) || null;
   if (payload.description !== undefined || payload.descricao !== undefined) {
-    updates.description = parseOptionalText(payload.description || payload.descricao, "Descrição") || null;
+    updates.description = parseBoundedText(payload.description ?? payload.descricao, "Descrição", 4000, { required: false }) || null;
   }
-  if (payload.status) updates.status = parseRequiredText(payload.status, "Status");
+  if (payload.status !== undefined) updates.status = parseTurmaStatus(payload.status);
   if (payload.startDate || payload.data_inicio) updates.startDate = parseDateField(payload.startDate || payload.data_inicio, "data_inicio");
   if (payload.endDate || payload.data_fim) updates.endDate = parseDateField(payload.endDate || payload.data_fim, "data_fim");
 
@@ -134,6 +159,21 @@ async function updateTurma(authenticatedUserId, turmaId, payload = {}) {
     Object.prototype.hasOwnProperty.call(updates, "startDate") ? updates.startDate : current.startDate,
     Object.prototype.hasOwnProperty.call(updates, "endDate") ? updates.endDate : current.endDate
   );
+
+  if (updates.status && ![ACTIVE_TURMA_STATUS, CLOSED_STATUS].includes(normalizeText(updates.status))) {
+    throw createHttpError("Status deve ser ativa ou encerrada.", 400);
+  }
+
+  if (typeof Turma.findOne === "function" && (updates.name !== undefined || updates.code !== undefined)) {
+    const targetName = updates.name || current.name;
+    const targetCode = updates.code !== undefined ? updates.code : current.code;
+    const duplicateQuery = Turma.findOne({
+      _id: { $ne: id },
+      $or: [{ name: new RegExp(`^${escapeRegex(targetName)}$`, "i") }, ...(targetCode ? [{ code: new RegExp(`^${escapeRegex(targetCode)}$`, "i") }] : [])],
+    });
+    const duplicate = duplicateQuery && typeof duplicateQuery.lean === "function" ? await duplicateQuery.lean() : await duplicateQuery;
+    if (duplicate) throw createHttpError("Já existe uma turma com este nome ou código.", 409, { code: "TURMA_ALREADY_EXISTS" });
+  }
 
   const turma = await Turma.findByIdAndUpdate(id, updates, { new: true }).lean();
   return serializeTurma(turma);

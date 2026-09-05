@@ -59,7 +59,7 @@ function mockFindChain(model, value) {
 function createPontuacao({ alunoId = STUDENT_ID, pontos = 20, status = "aprovado", envioId = "6814f12ab3f34872f7558f45" }) {
   return {
     _id: "6814f12ab3f34872f7558f46",
-    aluno: { _id: alunoId, name: "Aluno", status: "ativo" },
+    aluno: { _id: alunoId, name: "Aluno", role: "aluno", status: "ativo" },
     envio: {
       _id: envioId,
       status,

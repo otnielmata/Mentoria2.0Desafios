@@ -8,5 +8,7 @@ const router = express.Router();
 const adminRoles = [User.userRoles.teacher, User.userRoles.admin];
 
 router.post("/pontuacoes/extras", authMiddleware, authorizeRoles(adminRoles), adminPontuacaoController.createExtra);
+router.get("/pontuacoes/extras", authMiddleware, authorizeRoles(adminRoles), adminPontuacaoController.listExtras);
+router.patch("/pontuacoes/extras/:id", authMiddleware, authorizeRoles(adminRoles), adminPontuacaoController.updateExtra);
 
 module.exports = router;

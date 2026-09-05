@@ -159,7 +159,7 @@ async function getAuthenticatedUser(authenticatedUserId) {
 }
 
 async function findStudentTurmas(authenticatedUserId) {
-  const query = Turma.find({ alunos: authenticatedUserId });
+  const query = Turma.find({ alunos: authenticatedUserId, status: "ativa" });
   const selectedQuery = typeof query.select === "function" ? query.select("_id") : query;
   return typeof selectedQuery.lean === "function" ? selectedQuery.lean() : selectedQuery;
 }
@@ -171,6 +171,7 @@ async function buildScope(authenticatedUser, filters) {
     return {
       role,
       allowedTurmaIds: filters.turmaId ? [filters.turmaId] : null,
+      activeOnly: !filters.turmaId,
       requestedTurmaAllowed: true,
     };
   }
@@ -181,7 +182,7 @@ async function buildScope(authenticatedUser, filters) {
   if (!filters.turmaId) {
     return {
       role,
-      allowedTurmaIds: null,
+      allowedTurmaIds: studentTurmaIds,
       requestedTurmaAllowed: true,
     };
   }
@@ -204,6 +205,7 @@ function buildPontuacaoFilters(filters) {
 async function findPontuacoes(filters) {
   return Pontuacao.find(buildPontuacaoFilters(filters))
     .populate({ path: "aluno", select: "name email role status turmas" })
+    .populate({ path: "turma", select: "name code description status" })
     .populate({
       path: "envio",
       select: "status turma type approvedAt createdAt",
@@ -261,20 +263,26 @@ function alunoHasTurma(pontuacao, turmaId) {
 
 function matchesScope(pontuacao, scope) {
   if (scope.allowedTurmaIds === null) {
-    return true;
+    return !scope.activeOnly || isActiveClassScore(pontuacao);
   }
 
-  const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
+  const envioTurmaId = getEntityId(pontuacao.turma) || getEntityId(pontuacao.envio && pontuacao.envio.turma);
   if (envioTurmaId) {
     return scope.allowedTurmaIds.includes(envioTurmaId);
   }
 
-  return scope.allowedTurmaIds.some((turmaId) => alunoHasTurma(pontuacao, turmaId));
+  return false;
+}
+
+function isActiveClassScore(pontuacao) {
+  const turma = pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma);
+  if (!turma || typeof turma !== "object") return false;
+  return !turma.status || normalizeText(turma.status) === "ativa";
 }
 
 function matchesFilters(pontuacao, filters) {
-  const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
-  if (filters.turmaId && envioTurmaId !== filters.turmaId && !alunoHasTurma(pontuacao, filters.turmaId)) {
+  const envioTurmaId = getEntityId(pontuacao.turma) || getEntityId(pontuacao.envio && pontuacao.envio.turma);
+  if (filters.turmaId && envioTurmaId !== filters.turmaId) {
     return false;
   }
 
@@ -363,16 +371,9 @@ function sortRankingRows(rows) {
 }
 
 function assignPositions(rows) {
-  let previousPoints = null;
-  let previousPosition = 0;
-
   return rows.map((row, index) => {
-    const position = row.totalPontos === previousPoints ? previousPosition : index + 1;
-    previousPoints = row.totalPontos;
-    previousPosition = position;
-
     return {
-      posicao: position,
+      posicao: index + 1,
       ...row,
     };
   });
@@ -442,7 +443,7 @@ async function getFilteredRanking(authenticatedUserId, query = {}) {
   if (!scope.requestedTurmaAllowed) {
     return {
       totalParticipantes: 0,
-      criterioDesempate: "posicao_compartilhada_nome_id",
+      criterioDesempate: "pontos_nome_id",
       filtros: serializeFilters(filters),
       escopo: serializeScope(scope),
       ranking: [],
@@ -474,7 +475,7 @@ async function getFilteredRanking(authenticatedUserId, query = {}) {
 
   return {
     totalParticipantes: ranking.length,
-    criterioDesempate: "posicao_compartilhada_nome_id",
+    criterioDesempate: "pontos_nome_id",
     filtros: serializeFilters(filters),
     escopo: serializeScope(scope),
     ranking,

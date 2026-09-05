@@ -4,6 +4,7 @@ require("../models/turma.model");
 require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
+const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const { getChecklistSummaryFromFilters } = require("./plano-estudo.service");
 
@@ -155,6 +156,7 @@ function buildPontuacaoFilters(alunoId, filters) {
 async function findPontuacoes(alunoId, filters) {
   return Pontuacao.find(buildPontuacaoFilters(alunoId, filters))
     .populate({ path: "aluno", select: "turmas" })
+    .populate({ path: "turma", select: "name code description status" })
     .populate({
       path: "envio",
       select: "status turma approvedAt createdAt",
@@ -208,9 +210,24 @@ function alunoHasTurma(pontuacao, turmaId) {
   return turmas.some((turma) => getEntityId(turma) === turmaId);
 }
 
+async function findActiveTurmaIds(studentId) {
+  if (typeof Turma.find !== "function") return null;
+  const query = Turma.find({ alunos: studentId, status: "ativa" });
+  const selectedQuery = typeof query.select === "function" ? query.select("_id") : query;
+  const turmas = typeof selectedQuery.lean === "function" ? await selectedQuery.lean() : await selectedQuery;
+  return (turmas || []).map(getEntityId).filter(Boolean);
+}
+
+function matchesActiveTurma(pontuacao, activeTurmaIds) {
+  if (activeTurmaIds === null) return true;
+  const turma = pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma);
+  const turmaId = getEntityId(turma);
+  return Boolean(turmaId && activeTurmaIds.includes(turmaId));
+}
+
 function matchesFilters(pontuacao, filters) {
-  const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
-  if (filters.turmaId && envioTurmaId !== filters.turmaId && !alunoHasTurma(pontuacao, filters.turmaId)) {
+  const envioTurmaId = getEntityId(pontuacao.turma) || getEntityId(pontuacao.envio && pontuacao.envio.turma);
+  if (filters.turmaId && envioTurmaId !== filters.turmaId) {
     return false;
   }
 
@@ -327,6 +344,13 @@ function serializeDesafio(desafio) {
 }
 
 function serializeHistoricoItem(pontuacao) {
+  const pontos = Number(pontuacao.pontos || 0);
+  const configuredBase = Number(pontuacao.pontosBase || 0);
+  const configuredBonus = Number(pontuacao.bonusApresentacaoAoVivo || 0);
+  const apresentacaoAoVivo = pontuacao.apresentacaoAoVivo === true || /apresentacao_ao_vivo/i.test(String(pontuacao.motivo || ""));
+  const bonusApresentacaoAoVivo = apresentacaoAoVivo ? (configuredBonus > 0 ? configuredBonus : Math.max(pontos - configuredBase, 0)) : 0;
+  const pontosBase = configuredBase > 0 ? configuredBase : Math.max(pontos - bonusApresentacaoAoVivo, 0);
+
   return {
     id: getEntityId(pontuacao),
     envioId: getEntityId(pontuacao.envio),
@@ -334,8 +358,14 @@ function serializeHistoricoItem(pontuacao) {
     pilar: serializePilar(pontuacao.desafio && pontuacao.desafio.pilar),
     pilares: getPontuacaoPilares(pontuacao),
     pontosPorPilar: getPontuacaoPilares(pontuacao),
-    turma: serializeTurma(pontuacao.envio && pontuacao.envio.turma),
-    pontos: Number(pontuacao.pontos),
+    turma: serializeTurma(pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma)),
+    pontos,
+    pontosBase,
+    bonusApresentacaoAoVivo,
+    apresentacaoAoVivo,
+    descricaoPontuacao: apresentacaoAoVivo
+      ? `${pontosBase} pontos base + ${bonusApresentacaoAoVivo} pontos de apresentação ao vivo`
+      : `${pontos} pontos do desafio`,
     motivo: pontuacao.motivo,
     source: pontuacao.source,
     createdAt: pontuacao.createdAt ? toDateString(pontuacao.createdAt) : undefined,
@@ -382,12 +412,14 @@ async function getMyPontuacoes(authenticatedUserId, query = {}) {
   await getAuthenticatedStudent(authenticatedUserId);
 
   const filters = parseFilters(query);
-  const [pontuacoes, checklistSummary] = await Promise.all([
+  const [pontuacoes, checklistSummary, activeTurmaIds] = await Promise.all([
     findPontuacoes(authenticatedUserId, filters),
     filters.pilarId ? null : getChecklistSummaryFromFilters({ alunoId: authenticatedUserId, startDate: filters.dataInicio, endDate: filters.dataFim }),
+    findActiveTurmaIds(authenticatedUserId),
   ]);
   const validPontuacoes = (pontuacoes || [])
     .filter(isValidApprovedPontuacao)
+    .filter((pontuacao) => matchesActiveTurma(pontuacao, activeTurmaIds))
     .filter((pontuacao) => matchesFilters(pontuacao, filters));
   const approvedEnvioIds = new Set(validPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
   const checklistPlanejamento = checklistSummary || { totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] };

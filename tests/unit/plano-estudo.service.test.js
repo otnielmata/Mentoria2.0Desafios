@@ -252,4 +252,30 @@ describe("plano-estudo.service", () => {
       pontos: 3,
     });
   });
+
+  it("aplica todas as faixas de pontuação do checklist nos limites corretos", () => {
+    const result = buildChecklistSummary([
+      { startAt: new Date("2026-06-01T10:00:00.000Z"), plannedDateKey: "2026-06-01", completedAt: new Date("2026-06-01T10:00:00.000Z") },
+      { startAt: new Date("2026-06-02T10:00:00.000Z"), plannedDateKey: "2026-06-02", completedAt: new Date("2026-06-03T10:00:00.000Z") },
+      { startAt: new Date("2026-06-03T10:00:00.000Z"), plannedDateKey: "2026-06-03", completedAt: new Date("2026-06-05T10:00:00.000Z") },
+      { startAt: new Date("2026-06-04T10:00:00.000Z"), plannedDateKey: "2026-06-04", completedAt: new Date("2026-06-08T10:00:00.000Z") },
+      { startAt: new Date("2026-06-05T10:00:00.000Z"), plannedDateKey: "2026-06-05", completedAt: new Date("2026-06-10T10:00:00.000Z") },
+      { startAt: new Date("2026-06-06T10:00:00.000Z"), plannedDateKey: "2026-06-06", completedAt: new Date("2026-06-13T10:00:00.000Z") },
+      { startAt: new Date("2026-06-07T10:00:00.000Z"), plannedDateKey: "2026-06-07", completedAt: new Date("2026-06-15T10:00:00.000Z") },
+    ]);
+
+    const pointsByDate = new Map(result.semanas.map((day) => [day.dataPlanejada, day.pontos]));
+    expect(pointsByDate).toEqual(
+      new Map([
+        ["2026-06-01", 3],
+        ["2026-06-02", 3],
+        ["2026-06-03", 2],
+        ["2026-06-04", 2],
+        ["2026-06-05", 1],
+        ["2026-06-06", 1],
+        ["2026-06-07", 0],
+      ])
+    );
+    expect(result.totalPontos).toBe(12);
+  });
 });

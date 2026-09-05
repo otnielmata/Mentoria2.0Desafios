@@ -20,6 +20,10 @@ jest.mock("../../src/models/inscricao-desafio.model", () => ({
   findOne: jest.fn(),
 }));
 
+jest.mock("../../src/models/turma.model", () => ({
+  findById: jest.fn(),
+}));
+
 jest.mock("../../src/models/user.model", () => ({
   findById: jest.fn(),
 }));
@@ -28,6 +32,7 @@ const AlunoTurma = require("../../src/models/aluno-turma.model");
 const Desafio = require("../../src/models/desafio.model");
 const GrupoDesafio = require("../../src/models/grupo-desafio.model");
 const InscricaoDesafio = require("../../src/models/inscricao-desafio.model");
+const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
 const { listMySubscriptions, subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
 
@@ -64,6 +69,7 @@ describe("inscricao-desafio.service", () => {
     jest.clearAllMocks();
     mockLeanChain(User.findById, { _id: STUDENT_ID, role: "aluno", status: "ativo", turmas: [] });
     mockLeanChain(AlunoTurma.findOne, { aluno: STUDENT_ID, turma: TURMA_ID, status: "ativa" });
+    Turma.findById.mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: TURMA_ID, status: "ativa" }) });
     mockLeanChain(Desafio.findById, desafioPayload());
     InscricaoDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue(null) });
     Desafio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });

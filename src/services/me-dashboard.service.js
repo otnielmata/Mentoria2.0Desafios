@@ -70,7 +70,7 @@ async function getAuthenticatedStudent(authenticatedUserId) {
 }
 
 async function findStudentTurmas(authenticatedUserId) {
-  const query = Turma.find({ alunos: authenticatedUserId });
+  const query = Turma.find({ alunos: authenticatedUserId, status: "ativa" });
   const selectedQuery = typeof query.select === "function" ? query.select("_id") : query;
   return typeof selectedQuery.lean === "function" ? selectedQuery.lean() : selectedQuery;
 }
@@ -94,6 +94,7 @@ async function findStudentPontuacoes(authenticatedUserId, scope) {
 
   return Pontuacao.find({ aluno: authenticatedUserId })
     .populate({ path: "aluno", select: "turmas" })
+    .populate({ path: "turma", select: "name code description status" })
     .populate({
       path: "envio",
       select: "status turma type approvedAt createdAt",
@@ -122,6 +123,7 @@ async function findScopePontuacoes(scope) {
 
   return Pontuacao.find({})
     .populate({ path: "aluno", select: "name email role status turmas" })
+    .populate({ path: "turma", select: "name code description status" })
     .populate({ path: "envio", select: "status turma approvedAt createdAt" })
     .sort({ createdAt: -1 })
     .lean();
@@ -173,18 +175,29 @@ function isApprovedPontuacao(pontuacao) {
   );
 }
 
+function isActiveStudent(user) {
+  if (!user) return false;
+  const role = normalizeText(user.role);
+  return (!role || role === STUDENT_ROLE) && normalizeText(user.status || ACTIVE_STATUS) === ACTIVE_STATUS;
+}
+
 function alunoHasTurma(pontuacao, turmaId) {
   const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
   return turmas.some((turma) => getEntityId(turma) === turmaId);
 }
 
 function matchesScopeByEnvio(pontuacao, scope) {
+  const pontuacaoTurmaId = getEntityId(pontuacao.turma);
+  if (pontuacaoTurmaId) {
+    return scope.turmaIds.includes(pontuacaoTurmaId);
+  }
+
   const envioTurmaId = getEntityId(pontuacao.envio && pontuacao.envio.turma);
   if (envioTurmaId) {
     return scope.turmaIds.includes(envioTurmaId);
   }
 
-  return scope.turmaIds.some((turmaId) => alunoHasTurma(pontuacao, turmaId));
+  return false;
 }
 
 function serializePilar(pilar) {
@@ -366,6 +379,7 @@ function buildRankingRows(pontuacoes) {
 
   return Array.from(groupedByAluno.values()).map((item) => ({
     alunoId: getEntityId(item.aluno),
+    aluno: item.aluno,
     totalPontos: item.totalPontos,
     desafiosAprovados: item.envioIds.size,
   }));
@@ -415,29 +429,26 @@ function sortRankingRows(rows) {
 }
 
 function assignPositions(rows) {
-  let previousPoints = null;
-  let previousPosition = 0;
-
   return rows.map((row, index) => {
-    const position = row.totalPontos === previousPoints ? previousPosition : index + 1;
-    previousPoints = row.totalPontos;
-    previousPosition = position;
-
     return {
-      posicao: position,
+      posicao: index + 1,
       ...row,
     };
   });
 }
 
 function getStudentRankingPosition(authenticatedUserId, scopePontuacoes, checklistSummaryByStudent = new Map(), studentsById = new Map()) {
-  const ranking = assignPositions(sortRankingRows(mergeChecklistPointsIntoRankingRows(buildRankingRows(scopePontuacoes), checklistSummaryByStudent, studentsById)));
+  const rankingRows = mergeChecklistPointsIntoRankingRows(buildRankingRows(scopePontuacoes), checklistSummaryByStudent, studentsById).filter((row) => {
+    const student = studentsById.get(row.alunoId);
+    return isActiveStudent(student || row.aluno);
+  });
+  const ranking = assignPositions(sortRankingRows(rankingRows));
   const studentRanking = ranking.find((item) => item.alunoId === authenticatedUserId);
 
   return {
     posicao: studentRanking ? studentRanking.posicao : null,
     totalParticipantes: ranking.length,
-    criterioDesempate: "posicao_compartilhada_id",
+    criterioDesempate: "pontos_nome_id",
   };
 }
 
@@ -449,7 +460,7 @@ function emptyDashboard(scope, activeChallengesCount = 0) {
     ranking: {
       posicao: null,
       totalParticipantes: 0,
-      criterioDesempate: "posicao_compartilhada_id",
+      criterioDesempate: "pontos_nome_id",
     },
     desafiosEnviados: buildDesafiosEnviados([]),
     quantidadeDesafios: activeChallengesCount,

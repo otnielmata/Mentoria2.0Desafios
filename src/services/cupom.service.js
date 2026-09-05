@@ -1,6 +1,7 @@
 const Cupom = require("../models/cupom.model");
 const PlanoEstudoItem = require("../models/plano-estudo-item.model");
 const Pontuacao = require("../models/pontuacao.model");
+const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const {
   buildPagination,
@@ -358,18 +359,28 @@ async function buildTotalPointsByStudentIds(studentIds = []) {
   const uniqueStudentIds = [...new Set((studentIds || []).map(getEntityId).filter(Boolean))];
   if (uniqueStudentIds.length === 0) return new Map();
 
-  const [pontuacoes, planningItems] = await Promise.all([
-    Pontuacao.find({ aluno: { $in: uniqueStudentIds } }).select("aluno pontos").lean(),
+  const [pontuacoes, planningItems, turmas] = await Promise.all([
+    Pontuacao.find({ aluno: { $in: uniqueStudentIds } })
+      .select("aluno pontos turma envio")
+      .populate({ path: "envio", select: "turma" })
+      .lean(),
     PlanoEstudoItem.find({ aluno: { $in: uniqueStudentIds }, deletedAt: null, status: ACTIVE_STATUS })
       .select("aluno plannedDateKey scoreWindowStartKey startAt completedAt")
       .lean(),
+    typeof Turma.find === "function"
+      ? Turma.find({ alunos: { $in: uniqueStudentIds }, status: "ativa" }).select("_id alunos").lean()
+      : [],
   ]);
 
   const totalsByStudent = new Map(uniqueStudentIds.map((studentId) => [studentId, 0]));
+  const activeTurmaIds = new Set((turmas || []).map(getEntityId).filter(Boolean));
 
   (pontuacoes || []).forEach((pontuacao) => {
     const studentId = getEntityId(pontuacao && pontuacao.aluno);
     if (!studentId) return;
+    const turmaId = getEntityId(pontuacao.turma) || getEntityId(pontuacao.envio && pontuacao.envio.turma);
+    if (activeTurmaIds.size > 0 && !turmaId) return;
+    if (activeTurmaIds.size > 0 && !activeTurmaIds.has(turmaId)) return;
     totalsByStudent.set(studentId, Number(totalsByStudent.get(studentId) || 0) + Number(pontuacao.pontos || 0));
   });
 
@@ -386,6 +397,19 @@ function normalizeOccurrenceDate(value) {
   if (!value) return new Date();
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function isDuplicateKeyError(error) {
+  return Boolean(error && (error.code === 11000 || error.codeName === "DuplicateKey"));
+}
+
+async function getHighestLuckyNumber(fallback = 0) {
+  if (typeof Cupom.findOne !== "function") return fallback;
+
+  const query = Cupom.findOne({ luckyNumber: { $ne: null } }).sort({ luckyNumber: -1 }).select("luckyNumber");
+  const highestCoupon = query && typeof query.lean === "function" ? await query.lean() : await query;
+  const highestStoredNumber = Number(highestCoupon && highestCoupon.luckyNumber);
+  return Number.isFinite(highestStoredNumber) ? Math.max(fallback, highestStoredNumber) : fallback;
 }
 
 async function syncCouponsForStudents(studentIds = [], options = {}) {
@@ -416,19 +440,24 @@ async function syncCouponsForStudents(studentIds = [], options = {}) {
     for (let ordinal = 1; ordinal <= desiredCount; ordinal += 1) {
       const existingCoupon = couponsByOrdinal.get(ordinal);
       if (!existingCoupon) {
-        await Cupom.create({
-          aluno: studentId,
-          ordinal,
-          milestonePoints: ordinal * POINTS_PER_COUPON,
-          status: PENDING_STATUS,
-          conqueredAt: occurredAt,
-          validatedAt: null,
-          validatedByDesafio: null,
-          validatedByEnvio: null,
-          luckyNumber: null,
-          luckyNumberAssignedAt: null,
-          canceledAt: null,
-        });
+        try {
+          await Cupom.create({
+            aluno: studentId,
+            ordinal,
+            milestonePoints: ordinal * POINTS_PER_COUPON,
+            status: PENDING_STATUS,
+            conqueredAt: occurredAt,
+            validatedAt: null,
+            validatedByDesafio: null,
+            validatedByEnvio: null,
+            luckyNumber: null,
+            luckyNumberAssignedAt: null,
+            canceledAt: null,
+          });
+        } catch (error) {
+          // A segunda requisição concorrente pode perder a corrida do índice único.
+          if (!isDuplicateKeyError(error)) throw error;
+        }
         continue;
       }
 
@@ -542,16 +571,26 @@ async function distributeLuckyNumbers(authenticatedUserId) {
   let nextLuckyNumber = alreadyDistributedCoupons.reduce((highest, coupon) => Math.max(highest, Number(coupon.luckyNumber || 0)), 0);
 
   for (const coupon of pendingCoupons) {
-    nextLuckyNumber += 1;
-    await Cupom.updateOne(
-      { _id: coupon._id },
-      {
-        $set: {
-          luckyNumber: nextLuckyNumber,
-          luckyNumberAssignedAt: distributedAt,
-        },
+    let assigned = false;
+    for (let attempt = 0; attempt < 5 && !assigned; attempt += 1) {
+      nextLuckyNumber += 1;
+      try {
+        await Cupom.updateOne(
+          { _id: coupon._id, luckyNumber: null },
+          {
+            $set: {
+              luckyNumber: nextLuckyNumber,
+              luckyNumberAssignedAt: distributedAt,
+            },
+          }
+        );
+        assigned = true;
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) throw error;
+        nextLuckyNumber = await getHighestLuckyNumber(nextLuckyNumber);
       }
-    );
+    }
+    if (!assigned) throw createHttpError("Não foi possível distribuir todos os números da sorte. Tente novamente.", 409);
   }
 
   const studentIds = [...new Set(sortedCoupons.map((coupon) => getEntityId(coupon && coupon.aluno)).filter(Boolean))];

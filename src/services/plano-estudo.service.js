@@ -8,6 +8,7 @@ const {
   getEntityId,
   normalizeText,
   omitUndefined,
+  parseBoundedText,
   parseObjectId,
   parseOptionalText,
   parsePagination,
@@ -357,8 +358,8 @@ async function createItem(authenticatedUserId, payload = {}) {
 
   const item = await PlanoEstudoItem.create({
     aluno: authenticatedUserId,
-    title: parseRequiredText(payload.title || payload.titulo, "Título"),
-    notes: parseOptionalText(payload.notes || payload.observacoes, "Observações") || null,
+    title: parseBoundedText(payload.title || payload.titulo, "Título", 160),
+    notes: parseBoundedText(payload.notes || payload.observacoes, "Observações", 4000, { required: false }) || null,
     startAt,
     endAt,
     plannedDateKey,
@@ -406,10 +407,10 @@ async function updateItem(authenticatedUserId, itemId, payload = {}) {
 
   const update = {};
   if (hasPayloadField(payload, ["title", "titulo"])) {
-    update.title = parseRequiredText(payload.title || payload.titulo, "Título");
+    update.title = parseBoundedText(payload.title ?? payload.titulo, "Título", 160);
   }
   if (hasPayloadField(payload, ["notes", "observacoes"])) {
-    update.notes = parseOptionalText(payload.notes || payload.observacoes, "Observações") || null;
+    update.notes = parseBoundedText(payload.notes ?? payload.observacoes, "Observações", 4000, { required: false }) || null;
   }
   if (hasPayloadField(payload, ["startAt", "dataInicio", "startDate"])) {
     update.startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");

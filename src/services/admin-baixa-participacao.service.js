@@ -234,7 +234,12 @@ function buildPontuacaoQuery(filters, studentIds) {
 
 async function findPontuacoes(filters, studentIds) {
   return Pontuacao.find(buildPontuacaoQuery(filters, studentIds))
-    .populate({ path: "envio", select: "turma createdAt status" })
+    .populate({ path: "turma", select: "name code description status" })
+    .populate({
+      path: "envio",
+      select: "turma createdAt status",
+      populate: { path: "turma", select: "name code description status" },
+    })
     .sort({ createdAt: -1 })
     .lean();
 }
@@ -322,7 +327,7 @@ function matchesPontuacaoTurma(pontuacao, filters) {
     return true;
   }
 
-  return getEntityId(pontuacao && pontuacao.envio && pontuacao.envio.turma) === filters.turmaId;
+  return getEntityId(pontuacao && (pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma))) === filters.turmaId;
 }
 
 function buildParticipationByStudent(students, envios, pontuacoes, filters) {

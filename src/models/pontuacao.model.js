@@ -4,7 +4,11 @@ const pontuacaoSchema = new mongoose.Schema(
   {
     envio: { type: mongoose.Schema.Types.ObjectId, ref: "EnvioDesafio", default: null, index: true },
     desafio: { type: mongoose.Schema.Types.ObjectId, ref: "Desafio", default: null, index: true },
+    turma: { type: mongoose.Schema.Types.ObjectId, ref: "Turma", default: null, index: true },
     aluno: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    pontosBase: { type: Number, default: null, min: 0 },
+    bonusApresentacaoAoVivo: { type: Number, default: 0, min: 0 },
+    apresentacaoAoVivo: { type: Boolean, default: false },
     pontos: { type: Number, required: true, min: 0 },
     pilares: [
       {
@@ -15,6 +19,7 @@ const pontuacaoSchema = new mongoose.Schema(
     motivo: { type: String, default: "envio_desafio_aprovado", trim: true },
     source: { type: String, default: "envio_desafio", trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
   },
   {
     collection: "pontuacoes",

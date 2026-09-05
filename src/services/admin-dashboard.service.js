@@ -93,7 +93,12 @@ async function countActiveDesafios() {
 async function findPontuacoes() {
   return Pontuacao.find({})
     .populate({ path: "aluno", select: "name email role status turmas" })
-    .populate({ path: "envio", select: "status turma approvedAt createdAt" })
+    .populate({ path: "turma", select: "name code description status" })
+    .populate({
+      path: "envio",
+      select: "status turma approvedAt createdAt",
+      populate: { path: "turma", select: "name code description status" },
+    })
     .populate({
       path: "desafio",
       select: "title description points type pilar pilares",
@@ -108,7 +113,13 @@ async function findPontuacoes() {
 }
 
 function isActiveStudent(user) {
-  return normalizeText(user.role) === STUDENT_ROLE && normalizeText(user.status || "ativo") !== INACTIVE_STATUS;
+  return normalizeText(user.role) === STUDENT_ROLE && normalizeText(user.status || ACTIVE_STATUS) === ACTIVE_STATUS;
+}
+
+function isActiveClassScore(pontuacao) {
+  const turma = pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma);
+  if (!turma || typeof turma !== "object") return true;
+  return !turma.status || normalizeText(turma.status) === "ativa";
 }
 
 function isApprovedPontuacao(pontuacao) {
@@ -270,16 +281,9 @@ function mergeChecklistPointsIntoStudentRanking(rows, checklistSummaryByStudent,
 }
 
 function assignPositions(rankingRows) {
-  let previousPoints = null;
-  let previousPosition = 0;
-
   return rankingRows.map((item, index) => {
-    const posicao = item.totalPontos === previousPoints ? previousPosition : index + 1;
-    previousPoints = item.totalPontos;
-    previousPosition = posicao;
-
     return {
-      posicao,
+      posicao: index + 1,
       ...item,
     };
   });
@@ -289,7 +293,13 @@ function buildRankingPorTurma(pontuacoes) {
   const groupedByTurma = new Map();
 
   pontuacoes.forEach((pontuacao) => {
-    const turmas = pontuacao.envio && pontuacao.envio.turma ? [pontuacao.envio.turma] : pontuacao.aluno && Array.isArray(pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
+    const turmas = pontuacao.turma
+      ? [pontuacao.turma]
+      : pontuacao.envio && pontuacao.envio.turma
+        ? [pontuacao.envio.turma]
+        : pontuacao.aluno && Array.isArray(pontuacao.aluno.turmas)
+          ? pontuacao.aluno.turmas
+          : [];
     const turmasToScore = turmas.length > 0 ? turmas : [null];
 
     turmasToScore.forEach((turma) => {
@@ -409,7 +419,9 @@ async function getAdminDashboard(authenticatedUserId) {
   ]);
   const activeStudents = (users || []).filter(isActiveStudent);
   const cupons = await getCouponOverview({ sync: true });
-  const approvedPontuacoes = (pontuacoes || []).filter(isApprovedPontuacao);
+  const approvedPontuacoes = (pontuacoes || []).filter(
+    (pontuacao) => isApprovedPontuacao(pontuacao) && isActiveStudent(pontuacao.aluno) && isActiveClassScore(pontuacao)
+  );
   const approvedEnvioIds = new Set(approvedPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
   const pendingApprovals = (envios || []).filter((envio) => normalizeText(envio.status) === PENDING_STATUS);
   const ranking = assignPositions(

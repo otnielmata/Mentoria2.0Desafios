@@ -3,6 +3,7 @@ const Desafio = require("../models/desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const GrupoDesafio = require("../models/grupo-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
+const Pilar = require("../models/pilar.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
@@ -16,6 +17,7 @@ const {
   hasOwn,
   normalizeText,
   parseObjectId,
+  parseBoundedText,
   parseOptionalObjectId,
   parsePagination,
   parsePeriod,
@@ -28,9 +30,12 @@ const ACTIVE_STATUS = "ativo";
 const PENDING_STATUS = "pendente";
 const ADJUST_STATUS = "ajuste";
 const CANCELED_STATUS = "cancelado";
+const COMPLETE_GROUP_STATUS = "completo";
 const GROUP_TYPE = "grupo";
 const ALLOWED_SUBMISSION_TYPES = ["individual", "grupo"];
-const EDITABLE_STATUSES = [PENDING_STATUS, ADJUST_STATUS];
+const EDITABLE_STATUSES = [PENDING_STATUS, ADJUST_STATUS, "reprovado"];
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_EVIDENCE_LENGTH = 2048;
 
 function serializeUser(user) {
   if (!user || typeof user !== "object") return user ? { id: getEntityId(user) } : null;
@@ -147,6 +152,9 @@ async function getAuthenticatedStudent(authenticatedUserId) {
   const user = await User.findById(authenticatedUserId);
   if (!user) throw createHttpError("Usuário autenticado não encontrado.", 404);
   if (normalizeText(user.role) !== STUDENT_ROLE) throw createHttpError("Apenas aluno pode registrar ou alterar envio de desafio.", 403);
+  if (normalizeText(user.status || ACTIVE_STATUS) !== ACTIVE_STATUS) {
+    throw createHttpError("Aluno inativo não pode registrar ou alterar envio de desafio.", 403, { code: "INACTIVE_USER" });
+  }
   return user;
 }
 
@@ -158,26 +166,45 @@ function parseSubmissionType(payload) {
 
 function parseEvidencias(payload) {
   const evidencias = getFirstValue(payload, ["evidencias", "evidences", "evidence", "evidencia_url"]);
-
-  if (Array.isArray(evidencias)) {
-    const normalized = evidencias.map((item) => (typeof item === "string" ? item.trim() : item)).filter(Boolean);
-    return normalized;
-  }
-
-  if (typeof evidencias === "string" && evidencias.trim().length > 0) return [evidencias.trim()];
-  return [];
+  const values = Array.isArray(evidencias) ? evidencias : typeof evidencias === "string" && evidencias.trim() ? [evidencias.trim()] : [];
+  return values
+    .map((item) => {
+      if (typeof item !== "string") return item;
+      const value = item.trim();
+      if (value.length > MAX_EVIDENCE_LENGTH) throw createHttpError("Cada evidência deve ter no máximo 2048 caracteres.", 400);
+      if (/^(https?:\/\/|www\.)/i.test(value)) {
+        try {
+          const url = new URL(/^www\./i.test(value) ? `https://${value}` : value);
+          if (!["http:", "https:"].includes(url.protocol)) throw new Error("protocol");
+        } catch {
+          throw createHttpError("A evidência deve conter um link válido.", 400);
+        }
+      }
+      return value;
+    })
+    .filter(Boolean);
 }
 
 function parseAnexos(payload) {
   const anexos = getFirstValue(payload, ["anexos", "attachments", "attachment", "anexo"]);
 
   if (Array.isArray(anexos)) {
-    return anexos.filter(Boolean);
+    return anexos.filter(Boolean).map(validateAttachment);
   }
 
   if (typeof anexos === "string" && anexos.trim().length > 0) return [anexos.trim()];
-  if (anexos && typeof anexos === "object") return [anexos];
+  if (anexos && typeof anexos === "object") return [validateAttachment(anexos)];
   return [];
+}
+
+function validateAttachment(attachment) {
+  if (!attachment || typeof attachment !== "object") throw createHttpError("Anexo inválido.", 400);
+  const size = Number(attachment.size);
+  if (!Number.isFinite(size) || size <= 0) throw createHttpError("O anexo não pode estar vazio.", 400, { code: "EMPTY_ATTACHMENT" });
+  if (size > MAX_ATTACHMENT_SIZE_BYTES) throw createHttpError("Cada anexo deve ter no máximo 10 MB.", 413, { code: "ATTACHMENT_TOO_LARGE" });
+  const content = attachment.content || attachment.data || attachment.dataUrl || attachment.dataURL;
+  if (typeof content !== "string" || content.trim().length === 0) throw createHttpError("Não foi possível ler o conteúdo do anexo.", 400);
+  return attachment;
 }
 
 function parseParticipantes(payload, type) {
@@ -195,12 +222,18 @@ async function getActiveDesafio(desafioId) {
   const desafio = await Desafio.findById(desafioId);
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
   if (normalizeText(desafio.status) !== ACTIVE_STATUS) throw createHttpError("Desafio deve estar ativo para receber envio.", 400);
+  const pilarIds = [desafio.pilar, ...(desafio.pilares || []).map((item) => item && item.pilar)].filter(Boolean);
+  if (pilarIds.length > 0 && typeof Pilar.find === "function") {
+    const pilares = await Pilar.find({ _id: { $in: pilarIds }, status: ACTIVE_STATUS }).select("_id").lean();
+    if ((pilares || []).length !== new Set(pilarIds.map(getEntityId)).size) throw createHttpError("O desafio possui pilar inativo e não aceita novos envios.", 400);
+  }
   return desafio;
 }
 
 async function assertTurmaExists(turmaId) {
   const turma = await Turma.findById(turmaId);
   if (!turma) throw createHttpError("Turma não encontrada.", 404);
+  if (turma.status && normalizeText(turma.status) !== "ativa") throw createHttpError("Turma deve estar ativa para receber envios.", 400);
   return turma;
 }
 
@@ -276,6 +309,16 @@ async function getGroupForSubmission(grupoId, authenticatedUserId) {
   const desafio = grupo.desafio;
   if (!desafio) throw createHttpError("Desafio do grupo não encontrado.", 404);
   if (normalizeText(desafio.status) !== ACTIVE_STATUS) throw createHttpError("Desafio deve estar ativo para receber envio.", 400);
+  if (grupo.turma && normalizeText(grupo.turma.status || ACTIVE_STATUS) !== "ativa") {
+    throw createHttpError("A turma do grupo está encerrada e não recebe envios.", 400, { code: "INACTIVE_TURMA" });
+  }
+  const pilarRefs = [desafio.pilar, ...(Array.isArray(desafio.pilares) ? desafio.pilares.map((item) => item && item.pilar) : [])].filter(Boolean);
+  if (pilarRefs.some((pilar) => normalizeText(pilar.status || ACTIVE_STATUS) !== ACTIVE_STATUS)) {
+    throw createHttpError("O desafio está vinculado a um pilar inativo.", 400, { code: "INACTIVE_PILAR" });
+  }
+  if ((grupo.participantes || []).some((participante) => normalizeText(participante.status || ACTIVE_STATUS) !== ACTIVE_STATUS)) {
+    throw createHttpError("Todos os participantes do grupo precisam estar ativos.", 400, { code: "INACTIVE_USER" });
+  }
 
   const deliveryDate = desafio.deliveryDate ? new Date(desafio.deliveryDate) : null;
   if (deliveryDate) deliveryDate.setUTCHours(23, 59, 59, 999);
@@ -301,7 +344,7 @@ async function createEnvioFromGroup(authenticatedUserId, payload = {}, grupoId) 
     desafio: desafioId,
     turma: turmaId,
     aluno: responsibleId,
-    description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
+    description: parseBoundedText(payload.description || payload.descricao, "Descrição", 4000),
     type,
     evidencias,
     anexos,
@@ -310,6 +353,9 @@ async function createEnvioFromGroup(authenticatedUserId, payload = {}, grupoId) 
     status: PENDING_STATUS,
   });
   await syncParticipantes(envio._id || envio.id, participantes);
+  if (typeof GrupoDesafio.updateOne === "function") {
+    await GrupoDesafio.updateOne({ _id: getEntityId(grupo) }, { $set: { status: COMPLETE_GROUP_STATUS } });
+  }
   await logDomainEvent({
     eventType: "envio_criado",
     actor: responsibleId,
@@ -357,7 +403,7 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
     desafio: desafioId,
     turma: turmaId,
     aluno: responsibleId,
-    description: parseRequiredText(payload.description || payload.descricao, "Descrição"),
+    description: parseBoundedText(payload.description || payload.descricao, "Descrição", 4000),
     type,
     evidencias,
     anexos,
@@ -468,7 +514,7 @@ async function updateEnvio(authenticatedUserId, envioId, payload = {}) {
   const isOwner = getEntityId(envio.aluno) === authenticatedUserId;
   const isParticipant = (envio.participantes || []).some((participante) => getEntityId(participante) === authenticatedUserId);
   if (!isOwner && !isParticipant) throw createHttpError("Apenas integrantes do grupo podem alterar este envio.", 403);
-  if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser alterados.", 400);
+  if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes, em ajuste ou reprovados podem ser reenviados.", 400);
   await assertSubmissionChallengeActive(envio);
 
   if (hasOwn(payload, "description") || hasOwn(payload, "descricao")) envio.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
@@ -476,6 +522,13 @@ async function updateEnvio(authenticatedUserId, envioId, payload = {}) {
   if (hasEvidenceField) envio.evidencias = parseEvidencias(payload);
   const hasAttachmentField = ["anexos", "attachments", "attachment", "anexo"].some((field) => hasOwn(payload, field));
   if (hasAttachmentField) envio.anexos = parseAnexos(payload);
+  if (normalizeText(envio.status) === "reprovado") {
+    envio.status = PENDING_STATUS;
+    envio.feedback = null;
+    envio.avaliacao = null;
+    envio.evaluatedBy = null;
+    envio.evaluatedAt = null;
+  }
   const updated = await envio.save();
   return serializeEnvio(updated);
 }
@@ -487,7 +540,7 @@ async function updateParticipantes(authenticatedUserId, envioId, payload = {}) {
   if (!envio) throw createHttpError("Envio de desafio não encontrado.", 404);
   if (getEntityId(envio.aluno) !== authenticatedUserId) throw createHttpError("Apenas o aluno responsável pode gerenciar participantes deste envio.", 403);
   if (normalizeText(envio.type) !== GROUP_TYPE) throw createHttpError("Participantes só podem ser gerenciados em envio em grupo.", 400);
-  if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes ou em ajuste podem ser alterados.", 400);
+  if (!EDITABLE_STATUSES.includes(normalizeText(envio.status))) throw createHttpError("Somente envios pendentes, em ajuste ou reprovados podem ser alterados.", 400);
   await assertSubmissionChallengeActive(envio);
 
   const participantes = parseParticipantes(payload, GROUP_TYPE);

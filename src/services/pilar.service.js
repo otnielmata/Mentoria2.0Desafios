@@ -8,10 +8,10 @@ const {
   getEntityId,
   normalizeName,
   normalizeText,
+  parseBoundedText,
   parseObjectId,
   parseOptionalText,
   parsePagination,
-  parseRequiredText,
 } = require("./domain-utils");
 
 const ADMIN_ROLES = ["professor", "admin"];
@@ -58,7 +58,7 @@ async function assertAdmin(authenticatedUserId, message) {
 
 async function createPilar(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode cadastrar pilares.");
-  const name = parseRequiredText(payload.name || payload.nome, "Nome");
+  const name = parseBoundedText(payload.name || payload.nome, "Nome", 120);
   const normalizedName = normalizeName(name);
   const existing = await Pilar.findOne({ normalizedName, status: ACTIVE_STATUS });
   if (existing) throw createHttpError("Pilar já cadastrado.", 409);
@@ -66,11 +66,17 @@ async function createPilar(authenticatedUserId, payload = {}) {
   const pilar = await Pilar.create({
     name,
     normalizedName,
-    description: parseOptionalText(payload.description || payload.descricao, "Descrição") || null,
+    description: parseBoundedText(payload.description || payload.descricao, "Descrição", 4000, { required: false }) || null,
     status: ACTIVE_STATUS,
   });
 
   return serializePilar(pilar);
+}
+
+function parsePilarStatus(value) {
+  const status = normalizeText(value || ACTIVE_STATUS);
+  if (![ACTIVE_STATUS, "inativo"].includes(status)) throw createHttpError("Status deve ser ativo ou inativo.", 400);
+  return status;
 }
 
 async function listPilares(authenticatedUserId, query = {}) {
@@ -131,17 +137,17 @@ async function updatePilar(authenticatedUserId, pilarId, payload = {}) {
   if (!current) throw createHttpError("Pilar não encontrado.", 404);
   const updates = {};
 
-  if (payload.name || payload.nome) {
-    const name = parseRequiredText(payload.name || payload.nome, "Nome");
+  if (payload.name !== undefined || payload.nome !== undefined) {
+    const name = parseBoundedText(payload.name ?? payload.nome, "Nome", 120);
     updates.name = name;
     updates.normalizedName = normalizeName(name);
   }
 
   if (payload.description !== undefined || payload.descricao !== undefined) {
-    updates.description = parseOptionalText(payload.description || payload.descricao, "Descrição") || null;
+    updates.description = parseBoundedText(payload.description ?? payload.descricao, "Descrição", 4000, { required: false }) || null;
   }
 
-  if (payload.status) updates.status = parseRequiredText(payload.status, "Status");
+  if (payload.status !== undefined) updates.status = parsePilarStatus(payload.status);
   const targetStatus = updates.status || current.status;
   const targetNormalizedName = updates.normalizedName || current.normalizedName;
   if (normalizeText(targetStatus) === ACTIVE_STATUS) {

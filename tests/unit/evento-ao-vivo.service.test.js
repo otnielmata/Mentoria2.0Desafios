@@ -80,8 +80,8 @@ describe("evento-ao-vivo.service", () => {
     const result = await createEvento(ADMIN_ID, {
       title: "Lógica e Programação",
       turmaId: TURMA_ID,
-      startAt: "2026-06-23T19:00:00.000Z",
-      endAt: "2026-06-23T21:00:00.000Z",
+      startAt: "2099-06-23T19:00:00.000Z",
+      endAt: "2099-06-23T21:00:00.000Z",
       type: "ao_vivo",
       weekNumber: 4,
     });

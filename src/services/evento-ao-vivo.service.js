@@ -8,7 +8,9 @@ const {
   getFirstValue,
   normalizeText,
   omitUndefined,
+  parseBoundedText,
   parseObjectId,
+  parseOptionalUrl,
   parseOptionalObjectId,
   parseOptionalText,
   parsePagination,
@@ -22,6 +24,7 @@ const STUDENT_ROLE = "aluno";
 const ACTIVE_STATUS = "ativo";
 const INACTIVE_STATUS = "inativo";
 const VALID_EVENT_TYPES = Object.values(EventoAoVivo.eventTypes);
+const MIN_SUPPORTED_DATE = new Date("2026-01-01T00:00:00.000Z");
 
 function serializeTurmaRef(turma) {
   if (!turma) return null;
@@ -83,7 +86,14 @@ function parseDateField(value, fieldName) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) throw createHttpError(`${fieldName} deve ser uma data válida.`, 400);
+  if (date < MIN_SUPPORTED_DATE) throw createHttpError(`${fieldName} deve ser uma data a partir de 01/01/2026.`, 400);
   return date;
+}
+
+function assertFutureStartDate(startAt) {
+  if (startAt && startAt < new Date()) {
+    throw createHttpError("dataInicio deve ser igual ou posterior à data atual.", 400);
+  }
 }
 
 function parseEventType(value, fallback = EventoAoVivo.eventTypes.live) {
@@ -104,8 +114,8 @@ function parseWeekNumber(value) {
 }
 
 function assertValidPeriod(startAt, endAt) {
-  if (startAt && endAt && startAt > endAt) {
-    throw createHttpError("dataInicio não pode ser posterior à dataFim.", 400);
+  if (startAt && endAt && startAt >= endAt) {
+    throw createHttpError("dataInicio deve ser anterior à dataFim.", 400);
   }
 }
 
@@ -113,11 +123,12 @@ async function assertTurmaExists(turmaId) {
   const id = parseObjectId(turmaId, "Turma deve ser um identificador válido.");
   const turma = await Turma.findById(id).lean();
   if (!turma) throw createHttpError("Turma não encontrada.", 404);
+  if (normalizeText(turma.status || "ativa") !== "ativa") throw createHttpError("Turma deve estar ativa para receber eventos.", 400);
   return turma;
 }
 
 async function findStudentTurmaIds(authenticatedUserId) {
-  const turmas = await Turma.find({ alunos: authenticatedUserId }).select("_id").lean();
+  const turmas = await Turma.find({ alunos: authenticatedUserId, status: "ativa" }).select("_id").lean();
   return (turmas || []).map(getEntityId).filter(Boolean);
 }
 
@@ -156,20 +167,21 @@ async function createEvento(authenticatedUserId, payload = {}) {
 
   const startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");
   if (!startAt) throw createHttpError("dataInicio é obrigatória.", 400);
+  assertFutureStartDate(startAt);
   const endAt = parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim");
   assertValidPeriod(startAt, endAt);
 
   const evento = await EventoAoVivo.create({
-    title: parseRequiredText(payload.title || payload.titulo, "Título"),
-    description: parseOptionalText(payload.description || payload.descricao, "Descrição") || null,
+    title: parseBoundedText(payload.title || payload.titulo, "Título", 160),
+    description: parseBoundedText(payload.description || payload.descricao, "Descrição", 4000, { required: false }) || null,
     startAt,
     endAt,
     type: parseEventType(payload.type || payload.tipo),
     turma: turmaId,
-    guestName: parseOptionalText(payload.guestName || payload.convidado, "Convidado") || null,
+    guestName: parseBoundedText(payload.guestName || payload.convidado, "Convidado", 120, { required: false }) || null,
     weekNumber: parseWeekNumber(payload.weekNumber ?? payload.semana),
-    link: parseOptionalText(payload.link, "Link") || null,
-    status: payload.status || ACTIVE_STATUS,
+    link: parseOptionalUrl(payload.link, "Link") || null,
+    status: parseEventStatus(payload.status || ACTIVE_STATUS),
   });
 
   const populated = await EventoAoVivo.findById(evento._id).populate("turma").lean();
@@ -253,13 +265,14 @@ async function updateEvento(authenticatedUserId, eventoId, payload = {}) {
 
   const update = {};
   if (hasPayloadField(payload, ["title", "titulo"])) {
-    update.title = parseRequiredText(payload.title || payload.titulo, "Título");
+    update.title = parseBoundedText(payload.title ?? payload.titulo, "Título", 160);
   }
   if (hasPayloadField(payload, ["description", "descricao"])) {
-    update.description = parseOptionalText(payload.description || payload.descricao, "Descrição") || null;
+    update.description = parseBoundedText(payload.description ?? payload.descricao, "Descrição", 4000, { required: false }) || null;
   }
   if (hasPayloadField(payload, ["startAt", "dataInicio", "startDate"])) {
     update.startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");
+    assertFutureStartDate(update.startAt);
   }
   if (hasPayloadField(payload, ["endAt", "dataFim", "endDate"])) {
     update.endAt = parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim");
@@ -273,16 +286,16 @@ async function updateEvento(authenticatedUserId, eventoId, payload = {}) {
     update.turma = turmaId;
   }
   if (hasPayloadField(payload, ["guestName", "convidado"])) {
-    update.guestName = parseOptionalText(payload.guestName || payload.convidado, "Convidado") || null;
+    update.guestName = parseBoundedText(payload.guestName ?? payload.convidado, "Convidado", 120, { required: false }) || null;
   }
   if (hasPayloadField(payload, ["weekNumber", "semana"])) {
     update.weekNumber = parseWeekNumber(payload.weekNumber ?? payload.semana);
   }
   if (hasPayloadField(payload, ["link"])) {
-    update.link = parseOptionalText(payload.link, "Link") || null;
+    update.link = parseOptionalUrl(payload.link, "Link") || null;
   }
   if (hasPayloadField(payload, ["status"])) {
-    update.status = parseRequiredText(payload.status, "Status");
+    update.status = parseEventStatus(payload.status);
   }
 
   assertValidPeriod(update.startAt || evento.startAt, update.endAt !== undefined ? update.endAt : evento.endAt);
@@ -305,6 +318,12 @@ async function disableEvento(authenticatedUserId, eventoId) {
 
 function hasPayloadField(payload, fields) {
   return fields.some((field) => Object.prototype.hasOwnProperty.call(payload || {}, field));
+}
+
+function parseEventStatus(value) {
+  const status = normalizeText(value || ACTIVE_STATUS);
+  if (![ACTIVE_STATUS, INACTIVE_STATUS].includes(status)) throw createHttpError("Status deve ser ativo ou inativo.", 400);
+  return status;
 }
 
 async function listEventosForAgenda(authenticatedUserId, query = {}) {

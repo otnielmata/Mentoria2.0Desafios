@@ -3,6 +3,7 @@ const EnvioDesafio = require("../models/envio-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
 const Pilar = require("../models/pilar.model");
 const Pontuacao = require("../models/pontuacao.model");
+const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
 const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("./cupom.service");
@@ -12,9 +13,12 @@ const {
   createHttpError,
   getEntityId,
   getFirstValue,
+  MAX_POINTS,
   normalizeText,
+  buildPagination,
   parseObjectId,
   parseOptionalText,
+  parsePagination,
 } = require("./domain-utils");
 
 const APPROVED_STATUS = "aprovado";
@@ -72,7 +76,13 @@ async function getScoreRecipients(envio) {
     (envio.participantes || []).forEach((participante) => recipients.push(getEntityId(participante)));
   }
 
-  return [...new Set(recipients.filter(Boolean))];
+  const uniqueRecipients = [...new Set(recipients.filter(Boolean))];
+  if (typeof User.find !== "function" || uniqueRecipients.length === 0) return uniqueRecipients;
+
+  const query = User.find({ _id: { $in: uniqueRecipients }, role: STUDENT_ROLE, status: ACTIVE_STATUS }).select("_id");
+  const activeUsers = query && typeof query.lean === "function" ? await query.lean() : await query;
+  const activeIds = new Set((activeUsers || []).map(getEntityId));
+  return uniqueRecipients.filter((recipientId) => activeIds.has(recipientId));
 }
 
 async function assertNoDuplicateEvidenceScore(envio, desafio, alunos) {
@@ -221,8 +231,8 @@ function getChallengeBasePoints(desafio = {}) {
 function parsePositivePoints(value) {
   const pontos = Number(value);
 
-  if (!Number.isFinite(pontos) || pontos <= 0) {
-    throw createHttpError("Pontos deve ser um número maior que zero.", 400);
+  if (!Number.isFinite(pontos) || pontos <= 0 || pontos > MAX_POINTS) {
+    throw createHttpError(`Pontos deve ser um número maior que zero e no máximo ${MAX_POINTS}.`, 400);
   }
 
   return pontos;
@@ -253,17 +263,21 @@ function serializePilar(pilar) {
 
 function serializeExtraPontuacao(pontuacao, aluno, pilar, reviewer) {
   const pontos = Number(pontuacao.pontos || 0);
+  const alunoData = aluno || pontuacao.aluno;
+  const pilarData = pilar || (pontuacao.pilares && pontuacao.pilares[0] && pontuacao.pilares[0].pilar);
+  const reviewerData = reviewer || pontuacao.createdBy;
 
   return {
     id: getEntityId(pontuacao),
-    aluno: serializeUser(aluno),
-    pilar: serializePilar(pilar),
+    aluno: serializeUser(alunoData),
+    pilar: serializePilar(pilarData),
     pontos,
     points: pontos,
     motivo: pontuacao.motivo,
     source: pontuacao.source,
-    createdBy: serializeUser(reviewer),
+    createdBy: serializeUser(reviewerData),
     createdAt: pontuacao.createdAt,
+    updatedAt: pontuacao.updatedAt,
   };
 }
 
@@ -323,9 +337,13 @@ async function grantExtraPoints(authenticatedUserId, payload = {}) {
   const motivo =
     parseOptionalText(getFirstValue(payload, ["motivo", "reason", "observacao", "observação"]), "Motivo") || "pontuacao_extra_manual";
   const [aluno, pilar] = await Promise.all([getActiveStudent(alunoId), getActivePilar(pilarId)]);
+  const turmaQuery = Turma.find({ alunos: alunoId, status: ACTIVE_STATUS }).select("_id");
+  const turmas = turmaQuery && typeof turmaQuery.lean === "function" ? await turmaQuery.lean() : await turmaQuery;
+  const turmaId = turmas && turmas[0] ? getEntityId(turmas[0]) : null;
   const pontuacao = await Pontuacao.create({
     envio: new mongoose.Types.ObjectId(),
     desafio: null,
+    turma: turmaId,
     aluno: alunoId,
     pontos,
     pilares: [{ pilar: pilarId, pontos }],
@@ -352,6 +370,83 @@ async function grantExtraPoints(authenticatedUserId, payload = {}) {
   return {
     pontuacao: serializeExtraPontuacao(pontuacao, aluno, pilar, reviewer),
   };
+}
+
+async function listExtraPoints(authenticatedUserId, query = {}) {
+  await getAuthorizedReviewer(authenticatedUserId);
+  const { page, limit, skip } = parsePagination(query);
+  const filters = { source: EXTRA_POINTS_SOURCE };
+  const [total, pontuacoes] = await Promise.all([
+    Pontuacao.countDocuments(filters),
+    Pontuacao.find(filters)
+      .populate({ path: "aluno", select: "name email role status" })
+      .populate({ path: "pilares.pilar", select: "name description status" })
+      .populate({ path: "turma", select: "name code description status" })
+      .populate({ path: "createdBy", select: "name email role status" })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
+
+  return {
+    total,
+    pagination: buildPagination(total, page, limit),
+    pontuacoes: (pontuacoes || []).map((pontuacao) => ({
+      ...serializeExtraPontuacao(pontuacao),
+      turma: pontuacao.turma || null,
+    })),
+    pontosExtras: (pontuacoes || []).map((pontuacao) => ({
+      ...serializeExtraPontuacao(pontuacao),
+      turma: pontuacao.turma || null,
+    })),
+  };
+}
+
+async function updateExtraPoints(authenticatedUserId, pontuacaoId, payload = {}) {
+  assertObjectPayload(payload);
+  const reviewer = await getAuthorizedReviewer(authenticatedUserId);
+  const id = parseObjectId(pontuacaoId, "Pontuação deve ser um identificador válido.");
+  const current = await Pontuacao.findById(id);
+  if (!current || normalizeText(current.source) !== EXTRA_POINTS_SOURCE) {
+    throw createHttpError("Pontuação extra não encontrada.", 404);
+  }
+
+  const alunoId = getEntityId(current.aluno);
+  const currentPilarId = getEntityId(current.pilares && current.pilares[0] && current.pilares[0].pilar);
+  const requestedPilar = getFirstValue(payload, ["pilarId", "pilar_id", "pilar"]);
+  const pilarId = requestedPilar === undefined ? currentPilarId : parseObjectId(requestedPilar, "Pilar deve ser um identificador válido.");
+  const requestedPoints = getFirstValue(payload, ["pontos", "points", "pontuacao", "pontuação"]);
+  const pontos = requestedPoints === undefined ? Number(current.pontos) : parsePositivePoints(requestedPoints);
+  const requestedMotivo = getFirstValue(payload, ["motivo", "reason", "observacao", "observação"]);
+  const motivo = requestedMotivo === undefined ? current.motivo : parseOptionalText(requestedMotivo, "Motivo") || "pontuacao_extra_manual";
+  const changed = pontos !== Number(current.pontos) || pilarId !== currentPilarId || motivo !== current.motivo;
+  if (!changed) throw createHttpError("Informe uma alteração para atualizar a pontuação extra.", 400, { code: "NO_CHANGES" });
+
+  const [aluno, pilar] = await Promise.all([getActiveStudent(alunoId), getActivePilar(pilarId)]);
+  const updated = await Pontuacao.findByIdAndUpdate(
+    id,
+    {
+      pontos,
+      pilares: [{ pilar: pilarId, pontos }],
+      motivo,
+      updatedBy: getEntityId(reviewer),
+    },
+    { new: true }
+  );
+
+  if (!updated) throw createHttpError("Pontuação extra não encontrada.", 404);
+  await logDomainEvent({
+    eventType: "pontuacao_extra_atualizada",
+    actor: getEntityId(reviewer),
+    aluno: alunoId,
+    pontuacao: id,
+    statusNovo: "atualizada",
+    metadata: { pilar: pilarId, pontos, motivo, source: EXTRA_POINTS_SOURCE },
+  });
+  await syncCouponsForStudents([alunoId], { occurredAt: updated.updatedAt || new Date() });
+
+  return { pontuacao: serializeExtraPontuacao(updated, aluno, pilar, reviewer) };
 }
 
 async function assertRecurringScoreLimit(envio, desafio, alunos, referenceDate = new Date(), options = {}) {
@@ -457,7 +552,11 @@ async function generatePontuacoesForApprovedEnvio(envio, desafio, recipients, op
       envio: envioId,
       desafio: desafioId,
       aluno: alunoId,
+      turma: envio.turma || null,
       pontos: pontosTotais,
+      pontosBase: pontos,
+      bonusApresentacaoAoVivo,
+      apresentacaoAoVivo: bonusApresentacaoAoVivo > 0,
       pilares: pontosPorPilar.map((item) => ({ pilar: item.pilar, pontos: item.pontos })),
       motivo:
         bonusApresentacaoAoVivo > 0
@@ -493,6 +592,8 @@ module.exports = {
   assertNoDuplicateEvidenceScore,
   assertRecurringScoreLimit,
   grantExtraPoints,
+  listExtraPoints,
+  updateExtraPoints,
   generatePontuacoesForApprovedEnvio,
   getChallengeBasePoints,
   getChallengePillarPoints,

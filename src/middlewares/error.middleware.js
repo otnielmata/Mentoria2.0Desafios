@@ -19,6 +19,11 @@ function errorMiddleware(error, req, res, next) {
     message = "Um identificador informado é inválido.";
     code = "INVALID_IDENTIFIER";
     details = undefined;
+  } else if (error && error.type === "entity.too.large") {
+    statusCode = 413;
+    message = "O arquivo enviado excede o limite permitido de 10 MB.";
+    code = "ATTACHMENT_TOO_LARGE";
+    details = undefined;
   }
 
   if (statusCode >= 500) {

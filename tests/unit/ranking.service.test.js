@@ -156,8 +156,8 @@ describe("ranking.service MR-94", () => {
     expect(result.totalParticipantes).toBe(3);
     expect(result.ranking.map((row) => [row.posicao, row.aluno.id, row.totalPontos])).toEqual([
       [1, ALUNO_B_ID, 30],
-      [2, ALUNO_A_ID, 11],
-      [3, "6814f12ab3f34872f7558f66", 1],
+      [2, ALUNO_A_ID, 13],
+      [3, "6814f12ab3f34872f7558f66", 3],
     ]);
   });
 
@@ -236,7 +236,7 @@ describe("ranking.service MR-94", () => {
     });
   });
 
-  it("permite ranking geral para aluno sem limitar pela turma quando não há filtro de turma", async () => {
+  it("limita ranking do aluno às turmas ativas quando não há filtro de turma", async () => {
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno" });
     mockTurmaFind([{ _id: TURMA_1_ID }]);
     mockPontuacaoFind([
@@ -262,8 +262,8 @@ describe("ranking.service MR-94", () => {
 
     const result = await getFilteredRanking(STUDENT_ID);
 
-    expect(result.escopo.turmaIds).toBeNull();
-    expect(result.totalParticipantes).toBe(2);
-    expect(result.ranking.map((row) => row.aluno.id)).toEqual([ALUNO_B_ID, STUDENT_ID]);
+    expect(result.escopo.turmaIds).toEqual([TURMA_1_ID]);
+    expect(result.totalParticipantes).toBe(1);
+    expect(result.ranking.map((row) => row.aluno.id)).toEqual([STUDENT_ID]);
   });
 });

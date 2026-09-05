@@ -270,7 +270,7 @@ describe("envio-desafio.service grupos", () => {
       description: "Entrega do grupo",
       type: "grupo",
       evidencias: ["https://evidencia.com"],
-      anexos: [{ name: "print.png" }],
+      anexos: [{ name: "print.png", size: 1, content: "data:image/png;base64,AA==" }],
       participantes: [PARTICIPANT_ID],
       grupo: GRUPO_ID,
       status: "pendente",
@@ -280,7 +280,7 @@ describe("envio-desafio.service grupos", () => {
       grupoId: GRUPO_ID,
       description: "Entrega do grupo",
       evidencias: ["https://evidencia.com"],
-      anexos: [{ name: "print.png" }],
+      anexos: [{ name: "print.png", size: 1, content: "data:image/png;base64,AA==" }],
     });
 
     expect(EnvioDesafio.create).toHaveBeenCalledWith(
@@ -291,7 +291,7 @@ describe("envio-desafio.service grupos", () => {
         type: "grupo",
         participantes: [PARTICIPANT_ID],
         grupo: GRUPO_ID,
-        anexos: [{ name: "print.png" }],
+        anexos: [{ name: "print.png", size: 1, content: "data:image/png;base64,AA==" }],
       })
     );
     expect(ParticipanteEnvio.create).toHaveBeenCalledWith([{ envio: "6814f12ab3f34872f7558f45", aluno: PARTICIPANT_ID, status: "ativo" }]);
@@ -384,7 +384,7 @@ describe("envio-desafio.service grupos", () => {
       participantes: [PARTICIPANT_ID],
       description: "Descrição anterior",
       evidencias: ["https://evidencia.com"],
-      anexos: [{ name: "print.png" }],
+      anexos: [{ name: "print.png", size: 1, content: "data:image/png;base64,AA==" }],
       status: "pendente",
       save,
     });
@@ -419,7 +419,7 @@ describe("envio-desafio.service grupos", () => {
       })
     ).rejects.toMatchObject({
       statusCode: 400,
-      message: "Somente envios pendentes ou em ajuste podem ser alterados.",
+      message: "Somente envios pendentes, em ajuste ou reprovados podem ser reenviados.",
     });
   });
 
