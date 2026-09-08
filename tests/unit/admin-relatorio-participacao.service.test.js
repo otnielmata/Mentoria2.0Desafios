@@ -266,6 +266,55 @@ describe("admin-relatorio-participacao.service MR-95", () => {
     expect(JSON.stringify(result)).not.toContain("password");
   });
 
+  it("usa o total oficial da pontuação e inclui o bônus de apresentação ao vivo", async () => {
+    const student = { _id: ALUNO_1_ID, name: "Suporte Administrativo", email: "suporte@email.com", role: "aluno", status: "ativo" };
+
+    mockFindChain(User, [student]);
+    mockFindChain(Pontuacao, [
+      {
+        _id: "6814f12ab3f34872f7558f4f",
+        aluno: student,
+        pontos: 4,
+        pontosBase: 3,
+        bonusApresentacaoAoVivo: 1,
+        apresentacaoAoVivo: true,
+        source: "envio_desafio",
+        envio: {
+          _id: "6814f12ab3f34872f7558f45",
+          status: "aprovado",
+          turma: { _id: TURMA_ID, name: "Turma 1" },
+        },
+        desafio: { _id: "6814f12ab3f34872f7558f46", pilar: { _id: PILAR_ID, name: "Suporte Administrativo" } },
+        pilares: [{ pilar: { _id: PILAR_ID, name: "Suporte Administrativo" }, pontos: 3 }],
+      },
+    ]);
+    mockFindChain(PlanoEstudoItem, [
+      {
+        _id: "6814f12ab3f34872f7558f50",
+        aluno: ALUNO_1_ID,
+        plannedDateKey: "2026-09-05",
+        completedAt: new Date("2026-09-05T20:00:00.000Z"),
+        status: "ativo",
+      },
+      {
+        _id: "6814f12ab3f34872f7558f51",
+        aluno: ALUNO_1_ID,
+        plannedDateKey: "2026-09-06",
+        completedAt: new Date("2026-09-06T20:00:00.000Z"),
+        status: "ativo",
+      },
+    ]);
+
+    const result = await getStudentPillarReport(ADMIN_ID, { search: "Suporte Administrativo" });
+
+    expect(result.alunos[0]).toMatchObject({
+      totalPontos: 10,
+      bonusApresentacaoAoVivo: 1,
+      checklistPlanejamento: expect.objectContaining({ totalPontos: 6 }),
+      pontosPorPilar: [expect.objectContaining({ pontos: 3 })],
+    });
+  });
+
   it("retorna relatório paginado dos grupos formados por desafio e status do envio", async () => {
     const GRUPO_ID = "6814f12ab3f34872f7558f4d";
     const DESAFIO_ID = "6814f12ab3f34872f7558f4e";

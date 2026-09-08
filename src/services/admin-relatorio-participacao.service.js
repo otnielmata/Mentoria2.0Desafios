@@ -1036,6 +1036,7 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
     groupedByStudent.set(getEntityId(student), {
       aluno: serializeAluno(student),
       totalPontos: 0,
+      bonusApresentacaoAoVivo: 0,
       pilares: new Map(),
       detalhesPontosPorPilar: [],
       checklistPlanejamento: serializeChecklistPlanning(planningSummaryByStudent.get(getEntityId(student))),
@@ -1050,9 +1051,17 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
       return;
     }
 
-    getPontuacaoPilares(pontuacao)
-      .filter((item) => !filters.pilarId || item.pilarId === filters.pilarId)
-      .forEach((item) => {
+    const pilaresPontuacao = getPontuacaoPilares(pontuacao).filter((item) => !filters.pilarId || item.pilarId === filters.pilarId);
+    const totalPontosDosPilares = pilaresPontuacao.reduce((total, item) => total + Number(item.pontos || 0), 0);
+
+    if (filters.pilarId) {
+      current.totalPontos += totalPontosDosPilares;
+    } else {
+      current.totalPontos += Number(pontuacao.pontos || 0);
+      current.bonusApresentacaoAoVivo += Number(pontuacao.bonusApresentacaoAoVivo || 0);
+    }
+
+    pilaresPontuacao.forEach((item) => {
         const pilarId = item.pilarId || "sem-pilar";
         const pilarPoints = Number(item.pontos || 0);
         const pilarRow = current.pilares.get(pilarId) || {
@@ -1068,7 +1077,6 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
         pilarRow.points += pilarPoints;
         pilarRow.lancamentos.push(detail);
         current.detalhesPontosPorPilar.push(detail);
-        current.totalPontos += pilarPoints;
         current.pilares.set(pilarId, pilarRow);
       });
   });
@@ -1077,6 +1085,7 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
     .map((row) => ({
       aluno: row.aluno,
       totalPontos: row.totalPontos + (!filters.pilarId ? Number(row.checklistPlanejamento.totalPontos || 0) : 0),
+      bonusApresentacaoAoVivo: row.bonusApresentacaoAoVivo,
       checklistPlanejamento: row.checklistPlanejamento,
       pontosPorPilar: Array.from(row.pilares.values()).sort((first, second) => second.pontos - first.pontos),
       detalhesPontosPorPilar: row.detalhesPontosPorPilar.sort((first, second) => {

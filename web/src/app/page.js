@@ -3249,7 +3249,8 @@ function AdminReportsView({ apiClient }) {
 
   function formatPillarBreakdown(row) {
     const details = getArray(row, "detalhesPontosPorPilar");
-    if (details.length > 0) {
+    const bonusApresentacaoAoVivo = Number(row && row.bonusApresentacaoAoVivo) || 0;
+    if (details.length > 0 || bonusApresentacaoAoVivo > 0) {
       return (
         <div className="report-detail-list">
           {details.map((item, index) => {
@@ -3268,6 +3269,12 @@ function AdminReportsView({ apiClient }) {
               </div>
             );
           })}
+          {bonusApresentacaoAoVivo > 0 ? (
+            <div className="report-detail-item">
+              <strong>Apresentação ao vivo</strong>
+              <span>Bônus de {formatNumber(bonusApresentacaoAoVivo)} pt(s)</span>
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -3410,7 +3417,7 @@ function AdminReportsView({ apiClient }) {
                   <th>Aluno</th>
                   <th>E-mail</th>
                   <th>Total de pontos</th>
-                  <th>Pontos por pilar</th>
+                  <th>Pontos por pilar e bônus</th>
                   <th>Checklist planejamento</th>
                 </tr>
               </thead>
