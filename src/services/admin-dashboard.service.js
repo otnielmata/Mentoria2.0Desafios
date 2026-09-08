@@ -251,6 +251,24 @@ function buildStudentRanking(pontuacoes) {
     });
 }
 
+function sortStudentRankingRows(rows) {
+  return rows.sort((first, second) => {
+    if (second.totalPontos !== first.totalPontos) {
+      return second.totalPontos - first.totalPontos;
+    }
+
+    const firstName = normalizeText(first.aluno.name);
+    const secondName = normalizeText(second.aluno.name);
+    const nameOrder = firstName.localeCompare(secondName, "pt-BR");
+
+    if (nameOrder !== 0) {
+      return nameOrder;
+    }
+
+    return String(first.aluno.id || "").localeCompare(String(second.aluno.id || ""));
+  });
+}
+
 function mergeChecklistPointsIntoStudentRanking(rows, checklistSummaryByStudent, studentsById) {
   const rowsByStudent = new Map();
 
@@ -277,7 +295,7 @@ function mergeChecklistPointsIntoStudentRanking(rows, checklistSummaryByStudent,
     });
   });
 
-  return Array.from(rowsByStudent.values());
+  return sortStudentRankingRows(Array.from(rowsByStudent.values()));
 }
 
 function assignPositions(rankingRows) {

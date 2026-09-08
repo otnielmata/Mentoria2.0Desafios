@@ -167,6 +167,47 @@ describe("admin-dashboard.service MR-95", () => {
     expect(getCouponOverview).toHaveBeenCalledWith({ sync: true });
   });
 
+  it("reordena o top 10 depois de somar os pontos do check-list", async () => {
+    const isabella = {
+      _id: ALUNO_1_ID,
+      name: "Isabella Henrique Szrajbman",
+      email: "isabella@email.com",
+      role: "aluno",
+      status: "ativo",
+    };
+    const antonio = {
+      _id: ALUNO_2_ID,
+      name: "Antonio Concalves Martins",
+      email: "antonio@email.com",
+      role: "aluno",
+      status: "ativo",
+    };
+
+    planoEstudoService.getChecklistSummaryByStudentContext.mockResolvedValue({
+      items: [
+        {
+          _id: "plan-isabella",
+          aluno: isabella,
+          plannedDateKey: "2026-09-08",
+          completedAt: new Date("2026-09-08T12:00:00.000Z"),
+        },
+      ],
+      summaryByStudent: new Map([[ALUNO_1_ID, { totalPontos: 6 }]]),
+      studentsById: new Map([[ALUNO_1_ID, isabella]]),
+    });
+    mockFindChain(User, [isabella, antonio]);
+    mockFindChain(EnvioDesafio, []);
+    mockFindChain(Pontuacao, [createPontuacao({ alunoId: ALUNO_2_ID, alunoName: antonio.name, pontos: 3, envioId: "6814f12ab3f34872f7558f4a" })]);
+    Desafio.countDocuments.mockResolvedValue(0);
+
+    const result = await getAdminDashboard(ADMIN_ID);
+
+    expect(result.topRanking.map((row) => [row.posicao, row.aluno.name, row.totalPontos])).toEqual([
+      [1, "Isabella Henrique Szrajbman", 6],
+      [2, "Antonio Concalves Martins", 3],
+    ]);
+  });
+
   it("bloqueia dashboard administrativo para perfil sem permissão", async () => {
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "aluno" });
 
