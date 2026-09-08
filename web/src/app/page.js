@@ -3247,10 +3247,17 @@ function AdminReportsView({ apiClient }) {
     return value === "ponto_extra" || value === "pontuacao_extra" ? "Ponto extra" : "Desafio";
   }
 
+  function formatReportChallengeLabel(item) {
+    const origin = formatReportOrigin(item && (item.tipo || item.origem || item.source));
+    const title = item && item.desafio && item.desafio.title ? ` - ${item.desafio.title}` : "";
+    return `${origin}${title}`;
+  }
+
   function formatPillarBreakdown(row) {
     const details = getArray(row, "detalhesPontosPorPilar");
+    const presentationDetails = getArray(row, "detalhesApresentacaoAoVivo");
     const bonusApresentacaoAoVivo = Number(row && row.bonusApresentacaoAoVivo) || 0;
-    if (details.length > 0 || bonusApresentacaoAoVivo > 0) {
+    if (details.length > 0 || presentationDetails.length > 0 || bonusApresentacaoAoVivo > 0) {
       return (
         <div className="report-detail-list">
           {details.map((item, index) => {
@@ -3263,18 +3270,27 @@ function AdminReportsView({ apiClient }) {
                   {formatDate(item.dataLancamento)} · {pilar.name || "Pilar não informado"}
                 </strong>
                 <span>
-                  {formatReportOrigin(item.tipo || item.origem || item.source)} · {formatNumber(item.pontos)} pts
+                  {formatReportChallengeLabel(item)} · {formatNumber(item.pontos)} pts
                 </span>
                 <span className="muted">Professor/admin: {responsavel.name || "Não informado"}</span>
               </div>
             );
           })}
-          {bonusApresentacaoAoVivo > 0 ? (
-            <div className="report-detail-item">
-              <strong>Apresentação ao vivo</strong>
-              <span>Bônus de {formatNumber(bonusApresentacaoAoVivo)} pt(s)</span>
-            </div>
-          ) : null}
+          {presentationDetails.length > 0
+            ? presentationDetails.map((item, index) => (
+                <div className="report-detail-item" key={`apresentacao-${item.dataLancamento || "sem-data"}-${index}`}>
+                  <strong>{formatDate(item.dataLancamento)} · Apresentação ao vivo</strong>
+                  <span>
+                    Apresentação ao vivo{item.desafio && item.desafio.title ? ` - ${item.desafio.title}` : ""} · Bônus de {formatNumber(item.pontos)} pt(s)
+                  </span>
+                </div>
+              ))
+            : bonusApresentacaoAoVivo > 0 ? (
+                <div className="report-detail-item">
+                  <strong>Apresentação ao vivo</strong>
+                  <span>Bônus de {formatNumber(bonusApresentacaoAoVivo)} pt(s)</span>
+                </div>
+              ) : null}
         </div>
       );
     }

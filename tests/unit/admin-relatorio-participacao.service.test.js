@@ -284,7 +284,7 @@ describe("admin-relatorio-participacao.service MR-95", () => {
           status: "aprovado",
           turma: { _id: TURMA_ID, name: "Turma 1" },
         },
-        desafio: { _id: "6814f12ab3f34872f7558f46", pilar: { _id: PILAR_ID, name: "Suporte Administrativo" } },
+        desafio: { _id: "6814f12ab3f34872f7558f46", title: "Resumo do módulo 1", pilar: { _id: PILAR_ID, name: "Suporte Administrativo" } },
         pilares: [{ pilar: { _id: PILAR_ID, name: "Suporte Administrativo" }, pontos: 3 }],
       },
     ]);
@@ -312,6 +312,12 @@ describe("admin-relatorio-participacao.service MR-95", () => {
       bonusApresentacaoAoVivo: 1,
       checklistPlanejamento: expect.objectContaining({ totalPontos: 6 }),
       pontosPorPilar: [expect.objectContaining({ pontos: 3 })],
+      detalhesApresentacaoAoVivo: [
+        expect.objectContaining({
+          pontos: 1,
+          desafio: expect.objectContaining({ title: "Resumo do módulo 1" }),
+        }),
+      ],
     });
   });
 

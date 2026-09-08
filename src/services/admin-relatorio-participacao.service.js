@@ -1009,6 +1009,15 @@ function serializePontuacaoPilarDetail(pontuacao, pilarItem, pontos) {
   });
 }
 
+function serializeApresentacaoAoVivoDetail(pontuacao, pontos) {
+  return omitUndefined({
+    dataLancamento: getPontuacaoLaunchDate(pontuacao),
+    pontos,
+    points: pontos,
+    desafio: serializeDesafioResumo(pontuacao.desafio),
+  });
+}
+
 function serializeChecklistPlanning(summary) {
   const safeSummary = summary || {};
   return {
@@ -1039,6 +1048,7 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
       bonusApresentacaoAoVivo: 0,
       pilares: new Map(),
       detalhesPontosPorPilar: [],
+      detalhesApresentacaoAoVivo: [],
       checklistPlanejamento: serializeChecklistPlanning(planningSummaryByStudent.get(getEntityId(student))),
     });
   });
@@ -1058,7 +1068,11 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
       current.totalPontos += totalPontosDosPilares;
     } else {
       current.totalPontos += Number(pontuacao.pontos || 0);
-      current.bonusApresentacaoAoVivo += Number(pontuacao.bonusApresentacaoAoVivo || 0);
+      const bonusApresentacaoAoVivo = Number(pontuacao.bonusApresentacaoAoVivo || 0);
+      current.bonusApresentacaoAoVivo += bonusApresentacaoAoVivo;
+      if (bonusApresentacaoAoVivo > 0) {
+        current.detalhesApresentacaoAoVivo.push(serializeApresentacaoAoVivoDetail(pontuacao, bonusApresentacaoAoVivo));
+      }
     }
 
     pilaresPontuacao.forEach((item) => {
@@ -1086,6 +1100,7 @@ function buildStudentPillarRows(students, pontuacoes, planningSummaryByStudent, 
       aluno: row.aluno,
       totalPontos: row.totalPontos + (!filters.pilarId ? Number(row.checklistPlanejamento.totalPontos || 0) : 0),
       bonusApresentacaoAoVivo: row.bonusApresentacaoAoVivo,
+      detalhesApresentacaoAoVivo: row.detalhesApresentacaoAoVivo,
       checklistPlanejamento: row.checklistPlanejamento,
       pontosPorPilar: Array.from(row.pilares.values()).sort((first, second) => second.pontos - first.pontos),
       detalhesPontosPorPilar: row.detalhesPontosPorPilar.sort((first, second) => {
