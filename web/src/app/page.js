@@ -187,6 +187,136 @@ function buildPilaresPayloadFromForm(data, fieldPrefix = "") {
   });
 }
 
+function isQuizChallenge(desafio) {
+  return String((desafio && (desafio.challengeType || desafio.tipoDesafio)) || "").trim().toLowerCase() === "quiz";
+}
+
+function createEmptyQuizQuestion() {
+  return {
+    prompt: "",
+    alternatives: ["", "", "", "", ""],
+    correctAlternative: 0,
+  };
+}
+
+function normalizeQuizQuestionsForForm(desafio) {
+  const questions = getArray(desafio && desafio.quiz, "questions").length > 0
+    ? getArray(desafio.quiz, "questions")
+    : getArray(desafio, "perguntas");
+  if (questions.length === 0) return [createEmptyQuizQuestion()];
+
+  return questions.map((question) => ({
+    id: getEntityId(question),
+    prompt: question.prompt || question.question || question.enunciado || "",
+    alternatives: Array.from({ length: 5 }, (_, index) => {
+      const alternative = getArray(question, "alternatives")[index] || getArray(question, "alternativas")[index];
+      return typeof alternative === "object" ? alternative.text || alternative.texto || "" : alternative || "";
+    }),
+    correctAlternative: Number(question.correctAlternative ?? question.alternativaCorreta ?? 0),
+  }));
+}
+
+function getQuizFinalContentUrl(desafio) {
+  return String((desafio && desafio.quiz && (desafio.quiz.finalContentUrl || desafio.quiz.linkConteudoFinal)) || "");
+}
+
+function validateQuizQuestions(questions) {
+  if (!Array.isArray(questions) || questions.length === 0) throw new Error("Adicione ao menos uma pergunta ao questionário.");
+  questions.forEach((question, questionIndex) => {
+    if (!String(question.prompt || "").trim()) throw new Error(`Informe o enunciado da pergunta ${questionIndex + 1}.`);
+    if (!Array.isArray(question.alternatives) || question.alternatives.length !== 5) {
+      throw new Error(`A pergunta ${questionIndex + 1} deve ter exatamente 5 alternativas.`);
+    }
+    question.alternatives.forEach((alternative, alternativeIndex) => {
+      if (!String(alternative || "").trim()) throw new Error(`Informe a alternativa ${alternativeIndex + 1} da pergunta ${questionIndex + 1}.`);
+    });
+    if (!Number.isInteger(Number(question.correctAlternative)) || Number(question.correctAlternative) < 0 || Number(question.correctAlternative) > 4) {
+      throw new Error(`Selecione a alternativa correta da pergunta ${questionIndex + 1}.`);
+    }
+  });
+}
+
+function QuizQuestionEditor({ questions, setQuestions }) {
+  function updateQuestion(questionIndex, field, value) {
+    setQuestions((current) => current.map((question, index) => (index === questionIndex ? { ...question, [field]: value } : question)));
+  }
+
+  function updateAlternative(questionIndex, alternativeIndex, value) {
+    setQuestions((current) =>
+      current.map((question, index) =>
+        index === questionIndex
+          ? { ...question, alternatives: question.alternatives.map((alternative, itemIndex) => (itemIndex === alternativeIndex ? value : alternative)) }
+          : question
+      )
+    );
+  }
+
+  function removeQuestion(questionIndex) {
+    setQuestions((current) => current.filter((_, index) => index !== questionIndex));
+  }
+
+  return (
+    <div className="quiz-question-builder">
+      {questions.map((question, questionIndex) => (
+        <fieldset className="quiz-question" key={question.id || questionIndex}>
+          <div className="quiz-question-header">
+            <strong>Pergunta {questionIndex + 1}</strong>
+            {questions.length > 1 ? (
+              <button className="button ghost with-icon" type="button" onClick={() => removeQuestion(questionIndex)}>
+                <ButtonIcon name="delete" />
+                Remover pergunta
+              </button>
+            ) : null}
+          </div>
+          <label className="field">
+            <span>Enunciado</span>
+            <textarea
+              maxLength={1000}
+              required
+              value={question.prompt}
+              onChange={(event) => updateQuestion(questionIndex, "prompt", event.target.value)}
+              placeholder="Digite a pergunta para o aluno."
+            />
+          </label>
+          <div className="quiz-alternatives">
+            <span className="muted">Alternativas: marque uma como correta.</span>
+            {question.alternatives.map((alternative, alternativeIndex) => (
+              <div className="quiz-alternative-row" key={alternativeIndex}>
+                <label className="quiz-correct-option">
+                  <input
+                    checked={Number(question.correctAlternative) === alternativeIndex}
+                    name={`quiz-correct-${questionIndex}`}
+                    type="radio"
+                    onChange={() => updateQuestion(questionIndex, "correctAlternative", alternativeIndex)}
+                  />
+                  <span>Correta</span>
+                </label>
+                <input
+                  aria-label={`Alternativa ${alternativeIndex + 1} da pergunta ${questionIndex + 1}`}
+                  maxLength={500}
+                  required
+                  value={alternative}
+                  onChange={(event) => updateAlternative(questionIndex, alternativeIndex, event.target.value)}
+                  placeholder={`Alternativa ${alternativeIndex + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+        </fieldset>
+      ))}
+      <button
+        className="button secondary with-icon"
+        disabled={questions.length >= 50}
+        type="button"
+        onClick={() => setQuestions((current) => [...current, createEmptyQuizQuestion()])}
+      >
+        <ButtonIcon name="add" />
+        Adicionar pergunta
+      </button>
+    </div>
+  );
+}
+
 function formatTurmaName(turma) {
   if (!turma) return "-";
   if (typeof turma === "string") return looksLikeObjectId(turma) ? "-" : turma;
@@ -564,7 +694,6 @@ function ConfigurationView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
 
   function buildUsersPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/users", {
@@ -2289,6 +2418,10 @@ function AdminDesafiosView({ apiClient }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [createChallengeType, setCreateChallengeType] = useState("standard");
+  const [createQuizQuestions, setCreateQuizQuestions] = useState([createEmptyQuizQuestion()]);
+  const [editChallengeType, setEditChallengeType] = useState("standard");
+  const [editQuizQuestions, setEditQuizQuestions] = useState([createEmptyQuizQuestion()]);
 
   function buildDesafiosPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/desafios", {
@@ -2337,28 +2470,40 @@ function AdminDesafiosView({ apiClient }) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    const maxParticipantes = Number(data.get("maxParticipantes"));
     setFeedback("");
     setError("");
     setCreating(true);
     try {
+      const body = {
+        pilares: buildPilaresPayloadFromForm(data),
+        title: data.get("title"),
+        description: data.get("description"),
+        deliveryDate: data.get("deliveryDate") || undefined,
+        challengeType: createChallengeType,
+        status: data.get("status"),
+      };
+      if (createChallengeType === "quiz") {
+        validateQuizQuestions(createQuizQuestions);
+        body.questions = createQuizQuestions.map((question) => ({
+          prompt: question.prompt,
+          alternatives: question.alternatives,
+          correctAlternative: Number(question.correctAlternative),
+        }));
+        body.finalContentUrl = data.get("finalContentUrl");
+      } else {
+        const maxParticipantes = Number(data.get("maxParticipantes"));
+        body.livePresentationPoints = Number(data.get("livePresentationPoints") || 0);
+        body.certificatePosted = data.get("certificatePosted") === "on";
+        body.type = maxParticipantes > 1 ? "grupo" : "individual";
+        body.maxParticipantes = maxParticipantes;
+      }
       await apiClient.request(
         { method: "POST", path: "/desafios" },
-        {
-          body: {
-            pilares: buildPilaresPayloadFromForm(data),
-            title: data.get("title"),
-            description: data.get("description"),
-            deliveryDate: data.get("deliveryDate") || undefined,
-            livePresentationPoints: Number(data.get("livePresentationPoints") || 0),
-            certificatePosted: data.get("certificatePosted") === "on",
-            type: maxParticipantes > 1 ? "grupo" : "individual",
-            maxParticipantes,
-            status: data.get("status"),
-          },
-        }
+        { body }
       );
       form.reset();
+      setCreateChallengeType("standard");
+      setCreateQuizQuestions([createEmptyQuizQuestion()]);
       setFeedback("Desafio cadastrado com sucesso.");
       await load(filters, 1);
     } catch (createError) {
@@ -2385,25 +2530,36 @@ function AdminDesafiosView({ apiClient }) {
     event.preventDefault();
     if (!editing) return;
     const data = new FormData(event.currentTarget);
-    const maxParticipantes = Number(data.get("editMaxParticipantes"));
     setFeedback("");
     setError("");
     try {
+      const body = {
+        pilares: buildPilaresPayloadFromForm(data, "edit"),
+        title: data.get("editTitle"),
+        description: data.get("editDescription"),
+        deliveryDate: data.get("editDeliveryDate") || null,
+        challengeType: editChallengeType,
+        status: data.get("editStatus"),
+      };
+      if (editChallengeType === "quiz") {
+        validateQuizQuestions(editQuizQuestions);
+        body.questions = editQuizQuestions.map((question) => ({
+          id: question.id || undefined,
+          prompt: question.prompt,
+          alternatives: question.alternatives,
+          correctAlternative: Number(question.correctAlternative),
+        }));
+        body.finalContentUrl = data.get("editFinalContentUrl");
+      } else {
+        const maxParticipantes = Number(data.get("editMaxParticipantes"));
+        body.livePresentationPoints = Number(data.get("editLivePresentationPoints") || 0);
+        body.certificatePosted = data.get("editCertificatePosted") === "on";
+        body.type = maxParticipantes > 1 ? "grupo" : "individual";
+        body.maxParticipantes = maxParticipantes;
+      }
       await apiClient.request(
         { method: "PATCH", path: `/desafios/${editing.id}` },
-        {
-          body: {
-            pilares: buildPilaresPayloadFromForm(data, "edit"),
-            title: data.get("editTitle"),
-            description: data.get("editDescription"),
-            deliveryDate: data.get("editDeliveryDate") || null,
-            livePresentationPoints: Number(data.get("editLivePresentationPoints") || 0),
-            certificatePosted: data.get("editCertificatePosted") === "on",
-            type: maxParticipantes > 1 ? "grupo" : "individual",
-            maxParticipantes,
-            status: data.get("editStatus"),
-          },
-        }
+        { body }
       );
       setEditing(null);
       setFeedback("Desafio atualizado.");
@@ -2426,6 +2582,12 @@ function AdminDesafiosView({ apiClient }) {
     }
   }
 
+  function beginEditing(desafio) {
+    setEditing(desafio);
+    setEditChallengeType(isQuizChallenge(desafio) ? "quiz" : "standard");
+    setEditQuizQuestions(normalizeQuizQuestionsForForm(desafio));
+  }
+
   return (
     <div className="content">
       <section className="panel">
@@ -2444,8 +2606,11 @@ function AdminDesafiosView({ apiClient }) {
             <input name="title" maxLength={160} required placeholder={`Desafio ${todaySuffix()}`} />
           </label>
           <label className="field">
-            <span>Pontos apresentação ao vivo (use 0 se não houver apresentação)</span>
-            <input name="livePresentationPoints" required type="number" min="0" max="1000000" defaultValue="0" />
+            <span>Tipo de desafio</span>
+            <select value={createChallengeType} onChange={(event) => setCreateChallengeType(event.target.value)}>
+              <option value="standard">Tradicional</option>
+              <option value="quiz">Perguntas e respostas</option>
+            </select>
           </label>
           <div className="field span-2">
             <span>Pilares e pontuação</span>
@@ -2467,23 +2632,48 @@ function AdminDesafiosView({ apiClient }) {
             <input name="deliveryDate" required type="date" min="2026-01-01" />
           </label>
           <label className="field">
-            <span>Participantes por grupo</span>
-            <input name="maxParticipantes" required type="number" min="1" max="5" defaultValue="5" />
-          </label>
-          <label className="field">
             <span>Status</span>
             <select name="status" defaultValue="inativo">
               <option value="inativo">inativo</option>
               <option value="ativo">ativo</option>
             </select>
           </label>
-          <label className="checkbox-field span-2">
-            <input name="certificatePosted" type="checkbox" />
-            <span>Certificado postado</span>
-          </label>
+          {createChallengeType === "standard" ? (
+            <>
+              <label className="field">
+                <span>Pontos apresentação ao vivo (use 0 se não houver apresentação)</span>
+                <input name="livePresentationPoints" required type="number" min="0" max="1000000" defaultValue="0" />
+              </label>
+              <label className="field">
+                <span>Participantes por grupo</span>
+                <input name="maxParticipantes" required type="number" min="1" max="5" defaultValue="5" />
+              </label>
+              <label className="checkbox-field span-2">
+                <input name="certificatePosted" type="checkbox" />
+                <span>Certificado postado</span>
+              </label>
+            </>
+          ) : (
+            <>
+              <div className="span-2 status-item">
+                <strong>Questionário individual</strong>
+                <span className="muted">O aluno responderá uma pergunta por vez e só avançará após acertar.</span>
+              </div>
+              <label className="field span-2">
+                <span>Link do conteúdo final</span>
+                <input name="finalContentUrl" required type="url" placeholder="https://..." />
+                <small className="muted">Será liberado ao aluno somente depois que ele concluir o questionário.</small>
+              </label>
+              <div className="field span-2">
+                <span>Perguntas e respostas</span>
+                <small className="muted">Cadastre cinco alternativas por pergunta e marque exatamente uma como correta.</small>
+                <QuizQuestionEditor questions={createQuizQuestions} setQuestions={setCreateQuizQuestions} />
+              </div>
+            </>
+          )}
           <label className="field span-2">
             <span>Descrição</span>
-            <textarea maxLength={4000} name="description" required placeholder="Descreva o que o aluno deve executar." />
+            <textarea maxLength={4000} name="description" required placeholder="Descreva o que o aluno deve executar ou aprender." />
           </label>
           <IconButton className="button" disabled={creating} icon="add_task" label="Cadastrar desafio" type="submit" />
         </form>
@@ -2504,15 +2694,11 @@ function AdminDesafiosView({ apiClient }) {
               <input name="editTitle" maxLength={160} required defaultValue={editing.title} />
             </label>
             <label className="field">
-              <span>Pontos apresentação ao vivo (use 0 se não houver apresentação)</span>
-              <input
-                name="editLivePresentationPoints"
-                required
-                type="number"
-                min="0"
-                max="1000000"
-                defaultValue={editing.livePresentationPoints || editing.pontosApresentacaoAoVivo || 0}
-              />
+              <span>Tipo de desafio</span>
+              <select value={editChallengeType} onChange={(event) => setEditChallengeType(event.target.value)}>
+                <option value="standard">Tradicional</option>
+                <option value="quiz">Perguntas e respostas</option>
+              </select>
             </label>
             <div className="field span-2">
               <span>Pilares e pontuação</span>
@@ -2541,20 +2727,51 @@ function AdminDesafiosView({ apiClient }) {
               <input name="editDeliveryDate" required type="date" min="2026-01-01" defaultValue={formatDateInputValue(editing.deliveryDate || editing.dataEntrega)} />
             </label>
             <label className="field">
-              <span>Participantes por grupo</span>
-              <input name="editMaxParticipantes" required type="number" min="1" max="5" defaultValue={editing.maxParticipantes || 1} />
-            </label>
-            <label className="field">
               <span>Status</span>
               <select name="editStatus" defaultValue={editing.status || "inativo"}>
                 <option value="inativo">inativo</option>
                 <option value="ativo">ativo</option>
               </select>
             </label>
-            <label className="checkbox-field span-2">
-              <input name="editCertificatePosted" type="checkbox" defaultChecked={editing.certificatePosted === true || editing.certificadoPostado === true} />
-              <span>Certificado postado</span>
-            </label>
+            {editChallengeType === "standard" ? (
+              <>
+                <label className="field">
+                  <span>Pontos apresentação ao vivo (use 0 se não houver apresentação)</span>
+                  <input
+                    name="editLivePresentationPoints"
+                    required
+                    type="number"
+                    min="0"
+                    max="1000000"
+                    defaultValue={editing.livePresentationPoints || editing.pontosApresentacaoAoVivo || 0}
+                  />
+                </label>
+                <label className="field">
+                  <span>Participantes por grupo</span>
+                  <input name="editMaxParticipantes" required type="number" min="1" max="5" defaultValue={editing.maxParticipantes || 1} />
+                </label>
+                <label className="checkbox-field span-2">
+                  <input name="editCertificatePosted" type="checkbox" defaultChecked={editing.certificatePosted === true || editing.certificadoPostado === true} />
+                  <span>Certificado postado</span>
+                </label>
+              </>
+            ) : (
+              <>
+                <div className="span-2 status-item">
+                  <strong>Questionário individual</strong>
+                  <span className="muted">O aluno só avançará após acertar cada pergunta.</span>
+                </div>
+                <label className="field span-2">
+                  <span>Link do conteúdo final</span>
+                  <input name="editFinalContentUrl" required type="url" defaultValue={getQuizFinalContentUrl(editing)} placeholder="https://..." />
+                </label>
+                <div className="field span-2">
+                  <span>Perguntas e respostas</span>
+                  <small className="muted">Cadastre cinco alternativas por pergunta e marque exatamente uma como correta.</small>
+                  <QuizQuestionEditor questions={editQuizQuestions} setQuestions={setEditQuizQuestions} />
+                </div>
+              </>
+            )}
             <label className="field span-2">
               <span>Descrição</span>
               <textarea maxLength={4000} name="editDescription" required defaultValue={editing.description || ""} />
@@ -2578,6 +2795,7 @@ function AdminDesafiosView({ apiClient }) {
           <thead>
             <tr>
               <th>Título</th>
+              <th>Tipo</th>
               <th>Pilares</th>
               <th>Pontos</th>
               <th>Apresentação</th>
@@ -2592,6 +2810,7 @@ function AdminDesafiosView({ apiClient }) {
             {desafios.map((desafio) => (
               <tr key={desafio.id}>
                 <td>{desafio.title}</td>
+                <td>{isQuizChallenge(desafio) ? "Perguntas e respostas" : "Tradicional"}</td>
                 <td>{formatPilarPoints(desafio)}</td>
                 <td>{desafio.points}</td>
                 <td>{formatNumber(desafio.livePresentationPoints || desafio.pontosApresentacaoAoVivo)}</td>
@@ -2605,7 +2824,7 @@ function AdminDesafiosView({ apiClient }) {
                 <td>{formatStatus(desafio.status)}</td>
                 <td>
                   <div className="actions table-actions">
-                    <IconButton icon="edit" label={`Editar ${desafio.title}`} onClick={() => setEditing(desafio)} />
+                    <IconButton icon="edit" label={`Editar ${desafio.title}`} onClick={() => beginEditing(desafio)} />
                     <IconButton className="button ghost" icon="delete" label={`Apagar ${desafio.title}`} onClick={() => deleteDesafio(desafio)} />
                     <IconButton
                       icon={desafio.status === "ativo" ? "toggle_off" : "toggle_on"}
@@ -3587,6 +3806,12 @@ function StudentChallengesView({ apiClient }) {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [subscribingId, setSubscribingId] = useState("");
+  const [quizState, setQuizState] = useState(null);
+  const [quizAnswer, setQuizAnswer] = useState("");
+  const [quizFeedback, setQuizFeedback] = useState("");
+  const [quizError, setQuizError] = useState("");
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizSubmitting, setQuizSubmitting] = useState(false);
 
   async function load() {
     setError("");
@@ -3644,6 +3869,62 @@ function StudentChallengesView({ apiClient }) {
       await load();
     } catch (cancelError) {
       setError(getErrorMessage(cancelError));
+    }
+  }
+
+  async function openQuiz(desafio) {
+    setQuizLoading(true);
+    setQuizError("");
+    setQuizFeedback("");
+    setQuizAnswer("");
+    try {
+      const result = await apiClient.request({ method: "GET", path: `/desafios/${desafio.id}/questionario` });
+      setQuizState(result);
+      if (result && result.resultado && result.resultado.message) setQuizFeedback(result.resultado.message);
+    } catch (quizLoadError) {
+      setQuizState(null);
+      setQuizError(getErrorMessage(quizLoadError));
+    } finally {
+      setQuizLoading(false);
+    }
+  }
+
+  function closeQuiz() {
+    setQuizState(null);
+    setQuizAnswer("");
+    setQuizFeedback("");
+    setQuizError("");
+  }
+
+  async function submitQuizAnswer(event) {
+    event.preventDefault();
+    if (!quizState || !quizState.desafio || !quizAnswer) {
+      setQuizError("Selecione uma alternativa para responder.");
+      return;
+    }
+    const questions = getArray(quizState.desafio.quiz, "questions");
+    const currentIndex = Number(quizState.tentativa && quizState.tentativa.currentQuestionIndex) || 0;
+    const currentQuestion = questions[currentIndex];
+    if (!currentQuestion) {
+      setQuizError("Não foi possível localizar a pergunta atual.");
+      return;
+    }
+
+    setQuizSubmitting(true);
+    setQuizError("");
+    try {
+      const result = await apiClient.request(
+        { method: "POST", path: `/desafios/${quizState.desafio.id}/questionario/respostas` },
+        { body: { questionId: currentQuestion.id, alternativeIndex: Number(quizAnswer) } }
+      );
+      setQuizState(result);
+      setQuizFeedback(result && result.resultado ? result.resultado.message || "" : "");
+      if (!result || !result.resultado || result.resultado.correct !== false) setQuizAnswer("");
+      if (result && result.resultado && result.resultado.completed) await load();
+    } catch (quizAnswerError) {
+      setQuizError(getErrorMessage(quizAnswerError));
+    } finally {
+      setQuizSubmitting(false);
     }
   }
 
@@ -3786,7 +4067,7 @@ function StudentChallengesView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Desafios</h2>
-            <p className="muted">Inscreva-se primeiro. O sistema monta seu grupo automaticamente.</p>
+            <p className="muted">Inscreva-se nos desafios tradicionais. Questionários são individuais e começam em “Responder agora”.</p>
           </div>
           <IconButton icon="refresh" label="Atualizar desafios" onClick={load} />
         </div>
@@ -3805,6 +4086,7 @@ function StudentChallengesView({ apiClient }) {
           </thead>
           <tbody>
             {desafios.map((desafio) => {
+              const quizChallenge = isQuizChallenge(desafio);
               const inscricao = findInscricaoForDesafio(desafio);
               const subscriptionState = getSubscriptionActionState(inscricao);
               const isSubscribed = subscriptionState.isSubscribed;
@@ -3820,27 +4102,33 @@ function StudentChallengesView({ apiClient }) {
                   <td>{formatNumber(desafio.points)}</td>
                   <td>{formatDate(desafio.deliveryDate || desafio.dataEntrega)}</td>
                   <td>
-                    {formatChallengeGroupSize(desafio, inscricao)}
-                    {isSubscribed ? <div className="muted">Modalidade: {subscriptionMode === "ingles" ? "Inglês" : "Normal"}</div> : null}
-                    {isSubscribed ? (
+                    {quizChallenge ? "Individual (questionário)" : formatChallengeGroupSize(desafio, inscricao)}
+                    {!quizChallenge && isSubscribed ? <div className="muted">Modalidade: {subscriptionMode === "ingles" ? "Inglês" : "Normal"}</div> : null}
+                    {!quizChallenge && isSubscribed ? (
                       <div className="muted">Integrantes: {participantNames.length > 0 ? participantNames.join(", ") : "Grupo em formação"}</div>
                     ) : null}
                   </td>
                   <td>
                     <div className="actions table-actions">
-                      {subscriptionState.showNormal ? (
+                      {quizChallenge ? (
+                        <button className="button secondary with-icon" type="button" disabled={quizLoading} onClick={() => openQuiz(desafio)}>
+                          <ButtonIcon name="quiz" />
+                          Responder agora
+                        </button>
+                      ) : null}
+                      {!quizChallenge && subscriptionState.showNormal ? (
                           <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled || subscribingId === desafio.id} onClick={() => subscribe(desafio.id, "normal")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
                           {isSubscribed ? "Inscrito" : "Inscrever-se"}
                         </button>
                       ) : null}
-                      {subscriptionState.showEnglish ? (
+                      {!quizChallenge && subscriptionState.showEnglish ? (
                         <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled || subscribingId === desafio.id} onClick={() => subscribe(desafio.id, "ingles")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "translate"} />
                           {isSubscribed ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
                         </button>
                       ) : null}
-                      {isSubscribed ? (
+                      {!quizChallenge && isSubscribed ? (
                         <button className="button ghost with-icon" type="button" disabled={subscribingId === desafio.id} onClick={() => cancelSubscription(inscricao)}>
                           <ButtonIcon name="unsubscribe" />
                           Cancelar inscrição
@@ -3853,7 +4141,76 @@ function StudentChallengesView({ apiClient }) {
             })}
           </tbody>
         </table>
-      </section>
+          </section>
+
+      {quizLoading ? (
+        <section className="panel">
+          <Notice message="Carregando questionário..." />
+        </section>
+      ) : null}
+
+      {quizState ? (
+        <section className="panel quiz-player">
+          <div className="panel-header">
+            <div>
+              <h2>{quizState.desafio ? quizState.desafio.title : "Questionário"}</h2>
+              <p className="muted">Responda corretamente para liberar a próxima pergunta.</p>
+            </div>
+            <button className="button ghost with-icon" type="button" onClick={closeQuiz}>
+              <ButtonIcon name="close" />
+              Fechar
+            </button>
+          </div>
+          <Notice message={quizError} type="error" />
+          <Notice message={quizFeedback} />
+          {quizState.tentativa && quizState.tentativa.status === "concluido" ? (
+            <div className="quiz-complete">
+              <h3>Questionário concluído</h3>
+              <p>Você acertou todas as perguntas e conquistou {formatNumber(quizState.tentativa.pointsAwarded)} pontos.</p>
+              {quizState.conteudoFinal && normalizeOpenableHref(quizState.conteudoFinal.url) ? (
+                <a className="button with-icon" href={normalizeOpenableHref(quizState.conteudoFinal.url)} rel="noreferrer" target="_blank">
+                  <ButtonIcon name="menu_book" />
+                  Acessar conteúdo exclusivo
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            (() => {
+              const questions = getArray(quizState.desafio && quizState.desafio.quiz, "questions");
+              const currentIndex = Number(quizState.tentativa && quizState.tentativa.currentQuestionIndex) || 0;
+              const currentQuestion = questions[currentIndex];
+              return currentQuestion ? (
+                <div>
+                  <div className="quiz-progress">
+                    Pergunta {currentIndex + 1} de {questions.length}
+                  </div>
+                  <h3>{currentQuestion.prompt || currentQuestion.question}</h3>
+                  <form className="quiz-answer" onSubmit={submitQuizAnswer}>
+                    <div className="quiz-answer-options">
+                      {getArray(currentQuestion, "alternatives").map((alternative, alternativeIndex) => (
+                        <label className="quiz-answer-option" key={alternative.id || alternativeIndex}>
+                          <input
+                            checked={quizAnswer === String(alternativeIndex)}
+                            name="quizAnswer"
+                            type="radio"
+                            value={alternativeIndex}
+                            onChange={(event) => setQuizAnswer(event.target.value)}
+                          />
+                          <span>{typeof alternative === "object" ? alternative.text || alternative.texto : alternative}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button className="button with-icon" disabled={quizSubmitting} type="submit">
+                      <ButtonIcon name="check_circle" />
+                      Confirmar resposta
+                    </button>
+                  </form>
+                </div>
+              ) : <Notice message="Não há pergunta disponível no momento." type="error" />;
+            })()
+          )}
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel-header">

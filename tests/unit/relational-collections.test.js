@@ -7,6 +7,7 @@ const Heuristic = require("../../src/models/heuristic.model");
 const ParticipanteEnvio = require("../../src/models/participante-envio.model");
 const Pilar = require("../../src/models/pilar.model");
 const Pontuacao = require("../../src/models/pontuacao.model");
+const QuizAttempt = require("../../src/models/quiz-attempt.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
 
@@ -22,6 +23,7 @@ describe("coleções relacionais", () => {
     expect(EnvioDesafio.collection.name).toBe("envios_desafios");
     expect(ParticipanteEnvio.collection.name).toBe("participantes_envio");
     expect(Pontuacao.collection.name).toBe("pontuacoes");
+    expect(QuizAttempt.collection.name).toBe("tentativas_questionarios");
     expect(AuditEvent.collection.name).toBe("auditorias");
   });
 });

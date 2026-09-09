@@ -79,6 +79,40 @@ describe("desafio.service difficulty", () => {
     expect(desafio.points).toBe(30);
   });
 
+  it("cadastra questionário com cinco alternativas e força modo individual", async () => {
+    const desafio = await createDesafio(ADMIN_ID, {
+      challengeType: "quiz",
+      pilares: [{ pilarId: PILAR_ID, points: 15 }],
+      title: "Questionário inicial",
+      description: "Responda para liberar o material.",
+      deliveryDate: "2099-01-01T00:00:00.000Z",
+      type: "grupo",
+      maxParticipantes: 5,
+      finalContentUrl: "https://example.com/ebook.pdf",
+      questions: [
+        {
+          prompt: "Qual alternativa está correta?",
+          alternatives: ["A", "B", "C", "D", "E"],
+          correctAlternative: 2,
+        },
+      ],
+    });
+
+    expect(Desafio.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        challengeType: "quiz",
+        type: "individual",
+        maxParticipantes: 1,
+        livePresentationPoints: 0,
+        quiz: {
+          finalContentUrl: "https://example.com/ebook.pdf",
+          questions: [expect.objectContaining({ correctAlternative: 2 })],
+        },
+      })
+    );
+    expect(desafio.challengeType).toBe("quiz");
+  });
+
   it("cadastra desafio com múltiplos pilares e pontuação por pilar", async () => {
     const desafio = await createDesafio(ADMIN_ID, {
       pilares: [

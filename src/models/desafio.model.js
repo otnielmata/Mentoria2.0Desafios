@@ -1,5 +1,28 @@
 const mongoose = require("mongoose");
 
+const quizAlternativeSchema = new mongoose.Schema(
+  {
+    text: { type: String, required: true, trim: true },
+  },
+  { _id: true }
+);
+
+const quizQuestionSchema = new mongoose.Schema(
+  {
+    prompt: { type: String, required: true, trim: true },
+    alternatives: {
+      type: [quizAlternativeSchema],
+      required: true,
+      validate: {
+        validator: (alternatives) => Array.isArray(alternatives) && alternatives.length === 5,
+        message: "Cada pergunta deve ter exatamente cinco alternativas.",
+      },
+    },
+    correctAlternative: { type: Number, required: true, min: 0, max: 4 },
+  },
+  { _id: true }
+);
+
 const desafioSchema = new mongoose.Schema(
   {
     pilar: { type: mongoose.Schema.Types.ObjectId, ref: "Pilar", required: true, index: true },
@@ -11,6 +34,17 @@ const desafioSchema = new mongoose.Schema(
     ],
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
+    challengeType: {
+      type: String,
+      enum: ["standard", "quiz"],
+      default: "standard",
+      trim: true,
+      index: true,
+    },
+    quiz: {
+      questions: { type: [quizQuestionSchema], default: undefined },
+      finalContentUrl: { type: String, default: null, trim: true },
+    },
     deliveryDate: { type: Date, default: null, index: true },
     difficulty: {
       type: String,

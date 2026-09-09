@@ -17,6 +17,7 @@ const {
   parseDifficulty,
   parseObjectId,
   parseOptionalObjectId,
+  parseOptionalUrl,
   parseOptionalText,
   parsePagination,
   parseRequiredText,
@@ -26,6 +27,7 @@ const {
 
 const ADMIN_ROLES = ["professor", "admin"];
 const ALLOWED_TYPES = ["individual", "grupo", "ambos"];
+const ALLOWED_CHALLENGE_TYPES = ["standard", "quiz"];
 const GROUP_TYPES = ["grupo", "ambos"];
 const ACTIVE_STATUS = "ativo";
 const ALLOWED_STATUSES = ["ativo", "inativo", "apagado"];
@@ -74,10 +76,44 @@ function getPilaresPontuacao(desafio) {
   ];
 }
 
-function serializeDesafio(desafio) {
+function serializeQuizQuestion(question, includeCorrectAnswer = false, fallbackId = "0") {
+  const alternatives = Array.isArray(question && question.alternatives)
+    ? question.alternatives.map((alternative, index) => ({
+        id: alternative && (alternative.id || alternative._id) ? getEntityId(alternative) : String(index),
+        text: alternative && (alternative.text || alternative.texto),
+        texto: alternative && (alternative.text || alternative.texto),
+      }))
+    : [];
+  const questionId = question && (question.id || question._id);
+  const serialized = {
+    id: questionId ? getEntityId(question) : fallbackId,
+    prompt: question && (question.prompt || question.question || question.enunciado),
+    question: question && (question.prompt || question.question || question.enunciado),
+    enunciado: question && (question.prompt || question.question || question.enunciado),
+    alternatives,
+    alternativas: alternatives,
+  };
+
+  if (includeCorrectAnswer) {
+    serialized.correctAlternative = Number(question.correctAlternative);
+    serialized.alternativaCorreta = Number(question.correctAlternative);
+  }
+
+  return serialized;
+}
+
+function isQuizChallenge(desafio) {
+  return normalizeText(desafio && (desafio.challengeType || desafio.tipoDesafio)) === "quiz" || Boolean(desafio && desafio.quiz && desafio.quiz.questions);
+}
+
+function serializeDesafio(desafio, { includeQuizAnswers = false } = {}) {
   const pilares = getPilaresPontuacao(desafio);
   const points = Number(desafio.points || pilares.reduce((total, item) => total + Number(item.points || 0), 0));
   const primaryPilar = desafio.pilar || (pilares[0] && pilares[0].pilar);
+  const quiz = isQuizChallenge(desafio) ? desafio.quiz || {} : {};
+  const quizQuestions = Array.isArray(quiz.questions)
+    ? quiz.questions.map((question, index) => serializeQuizQuestion(question, includeQuizAnswers, String(index)))
+    : [];
 
   return {
     id: getEntityId(desafio),
@@ -100,6 +136,26 @@ function serializeDesafio(desafio) {
     maxParticipantes: desafio.maxParticipantes,
     recorrencia: desafio.recorrencia,
     status: getEffectiveChallengeStatus(desafio),
+    ...(isQuizChallenge(desafio)
+      ? {
+          challengeType: "quiz",
+          tipoDesafio: "quiz",
+          quiz: {
+            enabled: true,
+            questions: quizQuestions,
+            perguntas: quizQuestions,
+            questionCount: quizQuestions.length,
+            quantidadePerguntas: quizQuestions.length,
+            ...(includeQuizAnswers
+              ? {
+                  finalContentUrl: quiz.finalContentUrl || null,
+                  linkConteudoFinal: quiz.finalContentUrl || null,
+                }
+              : {}),
+          },
+          perguntas: quizQuestions,
+        }
+      : { challengeType: "standard", tipoDesafio: "standard" }),
   };
 }
 
@@ -152,6 +208,104 @@ function parseType(value) {
   const type = normalizeText(value);
   if (!ALLOWED_TYPES.includes(type)) throw createHttpError("Tipo deve ser individual, grupo ou ambos.", 400);
   return type;
+}
+
+function parseChallengeType(value, fallback = "standard") {
+  const normalized = normalizeText(value || fallback);
+  const aliases = {
+    questionario: "quiz",
+    questionário: "quiz",
+    perguntas: "quiz",
+    perguntas_respostas: "quiz",
+    "perguntas e respostas": "quiz",
+    "perguntas-e-respostas": "quiz",
+    tradicional: "standard",
+  };
+  const challengeType = aliases[normalized] || normalized;
+  if (!ALLOWED_CHALLENGE_TYPES.includes(challengeType)) {
+    throw createHttpError("Modalidade deve ser tradicional ou perguntas e respostas.", 400);
+  }
+  return challengeType;
+}
+
+function getQuizQuestionsPayload(payload = {}) {
+  const directValue = getFirstValue(payload, ["questions", "perguntas", "quizQuestions", "quizPerguntas"]);
+  if (directValue !== undefined) return directValue;
+  return payload.quiz && typeof payload.quiz === "object" ? getFirstValue(payload.quiz, ["questions", "perguntas"]) : undefined;
+}
+
+function hasQuizQuestionsPayload(payload = {}) {
+  return getQuizQuestionsPayload(payload) !== undefined;
+}
+
+function getQuizContentUrlPayload(payload = {}) {
+  const directValue = getFirstValue(payload, ["finalContentUrl", "linkConteudoFinal", "contentLink", "quizContentUrl"]);
+  if (directValue !== undefined) return directValue;
+  return payload.quiz && typeof payload.quiz === "object"
+    ? getFirstValue(payload.quiz, ["finalContentUrl", "linkConteudoFinal"])
+    : undefined;
+}
+
+function parseQuizQuestions(rawQuestions) {
+  if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+    throw createHttpError("Adicione ao menos uma pergunta ao questionário.", 400, { code: "VALIDATION_ERROR" });
+  }
+  if (rawQuestions.length > 50) {
+    throw createHttpError("O questionário pode ter no máximo 50 perguntas.", 400, { code: "VALIDATION_ERROR" });
+  }
+
+  return rawQuestions.map((question, questionIndex) => {
+    if (!question || typeof question !== "object") {
+      throw createHttpError(`A pergunta ${questionIndex + 1} é inválida.`, 400, { code: "VALIDATION_ERROR" });
+    }
+
+    const prompt = parseBoundedText(
+      getFirstValue(question, ["prompt", "question", "enunciado", "pergunta"]),
+      `Pergunta ${questionIndex + 1}`,
+      1000
+    );
+    const alternatives = getFirstValue(question, ["alternatives", "alternativas", "answers", "respostas"]);
+    if (!Array.isArray(alternatives) || alternatives.length !== 5) {
+      throw createHttpError(`A pergunta ${questionIndex + 1} deve ter exatamente 5 alternativas.`, 400, { code: "VALIDATION_ERROR" });
+    }
+
+    const parsedAlternatives = alternatives.map((alternative, alternativeIndex) =>
+      parseBoundedText(
+        typeof alternative === "object" ? getFirstValue(alternative, ["text", "texto", "answer", "resposta"]) : alternative,
+        `Alternativa ${alternativeIndex + 1} da pergunta ${questionIndex + 1}`,
+        500
+      )
+    );
+    const rawCorrectAlternative = getFirstValue(question, [
+      "correctAlternative",
+      "correctIndex",
+      "correctAnswer",
+      "alternativaCorreta",
+      "indiceCorreto",
+      "respostaCorreta",
+    ]);
+    const correctAlternative = Number(rawCorrectAlternative);
+    if (!Number.isInteger(correctAlternative) || correctAlternative < 0 || correctAlternative > 4) {
+      throw createHttpError(`Informe uma alternativa correta para a pergunta ${questionIndex + 1}.`, 400, { code: "VALIDATION_ERROR" });
+    }
+
+    const rawQuestionId = getFirstValue(question, ["id", "_id"]);
+    const questionId = rawQuestionId === undefined || rawQuestionId === null || rawQuestionId === ""
+      ? undefined
+      : parseObjectId(getEntityId(rawQuestionId), "Identificador de pergunta inválido.");
+    return {
+      ...(questionId ? { _id: questionId } : {}),
+      prompt,
+      alternatives: parsedAlternatives.map((text) => ({ text })),
+      correctAlternative,
+    };
+  });
+}
+
+function parseQuizContentUrl(value) {
+  const url = parseOptionalUrl(value, "Link do conteúdo final");
+  if (!url) throw createHttpError("Link do conteúdo final é obrigatório para questionários.", 400, { code: "VALIDATION_ERROR" });
+  return url;
 }
 
 function parsePoints(payload, difficulty, { required = false } = {}) {
@@ -406,13 +560,21 @@ async function assertActivePilar(pilarId) {
 
 async function createDesafio(authenticatedUserId, payload = {}) {
   await assertAdmin(authenticatedUserId, "Apenas professor ou admin pode cadastrar desafios.");
+  const challengeType = parseChallengeType(getFirstValue(payload, ["challengeType", "tipoDesafio", "format", "modalidadeDesafio"]));
+  const isQuiz = challengeType === "quiz";
   const difficulty = parseDifficulty(getFirstValue(payload, ["difficulty", "dificuldade"]), "facil");
   const pilares = await parsePilaresPontuacao(payload, difficulty, { required: true });
   const points = sumPilaresPoints(pilares);
-  const type = parseType(getFirstValue(payload, ["type", "tipo"]));
+  const type = isQuiz ? "individual" : parseType(getFirstValue(payload, ["type", "tipo"]));
   const title = parseBoundedText(payload.title || payload.titulo, "Título", 160);
   const description = parseBoundedText(payload.description || payload.descricao, "Descrição", 4000);
   const deliveryDate = parseRequiredDate(payload.deliveryDate || payload.dataEntrega || payload.data_entrega, "dataEntrega");
+  const quiz = isQuiz
+    ? {
+        questions: parseQuizQuestions(getQuizQuestionsPayload(payload)),
+        finalContentUrl: parseQuizContentUrl(getQuizContentUrlPayload(payload)),
+      }
+    : undefined;
 
   if (typeof Desafio.findOne === "function") {
     const duplicateQuery = Desafio.findOne({ title: new RegExp(`^${escapeRegex(title)}$`, "i"), status: { $ne: "apagado" } });
@@ -425,22 +587,28 @@ async function createDesafio(authenticatedUserId, payload = {}) {
     pilares,
     title,
     description,
+    challengeType,
+    quiz,
     deliveryDate,
     difficulty,
     points,
-    livePresentationPoints: parseNonNegativePoints(
-      payload,
-      ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
-      "pontosApresentacaoAoVivo"
-    ),
-    certificatePosted: parseBoolean(
-      getFirstValue(payload, ["certificatePosted", "certificadoPostado", "certificado_postado"]),
-      "certificatePosted",
-      false
-    ),
+    livePresentationPoints: isQuiz
+      ? 0
+      : parseNonNegativePoints(
+          payload,
+          ["livePresentationPoints", "pontosApresentacaoAoVivo", "pontos_apresentacao_ao_vivo", "presentationPoints"],
+          "pontosApresentacaoAoVivo"
+        ),
+    certificatePosted: isQuiz
+      ? false
+      : parseBoolean(
+          getFirstValue(payload, ["certificatePosted", "certificadoPostado", "certificado_postado"]),
+          "certificatePosted",
+          false
+        ),
     type,
-    maxParticipantes: parseMaxParticipantes(payload, type),
-    recorrencia: parseRecorrencia(payload),
+    maxParticipantes: isQuiz ? 1 : parseMaxParticipantes(payload, type),
+    recorrencia: isQuiz ? undefined : parseRecorrencia(payload),
     status: parseStatus(payload.status || payload.situacao),
   });
 
@@ -481,7 +649,7 @@ async function listDesafios(authenticatedUserId, query = {}) {
   return {
     total,
     pagination: buildPagination(total, page, limit),
-    desafios: desafios.map(serializeDesafio),
+    desafios: desafios.map((desafio) => serializeDesafio(desafio, { includeQuizAnswers: isAdmin })),
   };
 }
 
@@ -493,7 +661,7 @@ async function getDesafio(authenticatedUserId, desafioId) {
   if (!isAdminUser(user)) filters.status = ACTIVE_STATUS;
   const desafio = await Desafio.findOne(filters).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
-  return serializeDesafio(desafio);
+  return serializeDesafio(desafio, { includeQuizAnswers: isAdminUser(user) });
 }
 
 async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
@@ -502,6 +670,14 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   const currentDesafio = typeof Desafio.findById === "function" ? await Desafio.findById(id).lean() : null;
   if (typeof Desafio.findById === "function" && !currentDesafio) throw createHttpError("Desafio não encontrado.", 404);
   const updates = {};
+  const currentChallengeType = currentDesafio && isQuizChallenge(currentDesafio) ? "quiz" : "standard";
+  const challengeType = parseChallengeType(
+    getFirstValue(payload, ["challengeType", "tipoDesafio", "format", "modalidadeDesafio"]),
+    currentChallengeType
+  );
+  const isQuiz = challengeType === "quiz";
+
+  updates.challengeType = challengeType;
 
   if (payload.title !== undefined || payload.titulo !== undefined) updates.title = parseBoundedText(payload.title ?? payload.titulo, "Título", 160);
   if (payload.description !== undefined || payload.descricao !== undefined) updates.description = parseBoundedText(payload.description ?? payload.descricao, "Descrição", 4000);
@@ -512,7 +688,7 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
   ) {
     updates.deliveryDate = parseRequiredDate(payload.deliveryDate ?? payload.dataEntrega ?? payload.data_entrega, "dataEntrega");
   }
-  if (payload.type !== undefined || payload.tipo !== undefined) updates.type = parseType(payload.type ?? payload.tipo);
+  if (!isQuiz && (payload.type !== undefined || payload.tipo !== undefined)) updates.type = parseType(payload.type ?? payload.tipo);
   if (payload.difficulty !== undefined || payload.dificuldade !== undefined) updates.difficulty = parseDifficulty(payload.difficulty ?? payload.dificuldade);
 
   const difficulty = updates.difficulty || "facil";
@@ -529,10 +705,13 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
     if (payload.points !== undefined || payload.pontos !== undefined || updates.difficulty) updates.points = parsePoints(payload, difficulty);
   }
   if (
-    payload.livePresentationPoints !== undefined ||
-    payload.pontosApresentacaoAoVivo !== undefined ||
-    payload.pontos_apresentacao_ao_vivo !== undefined ||
-    payload.presentationPoints !== undefined
+    !isQuiz &&
+    (
+      payload.livePresentationPoints !== undefined ||
+      payload.pontosApresentacaoAoVivo !== undefined ||
+      payload.pontos_apresentacao_ao_vivo !== undefined ||
+      payload.presentationPoints !== undefined
+    )
   ) {
     updates.livePresentationPoints = parseNonNegativePoints(
       payload,
@@ -541,9 +720,11 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
     );
   }
   if (
+    !isQuiz && (
     Object.prototype.hasOwnProperty.call(payload, "certificatePosted") ||
     Object.prototype.hasOwnProperty.call(payload, "certificadoPostado") ||
     Object.prototype.hasOwnProperty.call(payload, "certificado_postado")
+    )
   ) {
     updates.certificatePosted = parseBoolean(
       getFirstValue(payload, ["certificatePosted", "certificadoPostado", "certificado_postado"]),
@@ -551,11 +732,32 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
       false
     );
   }
-  if (payload.maxParticipantes !== undefined || payload.max_participantes !== undefined || payload.maxParticipants !== undefined) {
+  if (!isQuiz && (payload.maxParticipantes !== undefined || payload.max_participantes !== undefined || payload.maxParticipants !== undefined)) {
     updates.maxParticipantes = parseMaxParticipantes(payload, updates.type || (currentDesafio && currentDesafio.type) || "grupo");
   }
-  if (hasRecorrenciaFields(payload)) updates.recorrencia = parseRecorrencia(payload);
+  if (!isQuiz && hasRecorrenciaFields(payload)) updates.recorrencia = parseRecorrencia(payload);
   if (payload.status !== undefined || payload.situacao !== undefined) updates.status = parseStatus(payload.status ?? payload.situacao);
+
+  if (isQuiz) {
+    const rawQuestions = hasQuizQuestionsPayload(payload)
+      ? getQuizQuestionsPayload(payload)
+      : currentDesafio && currentDesafio.quiz && currentDesafio.quiz.questions;
+    const rawContentUrl = getQuizContentUrlPayload(payload);
+    const finalContentUrl = rawContentUrl === undefined
+      ? currentDesafio && currentDesafio.quiz && currentDesafio.quiz.finalContentUrl
+      : rawContentUrl;
+    updates.quiz = {
+      questions: parseQuizQuestions(rawQuestions),
+      finalContentUrl: parseQuizContentUrl(finalContentUrl),
+    };
+    updates.type = "individual";
+    updates.maxParticipantes = 1;
+    updates.livePresentationPoints = 0;
+    updates.certificatePosted = false;
+    updates.recorrencia = undefined;
+  } else if (currentChallengeType === "quiz") {
+    updates.quiz = null;
+  }
 
   if (updates.title && typeof Desafio.findOne === "function") {
     const duplicateQuery = Desafio.findOne({ _id: { $ne: id }, title: new RegExp(`^${escapeRegex(updates.title)}$`, "i"), status: { $ne: "apagado" } });
@@ -575,7 +777,7 @@ async function updateDesafio(authenticatedUserId, desafioId, payload = {}) {
 
   const desafio = await Desafio.findByIdAndUpdate(id, updates, { new: true }).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
-  return serializeDesafio(desafio);
+  return serializeDesafio(desafio, { includeQuizAnswers: true });
 }
 
 async function disableDesafio(authenticatedUserId, desafioId) {

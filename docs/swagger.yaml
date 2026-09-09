@@ -414,6 +414,46 @@ paths:
           description: Aluno sem turma ativa, desafio inativo ou prazo de inscrição encerrado
         "409":
           description: Aluno já inscrito no desafio
+  /api/desafios/:id/questionario:
+    get:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Retorna o estado do questionário sem expor as respostas corretas
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Perguntas e progresso do aluno retornados
+        "400":
+          description: Questionário encerrado ou aluno sem turma ativa
+  /api/desafios/:id/questionario/respostas:
+    post:
+      tags: [Desafios]
+      security:
+        - bearerAuth: []
+      summary: Registra uma resposta e libera a próxima pergunta somente após acerto
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionId, alternativeIndex]
+              properties:
+                questionId:
+                  type: string
+                alternativeIndex:
+                  type: integer
+                  minimum: 0
+                  maximum: 4
+      responses:
+        "200":
+          description: Resultado da resposta e progresso atualizado
+        "409":
+          description: A pergunta respondida não é a pergunta atual
   /api/envios-desafios:
     post:
       tags: [Envios]
