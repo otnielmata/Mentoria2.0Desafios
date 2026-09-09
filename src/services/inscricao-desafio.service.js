@@ -356,6 +356,21 @@ async function cancelSubscription(authenticatedUserId, inscricaoId) {
   const inscricao = await InscricaoDesafio.findOne({ _id: id, aluno: authenticatedUserId, status: SUBSCRIPTION_STATUS });
   if (!inscricao) throw createHttpError("Inscrição ativa não encontrada.", 404, { code: "SUBSCRIPTION_NOT_FOUND" });
 
+  const submissionFilter = {
+    desafio: getEntityId(inscricao.desafio),
+    status: { $ne: "cancelado" },
+    $or: [{ aluno: authenticatedUserId }, { participantes: authenticatedUserId }],
+  };
+  const inscricaoGrupoId = getEntityId(inscricao.grupo);
+  if (inscricaoGrupoId) submissionFilter.$or.push({ grupo: inscricaoGrupoId });
+  const submissionQuery = EnvioDesafio.findOne(submissionFilter);
+  const existingSubmission = submissionQuery && typeof submissionQuery.lean === "function" ? await submissionQuery.lean() : await submissionQuery;
+  if (existingSubmission) {
+    throw createHttpError("Não é possível cancelar a inscrição depois que o desafio foi entregue.", 400, {
+      code: "SUBSCRIPTION_CANCEL_BLOCKED_AFTER_SUBMISSION",
+    });
+  }
+
   inscricao.status = "cancelado";
   inscricao.canceledAt = new Date();
   await inscricao.save();

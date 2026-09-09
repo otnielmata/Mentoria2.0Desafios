@@ -3936,6 +3936,17 @@ function StudentChallengesView({ apiClient }) {
     return getEntityId((envio && envio.grupoId) || (envio && envio.grupo));
   }
 
+  function findEnvioForDesafio(desafio) {
+    const desafioId = getEntityId(desafio);
+    return (
+      envios.find(
+        (envio) =>
+          getEntityId((envio && envio.desafioId) || (envio && envio.desafio)) === desafioId &&
+          String(envio.status || "").toLowerCase() !== "cancelado"
+      ) || null
+    );
+  }
+
   function findEnvioForInscricao(inscricao) {
     const grupoId = getInscricaoGroupId(inscricao);
     if (!grupoId) return null;
@@ -4092,6 +4103,9 @@ function StudentChallengesView({ apiClient }) {
               const isSubscribed = subscriptionState.isSubscribed;
               const subscriptionMode = subscriptionState.modalidade;
               const participantNames = getGroupParticipantNames(inscricao);
+              const desafioEnvio = findEnvioForDesafio(desafio);
+              const quizRespondido = quizChallenge && Boolean(desafioEnvio);
+              const desafioTradicionalEntregue = !quizChallenge && Boolean(desafioEnvio);
               return (
                 <tr key={desafio.id}>
                   <td>
@@ -4111,9 +4125,14 @@ function StudentChallengesView({ apiClient }) {
                   <td>
                     <div className="actions table-actions">
                       {quizChallenge ? (
-                        <button className="button secondary with-icon" type="button" disabled={quizLoading} onClick={() => openQuiz(desafio)}>
+                        <button
+                          className={`button secondary with-icon${quizRespondido ? " quiz-responded" : ""}`}
+                          type="button"
+                          disabled={quizLoading}
+                          onClick={() => openQuiz(desafio)}
+                        >
                           <ButtonIcon name="quiz" />
-                          Responder agora
+                          {quizRespondido ? "Respondido" : "Responder agora"}
                         </button>
                       ) : null}
                       {!quizChallenge && subscriptionState.showNormal ? (
@@ -4128,7 +4147,7 @@ function StudentChallengesView({ apiClient }) {
                           {isSubscribed ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
                         </button>
                       ) : null}
-                      {!quizChallenge && isSubscribed ? (
+                      {!quizChallenge && isSubscribed && !desafioTradicionalEntregue ? (
                         <button className="button ghost with-icon" type="button" disabled={subscribingId === desafio.id} onClick={() => cancelSubscription(inscricao)}>
                           <ButtonIcon name="unsubscribe" />
                           Cancelar inscrição

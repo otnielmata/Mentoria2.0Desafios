@@ -7,6 +7,10 @@ jest.mock("../../src/models/desafio.model", () => ({
   updateMany: jest.fn(),
 }));
 
+jest.mock("../../src/models/envio-desafio.model", () => ({
+  findOne: jest.fn(),
+}));
+
 jest.mock("../../src/models/grupo-desafio.model", () => ({
   create: jest.fn(),
   find: jest.fn(),
@@ -30,11 +34,12 @@ jest.mock("../../src/models/user.model", () => ({
 
 const AlunoTurma = require("../../src/models/aluno-turma.model");
 const Desafio = require("../../src/models/desafio.model");
+const EnvioDesafio = require("../../src/models/envio-desafio.model");
 const GrupoDesafio = require("../../src/models/grupo-desafio.model");
 const InscricaoDesafio = require("../../src/models/inscricao-desafio.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { listMySubscriptions, subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
+const { cancelSubscription, listMySubscriptions, subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
 
 const STUDENT_ID = "6814f12ab3f34872f7558f40";
 const DESAFIO_ID = "6814f12ab3f34872f7558f41";
@@ -72,6 +77,7 @@ describe("inscricao-desafio.service", () => {
     Turma.findById.mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: TURMA_ID, status: "ativa" }) });
     mockLeanChain(Desafio.findById, desafioPayload());
     InscricaoDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue(null) });
+    EnvioDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue(null) });
     Desafio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 0 });
   });
 
@@ -204,6 +210,25 @@ describe("inscricao-desafio.service", () => {
       statusCode: 409,
       code: "CHALLENGE_ALREADY_SUBSCRIBED",
     });
+  });
+
+  it("impede cancelar a inscrição depois que o aluno entrega o desafio", async () => {
+    const inscricaoDocument = {
+      _id: INSCRICAO_ID,
+      desafio: DESAFIO_ID,
+      aluno: STUDENT_ID,
+      grupo: GRUPO_ID,
+      status: "inscrito",
+      save: jest.fn(),
+    };
+    InscricaoDesafio.findOne.mockReturnValue(inscricaoDocument);
+    EnvioDesafio.findOne.mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: "6814f12ab3f34872f7558f46" }) });
+
+    await expect(cancelSubscription(STUDENT_ID, INSCRICAO_ID)).rejects.toMatchObject({
+      statusCode: 400,
+      code: "SUBSCRIPTION_CANCEL_BLOCKED_AFTER_SUBMISSION",
+    });
+    expect(inscricaoDocument.save).not.toHaveBeenCalled();
   });
 
   it("lista para envio somente inscrições vinculadas a desafios ativos", async () => {

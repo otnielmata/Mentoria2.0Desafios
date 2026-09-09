@@ -275,6 +275,13 @@ h3 {
   background: var(--surface-soft);
 }
 
+.button.quiz-responded,
+.button.quiz-responded:hover {
+  border-color: color-mix(in srgb, var(--success) 60%, var(--line));
+  background: color-mix(in srgb, var(--success) 12%, var(--surface));
+  color: var(--success);
+}
+
 .button.secondary.active {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
