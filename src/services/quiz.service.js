@@ -251,7 +251,8 @@ async function getActiveQuizChallenge(desafioId) {
 }
 
 async function getOrCreateAttempt(desafio, studentId, turmaId) {
-  let attempt = await resolveQuery(QuizAttempt.findOne({ desafio: getEntityId(desafio), aluno: studentId }));
+  // A tentativa precisa ser um documento Mongoose para que o avanço de pergunta seja salvo.
+  let attempt = await QuizAttempt.findOne({ desafio: getEntityId(desafio), aluno: studentId });
   if (attempt) return attempt;
 
   try {
@@ -265,7 +266,7 @@ async function getOrCreateAttempt(desafio, studentId, turmaId) {
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
-    attempt = await resolveQuery(QuizAttempt.findOne({ desafio: getEntityId(desafio), aluno: studentId }));
+    attempt = await QuizAttempt.findOne({ desafio: getEntityId(desafio), aluno: studentId });
   }
   if (!attempt) throw createHttpError("Não foi possível iniciar o questionário.", 500);
   return attempt;

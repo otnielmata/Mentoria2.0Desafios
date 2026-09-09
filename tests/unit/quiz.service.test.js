@@ -72,6 +72,14 @@ function queryFor(value) {
   };
 }
 
+function documentQueryFor(value) {
+  const leanValue = { ...value, answers: Array.isArray(value.answers) ? [...value.answers] : value.answers };
+  delete leanValue.save;
+  const query = queryFor(leanValue);
+  query.then = (resolve, reject) => Promise.resolve(value).then(resolve, reject);
+  return query;
+}
+
 function buildChallenge() {
   return {
     _id: CHALLENGE_ID,
@@ -131,7 +139,7 @@ describe("quiz.service", () => {
     Turma.findById.mockReturnValue(queryFor({ _id: TURMA_ID, status: "ativa" }));
     Desafio.findById.mockReturnValue(queryFor(desafio));
     Desafio.updateMany.mockResolvedValue({ acknowledged: true });
-    QuizAttempt.findOne.mockResolvedValue(tentativa);
+    QuizAttempt.findOne.mockImplementation(() => documentQueryFor(tentativa));
     QuizAttempt.create.mockResolvedValue(tentativa);
     EnvioDesafio.findOne.mockReturnValue(queryFor(null));
     EnvioDesafio.create.mockResolvedValue(envio);
