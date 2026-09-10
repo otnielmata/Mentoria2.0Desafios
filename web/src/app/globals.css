@@ -1264,6 +1264,10 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .metrics.metrics-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .quiz-alternative-row {
     grid-template-columns: 1fr;
   }
@@ -1453,6 +1457,22 @@ h3 {
 
   .checklist-delete-button {
     font-size: 13px;
+  }
+
+  .student-metrics .metric > .muted {
+    font-size: 14px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .student-metrics .metric > strong {
+    font-size: 24px;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  .student-metrics-label-extra {
+    display: none;
   }
 }
 

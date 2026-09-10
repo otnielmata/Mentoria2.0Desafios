@@ -1196,7 +1196,7 @@ function HomeView({ apiClient, user }) {
           <strong>{formatNumber(totalDesafios)}</strong>
         </div>
         <div className="metric">
-          <span className="muted">Cupons conquistados</span>
+          <span className="muted">Cupons <span className="student-metrics-label-extra">conquistados</span></span>
           <strong>{formatNumber(cupons.totalCupons)}</strong>
         </div>
       </section>
