@@ -1090,6 +1090,7 @@ paths:
       security:
         - bearerAuth: []
       summary: Cadastra evento ao vivo, módulo gravado ou convidado especial
+      description: Informe `startAt` e `durationMinutes` (tempo de estudo em minutos). A API calcula `endAt` somando a duração ao início. O campo `endAt` continua aceito para compatibilidade com registros antigos.
       responses:
         "201":
           description: Evento cadastrado
@@ -1109,6 +1110,7 @@ paths:
       security:
         - bearerAuth: []
       summary: Edita evento ao vivo
+      description: Informe `startAt` e `durationMinutes` para recalcular automaticamente o término. O campo `endAt` continua aceito para compatibilidade.
       parameters:
         - $ref: "#/components/parameters/id"
       responses:
@@ -1147,6 +1149,7 @@ paths:
       security:
         - bearerAuth: []
       summary: Cadastra item pessoal do plano de estudo
+      description: Informe `startAt` e `durationMinutes` (tempo de estudo em minutos). A API calcula `endAt` somando a duração ao início. O campo `endAt` continua aceito para compatibilidade com registros antigos.
       responses:
         "201":
           description: Item cadastrado
@@ -1156,6 +1159,7 @@ paths:
       security:
         - bearerAuth: []
       summary: Edita item pessoal do plano de estudo
+      description: Informe `startAt` e `durationMinutes` para recalcular automaticamente o término. O campo `endAt` continua aceito para compatibilidade.
       parameters:
         - $ref: "#/components/parameters/id"
       responses:

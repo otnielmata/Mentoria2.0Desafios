@@ -4,7 +4,9 @@ const User = require("../models/user.model");
 const {
   buildPagination,
   createHttpError,
+  addMinutesToDate,
   getEntityId,
+  getDurationMinutes,
   getFirstValue,
   normalizeText,
   omitUndefined,
@@ -16,6 +18,7 @@ const {
   parsePagination,
   parsePeriod,
   parseRequiredText,
+  parseStudyDurationMinutes,
   toIsoDate,
 } = require("./domain-utils");
 
@@ -48,6 +51,8 @@ function serializeEvento(evento) {
     dataInicio: toIsoDate(evento.startAt),
     endAt: toIsoDate(evento.endAt),
     dataFim: toIsoDate(evento.endAt),
+    durationMinutes: getDurationMinutes(evento.startAt, evento.endAt),
+    tempoEstudoMinutos: getDurationMinutes(evento.startAt, evento.endAt),
     type: evento.type,
     tipo: evento.type,
     turma: serializeTurmaRef(evento.turma),
@@ -168,7 +173,11 @@ async function createEvento(authenticatedUserId, payload = {}) {
   const startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");
   if (!startAt) throw createHttpError("dataInicio é obrigatória.", 400);
   assertFutureStartDate(startAt);
-  const endAt = parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim");
+  const durationValue = getFirstValue(payload, ["durationMinutes", "tempoEstudoMinutos", "duracaoMinutos", "tempoEstudo"]);
+  const durationMinutes = parseStudyDurationMinutes(durationValue);
+  const endAt = durationMinutes === undefined
+    ? parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim")
+    : addMinutesToDate(startAt, durationMinutes);
   assertValidPeriod(startAt, endAt);
 
   const evento = await EventoAoVivo.create({
@@ -274,7 +283,11 @@ async function updateEvento(authenticatedUserId, eventoId, payload = {}) {
     update.startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");
     assertFutureStartDate(update.startAt);
   }
-  if (hasPayloadField(payload, ["endAt", "dataFim", "endDate"])) {
+  const durationValue = getFirstValue(payload, ["durationMinutes", "tempoEstudoMinutos", "duracaoMinutos", "tempoEstudo"]);
+  if (durationValue !== undefined) {
+    const durationMinutes = parseStudyDurationMinutes(durationValue);
+    update.endAt = addMinutesToDate(update.startAt || evento.startAt, durationMinutes);
+  } else if (hasPayloadField(payload, ["endAt", "dataFim", "endDate"])) {
     update.endAt = parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim");
   }
   if (hasPayloadField(payload, ["type", "tipo"])) {

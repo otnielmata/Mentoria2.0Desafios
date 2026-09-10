@@ -5,6 +5,7 @@ const {
   buildWeeklyStudyQuery,
   buildWeeklyStudySessions,
   canToggleChecklistItem,
+  calculateEndAtFromDuration,
   formatDateTimeInputValue,
   getDateKeyFromDateTimeInput,
   getCurrentMonthRef,
@@ -75,6 +76,12 @@ describe("plano-estudo.view", () => {
     expect(getDateKeyFromDateTimeInput(inputValue)).toBe("2026-06-23");
   });
 
+  it("calcula o fim a partir do início e do tempo em minutos", () => {
+    const startAt = toIsoFromDateTimeInput("2026-06-23T19:00");
+
+    expect(formatDateTimeInputValue(calculateEndAtFromDuration(startAt, 90))).toBe("2026-06-23T20:30");
+  });
+
   it("monta a janela da semana a partir da data informada", () => {
     const result = buildWeeklyStudyQuery("2026-06-23T19:00:00.000Z");
 
@@ -88,7 +95,7 @@ describe("plano-estudo.view", () => {
   it("replica a semana pulando os dias com evento ao vivo", () => {
     const sessions = buildWeeklyStudySessions({
       startAt: "2026-06-23T19:00:00.000Z",
-      endAt: "2026-06-23T20:00:00.000Z",
+      durationMinutes: 90,
       liveEvents: [
         {
           id: "live-1",

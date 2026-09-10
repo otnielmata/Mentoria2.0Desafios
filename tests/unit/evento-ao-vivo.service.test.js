@@ -81,7 +81,7 @@ describe("evento-ao-vivo.service", () => {
       title: "Lógica e Programação",
       turmaId: TURMA_ID,
       startAt: "2099-06-23T19:00:00.000Z",
-      endAt: "2099-06-23T21:00:00.000Z",
+      durationMinutes: 90,
       type: "ao_vivo",
       weekNumber: 4,
     });
@@ -92,6 +92,8 @@ describe("evento-ao-vivo.service", () => {
         turma: TURMA_ID,
         type: "ao_vivo",
         weekNumber: 4,
+        startAt: new Date("2099-06-23T19:00:00.000Z"),
+        endAt: new Date("2099-06-23T20:30:00.000Z"),
       })
     );
     expect(result).toMatchObject({
@@ -191,9 +193,16 @@ describe("evento-ao-vivo.service", () => {
     const result = await updateEvento(ADMIN_ID, EVENTO_ID, {
       title: "Preparatório p/ Entrevistas",
       guestName: "Matheus Leão",
+      durationMinutes: 90,
     });
 
-    expect(EventoAoVivo.updateOne).toHaveBeenCalled();
+    expect(EventoAoVivo.updateOne).toHaveBeenCalledWith(
+      { _id: EVENTO_ID },
+      expect.objectContaining({
+        title: "Preparatório p/ Entrevistas",
+        endAt: new Date("2026-06-23T20:30:00.000Z"),
+      })
+    );
     expect(result.title).toBe("Lógica e Programação");
   });
 

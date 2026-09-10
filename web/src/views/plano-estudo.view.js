@@ -235,7 +235,17 @@ function getStudyDurationMinutes(startAt, endAt) {
     return 90;
   }
 
-  return Math.max(90, differenceMinutes);
+  return differenceMinutes;
+}
+
+function calculateEndAtFromDuration(startAt, durationMinutes) {
+  const startDate = new Date(startAt);
+  const duration = Number(durationMinutes);
+  if (Number.isNaN(startDate.getTime()) || !Number.isInteger(duration) || duration < 1) {
+    return undefined;
+  }
+
+  return new Date(startDate.getTime() + duration * 60000).toISOString();
 }
 
 function hasLiveMentoriaEvent(event = {}) {
@@ -244,13 +254,15 @@ function hasLiveMentoriaEvent(event = {}) {
   return source === "mentoria" && type === "ao_vivo";
 }
 
-function buildWeeklyStudySessions({ startAt, endAt, liveEvents = [] }) {
+function buildWeeklyStudySessions({ startAt, endAt, durationMinutes, liveEvents = [] }) {
   const referenceDate = new Date(startAt);
   if (Number.isNaN(referenceDate.getTime())) {
     return [];
   }
 
-  const durationMinutes = getStudyDurationMinutes(startAt, endAt);
+  const sessionDurationMinutes = Number.isInteger(Number(durationMinutes)) && Number(durationMinutes) > 0
+    ? Number(durationMinutes)
+    : getStudyDurationMinutes(startAt, endAt);
   const rangeStart = startOfDay(referenceDate);
   const scoreWindowStartKey = toDateKey(rangeStart);
   const blockedDays = new Set(liveEvents.filter(hasLiveMentoriaEvent).map((event) => toDateKey(event.startAt || event.dataInicio)));
@@ -267,7 +279,7 @@ function buildWeeklyStudySessions({ startAt, endAt, liveEvents = [] }) {
     const sessionStart = new Date(day);
     sessionStart.setHours(sessionHours, sessionMinutes, 0, 0);
 
-    const sessionEnd = new Date(sessionStart.getTime() + durationMinutes * 60000);
+    const sessionEnd = new Date(sessionStart.getTime() + sessionDurationMinutes * 60000);
 
     return {
       dateKey: dayKey,
@@ -439,6 +451,7 @@ module.exports = {
   buildChecklistSummaryViewModel,
   buildWeeklyStudyQuery,
   buildWeeklyStudySessions,
+  calculateEndAtFromDuration,
   formatCalendarDate,
   formatDateTimeInputValue,
   formatMonthLabel,
@@ -446,6 +459,7 @@ module.exports = {
   getChecklistPointsForDelay,
   getCurrentMonthRef,
   getDateKeyFromDateTimeInput,
+  getStudyDurationMinutes,
   groupEventsByDay,
   groupChecklistItemsByDate,
   normalizeChecklistItem,

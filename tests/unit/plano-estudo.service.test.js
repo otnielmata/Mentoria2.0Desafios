@@ -113,13 +113,15 @@ describe("plano-estudo.service", () => {
       title: "Revisar testes",
       notes: "Capítulo 3",
       startAt: "2026-06-24T10:00:00.000Z",
-      endAt: "2026-06-24T11:00:00.000Z",
+      durationMinutes: 90,
     });
 
     expect(PlanoEstudoItem.create).toHaveBeenCalledWith(
       expect.objectContaining({
         aluno: STUDENT_ID,
         title: "Revisar testes",
+        startAt: new Date("2026-06-24T10:00:00.000Z"),
+        endAt: new Date("2026-06-24T11:30:00.000Z"),
       })
     );
     expect(result).toMatchObject({
@@ -166,9 +168,18 @@ describe("plano-estudo.service", () => {
     });
     PlanoEstudoItem.updateOne.mockResolvedValue({});
 
-    const result = await updateItem(STUDENT_ID, ITEM_ID, { title: "Revisar Cypress" });
+    const result = await updateItem(STUDENT_ID, ITEM_ID, {
+      title: "Revisar Cypress",
+      durationMinutes: 90,
+    });
 
-    expect(PlanoEstudoItem.updateOne).toHaveBeenCalled();
+    expect(PlanoEstudoItem.updateOne).toHaveBeenCalledWith(
+      { _id: ITEM_ID },
+      expect.objectContaining({
+        title: "Revisar Cypress",
+        endAt: new Date("2026-06-24T11:30:00.000Z"),
+      })
+    );
     expect(result.title).toBe("Revisar testes");
     expect(syncCouponsForStudents).toHaveBeenCalledWith([STUDENT_ID], {
       occurredAt: expect.any(Date),

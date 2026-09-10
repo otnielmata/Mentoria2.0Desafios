@@ -5,7 +5,10 @@ const eventoAoVivoService = require("./evento-ao-vivo.service");
 const {
   buildPagination,
   createHttpError,
+  addMinutesToDate,
   getEntityId,
+  getDurationMinutes,
+  getFirstValue,
   normalizeText,
   omitUndefined,
   parseBoundedText,
@@ -13,6 +16,7 @@ const {
   parseOptionalText,
   parsePagination,
   parseRequiredText,
+  parseStudyDurationMinutes,
   toIsoDate,
 } = require("./domain-utils");
 
@@ -305,6 +309,8 @@ function serializeItem(item) {
     dataInicio: toIsoDate(item.startAt),
     endAt: toIsoDate(item.endAt),
     dataFim: toIsoDate(item.endAt),
+    durationMinutes: getDurationMinutes(item.startAt, item.endAt),
+    tempoEstudoMinutos: getDurationMinutes(item.startAt, item.endAt),
     plannedDateKey,
     dataPlanejada: plannedDateKey,
     scoreWindowStartKey,
@@ -349,7 +355,11 @@ async function createItem(authenticatedUserId, payload = {}) {
 
   const startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");
   if (!startAt) throw createHttpError("dataInicio é obrigatória.", 400);
-  const endAt = parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim");
+  const durationValue = getFirstValue(payload, ["durationMinutes", "tempoEstudoMinutos", "duracaoMinutos", "tempoEstudo"]);
+  const durationMinutes = parseStudyDurationMinutes(durationValue);
+  const endAt = durationMinutes === undefined
+    ? parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim")
+    : addMinutesToDate(startAt, durationMinutes);
   const plannedDateKey = resolvePlannedDateKey(payload, startAt);
   const explicitScoreWindowStartKey = getExplicitScoreWindowStartKey(payload);
   const existingScoreWindowStartKey = await findExistingScoreWindowStartKey(authenticatedUserId, plannedDateKey);
@@ -415,7 +425,11 @@ async function updateItem(authenticatedUserId, itemId, payload = {}) {
   if (hasPayloadField(payload, ["startAt", "dataInicio", "startDate"])) {
     update.startAt = parseDateField(payload.startAt || payload.dataInicio || payload.startDate, "dataInicio");
   }
-  if (hasPayloadField(payload, ["endAt", "dataFim", "endDate"])) {
+  const durationValue = getFirstValue(payload, ["durationMinutes", "tempoEstudoMinutos", "duracaoMinutos", "tempoEstudo"]);
+  if (durationValue !== undefined) {
+    const durationMinutes = parseStudyDurationMinutes(durationValue);
+    update.endAt = addMinutesToDate(update.startAt || item.startAt, durationMinutes);
+  } else if (hasPayloadField(payload, ["endAt", "dataFim", "endDate"])) {
     update.endAt = parseDateField(payload.endAt || payload.dataFim || payload.endDate, "dataFim");
   }
   const nextPlannedDateKey = hasPayloadField(payload, ["plannedDateKey", "dataPlanejada"]) || update.startAt

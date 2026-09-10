@@ -13,6 +13,7 @@ const MAX_DESCRIPTION_LENGTH = 4000;
 const MAX_SHORT_TEXT_LENGTH = 255;
 const MAX_URL_LENGTH = 2048;
 const MAX_POINTS = 1000000;
+const MAX_STUDY_DURATION_MINUTES = 1440;
 
 function createHttpError(message, statusCode = 500, options = {}) {
   const error = new Error(message);
@@ -210,6 +211,35 @@ function parseOptionalText(value, fieldName) {
   return value.trim();
 }
 
+function parseStudyDurationMinutes(value, fieldName = "Tempo de estudo em minutos") {
+  if (value === undefined) return undefined;
+
+  const duration = Number(value);
+  if (!Number.isInteger(duration) || duration < 1 || duration > MAX_STUDY_DURATION_MINUTES) {
+    throw createHttpError(`${fieldName} deve ser um número inteiro entre 1 e ${MAX_STUDY_DURATION_MINUTES}.`, 400, {
+      code: "VALIDATION_ERROR",
+      details: [{ field: "durationMinutes", message: `${fieldName} deve estar entre 1 e ${MAX_STUDY_DURATION_MINUTES} minutos.` }],
+    });
+  }
+
+  return duration;
+}
+
+function addMinutesToDate(date, minutes) {
+  if (!(date instanceof Date) || !Number.isInteger(minutes)) return date;
+  return new Date(date.getTime() + minutes * 60000);
+}
+
+function getDurationMinutes(startAt, endAt) {
+  if (!startAt || !endAt) return null;
+  const start = startAt instanceof Date ? startAt : new Date(startAt);
+  const end = endAt instanceof Date ? endAt : new Date(endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+
+  const duration = Math.round((end.getTime() - start.getTime()) / 60000);
+  return duration > 0 ? duration : null;
+}
+
 function parseDate(value, message) {
   if (!value) {
     return undefined;
@@ -280,13 +310,16 @@ module.exports = {
   MAX_PERSON_NAME_LENGTH,
   MAX_POINTS,
   MAX_SHORT_TEXT_LENGTH,
+  MAX_STUDY_DURATION_MINUTES,
   MAX_TITLE_LENGTH,
   MAX_URL_LENGTH,
   assertObjectPayload,
+  addMinutesToDate,
   buildPagination,
   createHttpError,
   getEntityId,
   getFirstValue,
+  getDurationMinutes,
   hasOwn,
   normalizeName,
   normalizeText,
@@ -303,6 +336,7 @@ module.exports = {
   parsePersonName,
   parsePeriod,
   parseRequiredText,
+  parseStudyDurationMinutes,
   pointsForDifficulty,
   toIsoDate,
 };

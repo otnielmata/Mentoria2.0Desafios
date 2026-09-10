@@ -20,12 +20,14 @@ const {
   buildChecklistSummaryViewModel,
   buildWeeklyStudyQuery,
   buildWeeklyStudySessions,
+  calculateEndAtFromDuration,
   canToggleChecklistItem,
   formatCalendarDate,
   formatDateTimeInputValue,
   formatTime,
   getDateKeyFromDateTimeInput,
   getCurrentMonthRef,
+  getStudyDurationMinutes,
   shiftMonth,
   toDateKey,
   toIsoFromDateTimeInput,
@@ -4922,9 +4924,9 @@ function StudentPlanoEstudoView({ apiClient }) {
     const title = data.get("title");
     const notes = data.get("notes") || undefined;
     const startAtInput = String(data.get("startAt") || "");
-    const endAtInput = String(data.get("endAt") || "");
     const startAt = toIsoFromDateTimeInput(startAtInput);
-    const endAt = toIsoFromDateTimeInput(endAtInput) || undefined;
+    const durationMinutes = Number(data.get("durationMinutes"));
+    const endAt = calculateEndAtFromDuration(startAt, durationMinutes);
     const plannedDateKey = getDateKeyFromDateTimeInput(startAtInput);
     const color = data.get("color") || undefined;
     const shouldReplicateWeek = data.get("replicateWeek") === "on";
@@ -4942,7 +4944,7 @@ function StudentPlanoEstudoView({ apiClient }) {
           : { eventos: [] };
         const sessions = buildWeeklyStudySessions({
           startAt,
-          endAt,
+          durationMinutes,
           liveEvents: getArray(liveEventsResult, "eventos"),
         });
 
@@ -4956,6 +4958,7 @@ function StudentPlanoEstudoView({ apiClient }) {
                   notes,
                   startAt: session.startAt,
                   endAt: session.endAt,
+                  durationMinutes,
                   plannedDateKey: session.plannedDateKey,
                   scoreWindowStartKey: session.scoreWindowStartKey,
                   color,
@@ -4980,6 +4983,7 @@ function StudentPlanoEstudoView({ apiClient }) {
               notes,
               startAt,
               endAt,
+              durationMinutes,
               plannedDateKey,
               color,
             },
@@ -5004,14 +5008,18 @@ function StudentPlanoEstudoView({ apiClient }) {
     setFeedback("");
     setError("");
     try {
+      const startAt = toIsoFromDateTimeInput(data.get("editStartAt"));
+      const durationMinutes = Number(data.get("editDurationMinutes"));
+      const endAt = calculateEndAtFromDuration(startAt, durationMinutes);
       await apiClient.request(
         { method: "PATCH", path: `/plano-estudo/itens/${editingItem.id}` },
         {
           body: {
             title: data.get("editTitle"),
             notes: data.get("editNotes") || undefined,
-            startAt: toIsoFromDateTimeInput(data.get("editStartAt")),
-            endAt: toIsoFromDateTimeInput(data.get("editEndAt")) || undefined,
+            startAt,
+            endAt,
+            durationMinutes,
             color: data.get("editColor") || undefined,
           },
         }
@@ -5165,8 +5173,8 @@ function StudentPlanoEstudoView({ apiClient }) {
               <input defaultValue={formatDateTimeInputValue(editingItem.startAt)} name="editStartAt" required type="datetime-local" />
             </label>
             <label className="field">
-              <span>Fim</span>
-              <input defaultValue={formatDateTimeInputValue(editingItem.endAt)} name="editEndAt" type="datetime-local" />
+              <span>Tempo de estudo (minutos)</span>
+              <input defaultValue={getStudyDurationMinutes(editingItem.startAt, editingItem.endAt)} min="1" max="1440" name="editDurationMinutes" required type="number" />
             </label>
             <label className="field span-2">
               <span>Observações</span>
@@ -5204,8 +5212,8 @@ function StudentPlanoEstudoView({ apiClient }) {
             />
           </label>
           <label className="field">
-            <span>Fim</span>
-            <input min="2026-01-01T00:00" name="endAt" type="datetime-local" />
+            <span>Tempo de estudo (minutos)</span>
+            <input defaultValue="90" min="1" max="1440" name="durationMinutes" required type="number" />
           </label>
           <label className="field span-2">
             <span>Observações</span>
@@ -5213,7 +5221,7 @@ function StudentPlanoEstudoView({ apiClient }) {
           </label>
           <label className="checkbox-field span-2">
             <input name="replicateWeek" type="checkbox" />
-            <span>Planejar a semana inteira com conteúdos gravados, replicando 90 min por dia apenas nos próximos 7 dias sem evento ao vivo.</span>
+            <span>Planejar a semana inteira com conteúdos gravados, replicando o tempo informado por dia apenas nos próximos 7 dias sem evento ao vivo.</span>
           </label>
           <label className="field">
             <span>Cor</span>
@@ -5301,6 +5309,9 @@ function AdminPlanoEstudoView({ apiClient }) {
     setError("");
     setCreating(true);
     try {
+      const startAt = toIsoFromDateTimeInput(data.get("startAt"));
+      const durationMinutes = Number(data.get("durationMinutes"));
+      const endAt = calculateEndAtFromDuration(startAt, durationMinutes);
       await apiClient.request(
         { method: "POST", path: "/eventos-ao-vivo" },
         {
@@ -5309,8 +5320,9 @@ function AdminPlanoEstudoView({ apiClient }) {
             description: data.get("description") || undefined,
             turmaId: data.get("turmaId"),
             type: data.get("type"),
-            startAt: toIsoFromDateTimeInput(data.get("startAt")),
-            endAt: toIsoFromDateTimeInput(data.get("endAt")) || undefined,
+            startAt,
+            endAt,
+            durationMinutes,
             guestName: data.get("guestName") || undefined,
             weekNumber: data.get("weekNumber") ? Number(data.get("weekNumber")) : undefined,
             link: data.get("link") || undefined,
@@ -5335,6 +5347,9 @@ function AdminPlanoEstudoView({ apiClient }) {
     setFeedback("");
     setError("");
     try {
+      const startAt = toIsoFromDateTimeInput(data.get("editStartAt"));
+      const durationMinutes = Number(data.get("editDurationMinutes"));
+      const endAt = calculateEndAtFromDuration(startAt, durationMinutes);
       await apiClient.request(
         { method: "PATCH", path: `/eventos-ao-vivo/${editingEvent.id}` },
         {
@@ -5343,8 +5358,9 @@ function AdminPlanoEstudoView({ apiClient }) {
             description: data.get("editDescription") || undefined,
             turmaId: data.get("editTurmaId"),
             type: data.get("editType"),
-            startAt: toIsoFromDateTimeInput(data.get("editStartAt")),
-            endAt: toIsoFromDateTimeInput(data.get("editEndAt")) || undefined,
+            startAt,
+            endAt,
+            durationMinutes,
             guestName: data.get("editGuestName") || undefined,
             weekNumber: data.get("editWeekNumber") ? Number(data.get("editWeekNumber")) : undefined,
             link: data.get("editLink") || undefined,
@@ -5534,8 +5550,8 @@ function AdminPlanoEstudoView({ apiClient }) {
               <input defaultValue={formatDateTimeInputValue(editingEvent.startAt)} min="2026-01-01T00:00" name="editStartAt" required type="datetime-local" />
             </label>
             <label className="field">
-              <span>Fim</span>
-              <input defaultValue={formatDateTimeInputValue(editingEvent.endAt)} min="2026-01-01T00:00" name="editEndAt" type="datetime-local" />
+              <span>Tempo de estudo (minutos)</span>
+              <input defaultValue={getStudyDurationMinutes(editingEvent.startAt, editingEvent.endAt)} min="1" max="1440" name="editDurationMinutes" required type="number" />
             </label>
             <label className="field">
               <span>Semana</span>
@@ -5610,8 +5626,8 @@ function AdminPlanoEstudoView({ apiClient }) {
             />
           </label>
           <label className="field">
-            <span>Fim</span>
-            <input min="2026-01-01T00:00" name="endAt" type="datetime-local" />
+            <span>Tempo de estudo (minutos)</span>
+            <input defaultValue="90" min="1" max="1440" name="durationMinutes" required type="number" />
           </label>
           <label className="field">
             <span>Semana</span>
