@@ -853,6 +853,11 @@ h3 {
   background: var(--surface);
 }
 
+.checklist-task-check {
+  display: flex;
+  align-items: flex-start;
+}
+
 .checklist-task-row input[type="checkbox"] {
   width: 18px;
   min-width: 18px;
@@ -862,9 +867,28 @@ h3 {
   accent-color: var(--primary);
 }
 
+.checklist-task-content {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .checklist-task-row strong,
 .checklist-task-row p {
   margin: 0;
+}
+
+.checklist-delete-button {
+  width: max-content;
+  min-height: 34px;
+  padding: 6px 8px;
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  color: var(--danger);
+}
+
+.checklist-delete-button:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
 }
 
 .badge {

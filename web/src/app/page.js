@@ -4429,6 +4429,25 @@ function StudentChecklistView({ apiClient }) {
     }
   }
 
+  async function deleteChecklistItem(item) {
+    if (typeof window !== "undefined" && !window.confirm(`Excluir a tarefa "${item.title}" do plano de estudo?`)) return;
+    setFeedback("");
+    setError("");
+    setUpdatingItemId(item.id);
+    const previousItems = items;
+    setItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== item.id));
+    try {
+      await apiClient.request({ method: "DELETE", path: `/plano-estudo/itens/${item.id}` });
+      setFeedback("Tarefa excluída do check-list e do plano de estudo.");
+      await load();
+    } catch (deleteError) {
+      setItems(previousItems);
+      setError(getErrorMessage(deleteError));
+    } finally {
+      setUpdatingItemId("");
+    }
+  }
+
   return (
     <div className="content">
       <section className="metrics metrics-4">
@@ -4551,14 +4570,17 @@ function StudentChecklistView({ apiClient }) {
                   const isCheckboxDisabled = updatingItemId === item.id || (!item.completed && !canToggleItem);
 
                   return (
-                    <label className="checklist-task-row" key={item.id}>
-                      <input
-                        checked={item.completed}
-                        disabled={isCheckboxDisabled}
-                        onChange={() => toggleChecklistItem(item)}
-                        type="checkbox"
-                      />
-                      <div>
+                    <div className="checklist-task-row" key={item.id}>
+                      <label className="checklist-task-check">
+                        <input
+                          checked={item.completed}
+                          disabled={isCheckboxDisabled}
+                          onChange={() => toggleChecklistItem(item)}
+                          type="checkbox"
+                        />
+                        <span className="sr-only">Concluir tarefa: {item.title}</span>
+                      </label>
+                      <div className="checklist-task-content">
                         <strong>{item.title}</strong>
                         <p className="muted">
                           {item.startAt ? formatTime(item.startAt) : "Sem horário"}
@@ -4566,8 +4588,19 @@ function StudentChecklistView({ apiClient }) {
                         </p>
                         {item.notes ? <p className="muted">{item.notes}</p> : null}
                         {!item.completed && !canToggleItem ? <p className="muted">O check será liberado na data planejada.</p> : null}
+                        {checklistFilter === "pendentes" ? (
+                          <button
+                            className="button ghost with-icon checklist-delete-button"
+                            disabled={updatingItemId === item.id}
+                            onClick={() => deleteChecklistItem(item)}
+                            type="button"
+                          >
+                            <Icon name="delete" />
+                            Excluir tarefa
+                          </button>
+                        ) : null}
                       </div>
-                    </label>
+                    </div>
                   );
                 })}
               </div>
