@@ -1211,6 +1211,10 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .detail-grid .span-2 {
+    grid-column: auto;
+  }
+
   .calendar-grid {
     min-width: 720px;
   }
@@ -1218,6 +1222,15 @@ h3 {
   .panel {
     min-width: 0;
     overflow-x: auto;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panel-header > .actions {
+    width: 100%;
   }
 
   .table {
@@ -1258,5 +1271,228 @@ h3 {
   .quiz-question-header {
     align-items: start;
     flex-direction: column;
+  }
+
+  .report-detail-list {
+    min-width: 0;
+  }
+
+  .topbar h1,
+  .topbar p,
+  .panel h2,
+  .panel h3 {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-panel,
+  .sidebar,
+  .main {
+    padding: 16px;
+  }
+
+  .login-panel {
+    gap: 20px;
+  }
+
+  .login-hero {
+    min-height: 220px;
+    padding: 24px 16px;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(30px, 9vw, 40px);
+    line-height: 1.05;
+  }
+
+  h1 {
+    font-size: clamp(24px, 8vw, 30px);
+  }
+
+  h2 {
+    font-size: clamp(20px, 6vw, 23px);
+  }
+
+  h3 {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .content {
+    gap: 14px;
+    padding-top: 14px;
+  }
+
+  .panel {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .metric {
+    padding: 14px;
+  }
+
+  .metric strong {
+    font-size: 24px;
+  }
+
+  .status-item {
+    padding: 12px;
+  }
+
+  .status-item strong {
+    font-size: 16px;
+  }
+
+  .button {
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .field span {
+    font-size: 12px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    font-size: 16px;
+  }
+
+  .sidebar {
+    gap: 16px;
+  }
+
+  .nav {
+    gap: 4px;
+  }
+
+  .nav button {
+    min-height: 42px;
+    padding: 8px;
+  }
+
+  .nav-label {
+    gap: 8px;
+  }
+
+  .nav-label .material-symbols-rounded {
+    font-size: 20px;
+  }
+
+  .calendar-toolbar {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .calendar-toolbar strong {
+    min-width: 0;
+    flex: 1;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .calendar-grid {
+    min-width: 640px;
+  }
+
+  .calendar-weekday {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+
+  .calendar-cell {
+    min-height: 84px;
+    padding: 6px;
+  }
+
+  .calendar-event-chip {
+    font-size: 10px;
+  }
+
+  .calendar-day-item {
+    padding: 10px;
+  }
+
+  .calendar-legend {
+    gap: 8px 12px;
+  }
+
+  .table {
+    min-width: 560px;
+  }
+
+  .participant-list {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-player h3 {
+    font-size: 18px;
+  }
+
+  .quiz-answer {
+    gap: 10px;
+  }
+
+  .quiz-answer-option {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .quiz-question {
+    padding: 12px;
+  }
+
+  .checklist-task-row {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .checklist-delete-button {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 400px) {
+  .login-panel,
+  .sidebar,
+  .main {
+    padding: 14px;
+  }
+
+  .login-hero {
+    min-height: 190px;
+    padding: 20px 14px;
+  }
+
+  .hero-copy h2 {
+    font-size: 30px;
+  }
+
+  h1 {
+    font-size: 23px;
+  }
+
+  h2 {
+    font-size: 19px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .metric strong {
+    font-size: 22px;
+  }
+
+  .calendar-grid {
+    min-width: 560px;
+  }
+
+  .table {
+    min-width: 520px;
   }
 }
