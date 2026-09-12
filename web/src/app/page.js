@@ -3891,7 +3891,7 @@ function StudentChallengesView({ apiClient }) {
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizSubmitting, setQuizSubmitting] = useState(false);
 
-  async function load() {
+  async function load({ resetSelection = false } = {}) {
     setError("");
     try {
       const [desafiosResult, inscricoesResult, enviosResult] = await Promise.all([
@@ -3903,9 +3903,13 @@ function StudentChallengesView({ apiClient }) {
       setDesafios(getArray(desafiosResult, "desafios"));
       setInscricoes(nextInscricoes);
       setEnvios(getArray(enviosResult, "envios"));
-      setSelectedInscricaoId((current) =>
-        nextInscricoes.some((inscricao) => inscricao.id === current) ? current : (nextInscricoes[0] && nextInscricoes[0].id) || ""
-      );
+      if (resetSelection) {
+        setSelectedInscricaoId("");
+      } else {
+        setSelectedInscricaoId((current) =>
+          nextInscricoes.some((inscricao) => inscricao.id === current) ? current : (nextInscricoes[0] && nextInscricoes[0].id) || ""
+        );
+      }
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     }
@@ -4137,13 +4141,13 @@ function StudentChallengesView({ apiClient }) {
         setFeedback("Envio registrado e enviado para aprovação. Todos os integrantes do grupo podem acompanhar e editar até a aprovação.");
       }
       form.reset();
-      await load();
+      await load({ resetSelection: Boolean(existingEnvio) });
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     }
   }
 
-  const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId) || inscricoes[0];
+  const selectedInscricao = inscricoes.find((inscricao) => inscricao.id === selectedInscricaoId) || null;
   const selectedEnvio = findEnvioForInscricao(selectedInscricao);
   const selectedParticipants = getArray(selectedInscricao && selectedInscricao.grupo, "participantes");
   const selectedEnvioEditable =
