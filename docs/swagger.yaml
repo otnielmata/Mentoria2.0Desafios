@@ -634,6 +634,30 @@ paths:
         "403":
           description: Perfil sem permissão
   /api/pontuacoes/extras:
+    get:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Lista o histórico paginado de pontos extras
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          description: Página do histórico
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Quantidade de registros por página
+      responses:
+        "200":
+          description: Histórico de pontos extras retornado
+        "403":
+          description: Perfil sem permissão
     post:
       tags: [Admin]
       security:
@@ -663,6 +687,61 @@ paths:
           description: Aluno, pilar ou pontos inválidos
         "403":
           description: Perfil sem permissão
+  /api/pontuacoes/extras/{id}:
+    patch:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Atualiza um lançamento de pontos extras
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Identificador do lançamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pilarId:
+                  type: string
+                pontos:
+                  type: number
+                  minimum: 1
+                motivo:
+                  type: string
+      responses:
+        "200":
+          description: Pontuação extra atualizada
+        "400":
+          description: Dados inválidos ou nenhuma alteração informada
+        "403":
+          description: Perfil sem permissão
+        "404":
+          description: Pontuação extra não encontrada
+  /api/pontuacoes/extras/:id:
+    patch:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Atualiza um lançamento de pontos extras (rota consumida pela Web)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pontuação extra atualizada
+        "403":
+          description: Perfil sem permissão
+        "404":
+          description: Pontuação extra não encontrada
   /api/me/pontuacoes:
     get:
       tags: [Perfil]

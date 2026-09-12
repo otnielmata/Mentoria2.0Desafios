@@ -2848,22 +2848,12 @@ function AdminDesafiosView({ apiClient }) {
 
 function AdminApprovalsView({ apiClient }) {
   const [envios, setEnvios] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [studentSearch, setStudentSearch] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [studentOptionsOpen, setStudentOptionsOpen] = useState(false);
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const [pilares, setPilares] = useState([]);
   const [filters, setFilters] = useState({ search: "", status: "pendente" });
   const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [evaluatingId, setEvaluatingId] = useState("");
-  const [extraPoints, setExtraPoints] = useState([]);
-  const [editingExtra, setEditingExtra] = useState(null);
-  const [creatingExtra, setCreatingExtra] = useState(false);
-  const [updatingExtra, setUpdatingExtra] = useState(false);
 
   function buildApprovalsPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/envios-desafios/aprovacoes", {
@@ -2879,17 +2869,9 @@ function AdminApprovalsView({ apiClient }) {
     setError("");
     setLoading(true);
     try {
-      const [result, studentsResult, pilaresResult, extraPointsResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) }),
-        apiClient.request({ method: "GET", path: "/alunos?limit=100" }),
-        apiClient.request({ method: "GET", path: "/pilares?limit=100&status=ativo" }),
-        apiClient.request({ method: "GET", path: "/pontuacoes/extras?limit=100" }),
-      ]);
+      const result = await apiClient.request({ method: "GET", path: buildApprovalsPath(nextFilters, nextPage) });
       setEnvios(getArray(result, "envios"));
       setPagination(getPagination(result));
-      setStudents(getArray(studentsResult, "alunos"));
-      setPilares(getArray(pilaresResult, "pilares"));
-      setExtraPoints(getArray(extraPointsResult, "pontosExtras").length > 0 ? getArray(extraPointsResult, "pontosExtras") : getArray(extraPointsResult, "pontuacoes"));
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -2897,36 +2879,9 @@ function AdminApprovalsView({ apiClient }) {
     }
   }
 
-  async function loadStudentOptions(search = studentSearch) {
-    setStudentsLoading(true);
-    try {
-      const result = await apiClient.request({
-        method: "GET",
-        path: buildListPath("/alunos", {
-          limit: 100,
-          page: 1,
-          search,
-        }),
-      });
-      setStudents(getArray(result, "alunos"));
-    } catch (loadError) {
-      setError(getErrorMessage(loadError));
-    } finally {
-      setStudentsLoading(false);
-    }
-  }
-
   useEffect(() => {
     load();
   }, [apiClient]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      loadStudentOptions(studentSearch);
-    }, 250);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [apiClient, studentSearch]);
 
   function updateFilter(field, value) {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -2969,87 +2924,6 @@ function AdminApprovalsView({ apiClient }) {
     }
   }
 
-  async function createExtraPoints(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const alunoId = selectedStudent ? selectedStudent.id : data.get("extraAlunoId");
-    setFeedback("");
-    setError("");
-
-    if (!alunoId) {
-      setError("Selecione um aluno na lista para lançar pontos extras.");
-      return;
-    }
-
-    setCreatingExtra(true);
-    try {
-      await apiClient.request(
-        { method: "POST", path: "/pontuacoes/extras" },
-        {
-          body: {
-            alunoId,
-            pilarId: data.get("extraPilarId"),
-            pontos: Number(data.get("extraPontos") || 0),
-            motivo: data.get("extraMotivo") || undefined,
-          },
-        }
-      );
-      form.reset();
-      setSelectedStudent(null);
-      setStudentSearch("");
-      setStudentOptionsOpen(false);
-      setFeedback("Pontuação extra cadastrada para o aluno.");
-      await load();
-    } catch (extraPointsError) {
-      setError(getErrorMessage(extraPointsError));
-    } finally {
-      setCreatingExtra(false);
-    }
-  }
-
-  async function updateExtraPoint(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    setUpdatingExtra(true);
-    setFeedback("");
-    setError("");
-    try {
-      await apiClient.request(
-        { method: "PATCH", path: `/pontuacoes/extras/${editingExtra.id}` },
-        {
-          body: {
-            pilarId: data.get("editExtraPilarId"),
-            pontos: Number(data.get("editExtraPontos") || 0),
-            motivo: data.get("editExtraMotivo") || undefined,
-          },
-        }
-      );
-      setEditingExtra(null);
-      setFeedback("Pontuação extra atualizada.");
-      await load();
-    } catch (updateError) {
-      setError(getErrorMessage(updateError));
-    } finally {
-      setUpdatingExtra(false);
-    }
-  }
-
-  function updateStudentSearch(value) {
-    setStudentSearch(value);
-    if (!selectedStudent || value !== `${selectedStudent.name} - ${selectedStudent.email}`) {
-      setSelectedStudent(null);
-    }
-    setStudentOptionsOpen(true);
-  }
-
-  function selectExtraStudent(student) {
-    setSelectedStudent(student);
-    setStudentSearch(`${student.name} - ${student.email}`);
-    setStudentOptionsOpen(false);
-  }
-
   return (
     <div className="content">
       <section className="panel">
@@ -3079,115 +2953,7 @@ function AdminApprovalsView({ apiClient }) {
           </label>
           <IconButton icon="filter_alt" label="Filtrar aprovações" type="submit" />
         </form>
-        <div className="stack-list">
-          <h3>Histórico de pontos extras</h3>
-          {extraPoints.length === 0 ? <Notice message="Nenhum ponto extra cadastrado." /> : null}
-          {extraPoints.map((item) => (
-            <div className="status-item" key={item.id}>
-              <strong>{item.aluno ? item.aluno.name : "Aluno não informado"} · {formatNumber(item.pontos)} pontos</strong>
-              <span className="muted">{item.pilar ? item.pilar.name : "Pilar não informado"} · {item.motivo || "Sem motivo informado"}</span>
-              <div className="actions">
-                <IconButton icon="edit" label={`Editar pontuação extra de ${item.aluno ? item.aluno.name : "aluno"}`} onClick={() => setEditingExtra(item)} />
-              </div>
-            </div>
-          ))}
-        </div>
-        {editingExtra ? (
-          <form className="form-grid" onSubmit={updateExtraPoint}>
-            <div className="field span-2">
-              <span>Editando pontos de {editingExtra.aluno ? editingExtra.aluno.name : "aluno"}</span>
-            </div>
-            <label className="field">
-              <span>Pilar</span>
-              <select name="editExtraPilarId" required defaultValue={editingExtra.pilar ? editingExtra.pilar.id : ""}>
-                {pilares.map((pilar) => <option key={pilar.id} value={pilar.id}>{pilar.name}</option>)}
-              </select>
-            </label>
-            <label className="field">
-              <span>Pontos</span>
-              <input name="editExtraPontos" required min="1" max="1000000" type="number" defaultValue={editingExtra.pontos} />
-            </label>
-            <label className="field span-2">
-              <span>Motivo</span>
-              <input name="editExtraMotivo" defaultValue={editingExtra.motivo || ""} />
-            </label>
-            <div className="actions span-2">
-              <IconButton className="button" disabled={updatingExtra} icon="save" label="Salvar pontuação extra" type="submit" />
-              <IconButton className="button ghost" disabled={updatingExtra} icon="close" label="Cancelar edição da pontuação extra" onClick={() => setEditingExtra(null)} />
-            </div>
-          </form>
-        ) : null}
       </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <h2>Pontos extras</h2>
-            <p className="muted">Lance pontos manuais para um aluno em um pilar do método.</p>
-          </div>
-        </div>
-        <form className="form-grid" onSubmit={createExtraPoints}>
-          <label className="field autocomplete-field">
-            <span>Aluno</span>
-            <input
-              autoComplete="off"
-              onBlur={() => window.setTimeout(() => setStudentOptionsOpen(false), 150)}
-              onChange={(event) => updateStudentSearch(event.target.value)}
-              onFocus={() => {
-                setStudentOptionsOpen(true);
-                if (students.length === 0) loadStudentOptions("");
-              }}
-              placeholder="Digite nome ou e-mail"
-              role="combobox"
-              value={studentSearch}
-            />
-            <input name="extraAlunoId" readOnly type="hidden" value={selectedStudent ? selectedStudent.id : ""} />
-            {studentOptionsOpen ? (
-              <div className="autocomplete-options">
-                {studentsLoading ? <span className="autocomplete-empty">Buscando alunos...</span> : null}
-                {!studentsLoading && students.length === 0 ? <span className="autocomplete-empty">Nenhum aluno encontrado</span> : null}
-                {!studentsLoading
-                  ? students.map((student) => (
-                      <button key={student.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectExtraStudent(student)} type="button">
-                        <strong>{student.name}</strong>
-                        <span>{student.email}</span>
-                      </button>
-                    ))
-                  : null}
-              </div>
-            ) : null}
-          </label>
-          <label className="field">
-            <span>Pilar</span>
-            <select name="extraPilarId" required defaultValue="">
-              <option value="" disabled>
-                Selecione um pilar
-              </option>
-              {pilares.map((pilar) => (
-                <option key={pilar.id} value={pilar.id}>
-                  {pilar.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Pontos</span>
-            <input name="extraPontos" required min="1" step="1" type="number" placeholder="10" />
-          </label>
-          <label className="field">
-            <span>Motivo</span>
-            <input maxLength={255} name="extraMotivo" placeholder="Ex.: participação, mentoria, contribuição" />
-          </label>
-          <IconButton
-            className="button"
-            disabled={creatingExtra}
-            icon="add_circle"
-            label={creatingExtra ? "Cadastrando pontos extras" : "Cadastrar pontos extras"}
-            type="submit"
-          />
-        </form>
-      </section>
-
       {loading ? <Notice message="Carregando aprovações..." /> : null}
       {!loading && envios.length === 0 ? <Notice message="Nenhum envio encontrado para o filtro informado." /> : null}
       {envios.map((envio) => (
@@ -3337,6 +3103,20 @@ function AdminReportsView({ apiClient }) {
   const [luckyPagination, setLuckyPagination] = useState(getPagination());
   const [luckyError, setLuckyError] = useState("");
   const [luckyLoading, setLuckyLoading] = useState(true);
+  const [students, setStudents] = useState([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentOptionsOpen, setStudentOptionsOpen] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [pilares, setPilares] = useState([]);
+  const [extraPoints, setExtraPoints] = useState([]);
+  const [extraPagination, setExtraPagination] = useState(getPagination());
+  const [extraError, setExtraError] = useState("");
+  const [extraFeedback, setExtraFeedback] = useState("");
+  const [extraLoading, setExtraLoading] = useState(true);
+  const [editingExtra, setEditingExtra] = useState(null);
+  const [creatingExtra, setCreatingExtra] = useState(false);
+  const [updatingExtra, setUpdatingExtra] = useState(false);
 
   function buildPointReportsPath(nextFilters = pointFilters, nextPage = pointPagination.page || 1) {
     return buildListPath("/relatorios/alunos/pilares", {
@@ -3359,6 +3139,13 @@ function AdminReportsView({ apiClient }) {
       limit: LIST_PAGE_SIZE,
       page: nextPage,
       search: nextFilters.search,
+    });
+  }
+
+  function buildExtraPointsReportPath(nextPage = extraPagination.page || 1) {
+    return buildListPath("/pontuacoes/extras", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
     });
   }
 
@@ -3405,11 +3192,60 @@ function AdminReportsView({ apiClient }) {
     }
   }
 
+  async function loadExtraPointsReport(nextPage = extraPagination.page || 1) {
+    setExtraError("");
+    setExtraLoading(true);
+    try {
+      const [result, pilaresResult] = await Promise.all([
+        apiClient.request({ method: "GET", path: buildExtraPointsReportPath(nextPage) }),
+        apiClient.request({ method: "GET", path: "/pilares?limit=100&status=ativo" }),
+      ]);
+      const rows = getArray(result, "pontosExtras").length > 0 ? getArray(result, "pontosExtras") : getArray(result, "pontuacoes");
+      setExtraPoints(rows);
+      setExtraPagination(getPagination(result));
+      setPilares(getArray(pilaresResult, "pilares"));
+    } catch (loadError) {
+      setExtraError(getErrorMessage(loadError));
+    } finally {
+      setExtraLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadPointReport();
     loadGroupReport();
     loadLuckyReport();
+    loadExtraPointsReport();
   }, [apiClient]);
+
+  async function loadStudentOptions(search = studentSearch) {
+    setStudentsLoading(true);
+    try {
+      const result = await apiClient.request({
+        method: "GET",
+        path: buildListPath("/alunos", {
+          limit: 100,
+          page: 1,
+          search,
+        }),
+      });
+      setStudents(getArray(result, "alunos"));
+    } catch (loadError) {
+      setExtraError(getErrorMessage(loadError));
+    } finally {
+      setStudentsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeReport !== "extraPoints") return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      loadStudentOptions(studentSearch);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeReport, apiClient, studentSearch]);
 
   function updatePointFilter(field, value) {
     setPointFilters((current) => ({ ...current, [field]: value }));
@@ -3450,6 +3286,91 @@ function AdminReportsView({ apiClient }) {
     await loadLuckyReport(luckyFilters, page);
   }
 
+  async function goToExtraPointsPage(page) {
+    await loadExtraPointsReport(page);
+  }
+
+  function updateStudentSearch(value) {
+    setStudentSearch(value);
+    if (!selectedStudent || value !== `${selectedStudent.name} - ${selectedStudent.email}`) {
+      setSelectedStudent(null);
+    }
+    setStudentOptionsOpen(true);
+  }
+
+  function selectExtraStudent(student) {
+    setSelectedStudent(student);
+    setStudentSearch(`${student.name} - ${student.email}`);
+    setStudentOptionsOpen(false);
+  }
+
+  async function createExtraPoints(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const alunoId = selectedStudent ? selectedStudent.id : data.get("extraAlunoId");
+    setExtraFeedback("");
+    setExtraError("");
+
+    if (!alunoId) {
+      setExtraError("Selecione um aluno na lista para lançar pontos extras.");
+      return;
+    }
+
+    setCreatingExtra(true);
+    try {
+      await apiClient.request(
+        { method: "POST", path: "/pontuacoes/extras" },
+        {
+          body: {
+            alunoId,
+            pilarId: data.get("extraPilarId"),
+            pontos: Number(data.get("extraPontos") || 0),
+            motivo: data.get("extraMotivo") || undefined,
+          },
+        }
+      );
+      form.reset();
+      setSelectedStudent(null);
+      setStudentSearch("");
+      setStudentOptionsOpen(false);
+      setExtraFeedback("Pontuação extra cadastrada para o aluno.");
+      await loadExtraPointsReport(1);
+    } catch (requestError) {
+      setExtraError(getErrorMessage(requestError));
+    } finally {
+      setCreatingExtra(false);
+    }
+  }
+
+  async function updateExtraPoint(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setUpdatingExtra(true);
+    setExtraFeedback("");
+    setExtraError("");
+    try {
+      await apiClient.request(
+        { method: "PATCH", path: `/pontuacoes/extras/${editingExtra.id}` },
+        {
+          body: {
+            pilarId: data.get("editExtraPilarId"),
+            pontos: Number(data.get("editExtraPontos") || 0),
+            motivo: data.get("editExtraMotivo") || undefined,
+          },
+        }
+      );
+      setEditingExtra(null);
+      setExtraFeedback("Pontuação extra atualizada.");
+      await loadExtraPointsReport(extraPagination.page || 1);
+    } catch (requestError) {
+      setExtraError(getErrorMessage(requestError));
+    } finally {
+      setUpdatingExtra(false);
+    }
+  }
+
   async function refreshActiveReport() {
     if (activeReport === "challengeGroups") {
       await loadGroupReport();
@@ -3458,6 +3379,11 @@ function AdminReportsView({ apiClient }) {
 
     if (activeReport === "luckyNumbers") {
       await loadLuckyReport();
+      return;
+    }
+
+    if (activeReport === "extraPoints") {
+      await loadExtraPointsReport();
       return;
     }
 
@@ -3586,7 +3512,8 @@ function AdminReportsView({ apiClient }) {
     return "off";
   }
 
-  const currentError = activeReport === "challengeGroups" ? groupError : activeReport === "luckyNumbers" ? luckyError : pointError;
+  const currentError =
+    activeReport === "challengeGroups" ? groupError : activeReport === "luckyNumbers" ? luckyError : activeReport === "extraPoints" ? extraError : pointError;
 
   return (
     <div className="content">
@@ -3630,9 +3557,20 @@ function AdminReportsView({ apiClient }) {
             <ButtonIcon name="confirmation_number" />
             Números da sorte
           </button>
+          <button
+            aria-selected={activeReport === "extraPoints"}
+            className={`button secondary with-icon${activeReport === "extraPoints" ? " active" : ""}`}
+            onClick={() => setActiveReport("extraPoints")}
+            role="tab"
+            type="button"
+          >
+            <ButtonIcon name="add_chart" />
+            Pontos extras
+          </button>
         </div>
 
         <Notice message={currentError} type="error" />
+        {activeReport === "extraPoints" ? <Notice message={extraFeedback} /> : null}
 
         {activeReport === "studentPillars" ? (
           <>
@@ -3745,6 +3683,144 @@ function AdminReportsView({ apiClient }) {
             </table>
             <PaginationControls label="Paginação do relatório de grupos" onPageChange={goToGroupPage} pagination={groupPagination} />
             {!groupLoading && groupRows.length === 0 ? <Notice message="Nenhum grupo encontrado para o filtro informado." /> : null}
+          </>
+        ) : activeReport === "extraPoints" ? (
+          <>
+            <div className="panel-header report-subheader">
+              <div>
+                <h3>Histórico de pontos extras</h3>
+                <p className="muted">Consulte os lançamentos manuais e identifique aluno, pilar, motivo e responsável.</p>
+              </div>
+            </div>
+            {extraLoading ? <Notice message="Carregando histórico de pontos extras..." /> : null}
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Aluno</th>
+                  <th>Turma</th>
+                  <th>Pilar</th>
+                  <th>Pontos</th>
+                  <th>Motivo</th>
+                  <th>Lançado por</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extraPoints.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.createdAt ? formatDate(item.createdAt) : "-"}</td>
+                    <td>
+                      <strong>{item.aluno ? item.aluno.name : "Aluno não informado"}</strong>
+                      <div className="muted">{item.aluno ? item.aluno.email : "-"}</div>
+                    </td>
+                    <td>{formatTurmaName(item.turma)}</td>
+                    <td>{item.pilar ? item.pilar.name : "Pilar não informado"}</td>
+                    <td>{formatNumber(item.pontos)} pts</td>
+                    <td>{item.motivo || "Sem motivo informado"}</td>
+                    <td>{item.createdBy ? item.createdBy.name : "Não informado"}</td>
+                    <td>
+                      <IconButton icon="edit" label={`Editar pontuação extra de ${item.aluno ? item.aluno.name : "aluno"}`} onClick={() => setEditingExtra(item)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PaginationControls label="Paginação do histórico de pontos extras" onPageChange={goToExtraPointsPage} pagination={extraPagination} />
+            {!extraLoading && extraPoints.length === 0 ? <Notice message="Nenhum ponto extra cadastrado." /> : null}
+
+            {editingExtra ? (
+              <form className="form-grid" onSubmit={updateExtraPoint}>
+                <div className="field span-2">
+                  <span>Editando pontos de {editingExtra.aluno ? editingExtra.aluno.name : "aluno"}</span>
+                </div>
+                <label className="field">
+                  <span>Pilar</span>
+                  <select name="editExtraPilarId" required defaultValue={editingExtra.pilar ? editingExtra.pilar.id : ""}>
+                    {pilares.map((pilar) => <option key={pilar.id} value={pilar.id}>{pilar.name}</option>)}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Pontos</span>
+                  <input name="editExtraPontos" required min="1" max="1000000" type="number" defaultValue={editingExtra.pontos} />
+                </label>
+                <label className="field span-2">
+                  <span>Motivo</span>
+                  <input name="editExtraMotivo" defaultValue={editingExtra.motivo || ""} />
+                </label>
+                <div className="actions span-2">
+                  <IconButton className="button" disabled={updatingExtra} icon="save" label="Salvar pontuação extra" type="submit" />
+                  <IconButton className="button ghost" disabled={updatingExtra} icon="close" label="Cancelar edição da pontuação extra" onClick={() => setEditingExtra(null)} />
+                </div>
+              </form>
+            ) : null}
+
+            <div className="panel-header report-subheader">
+              <div>
+                <h3>Lançar pontos extras</h3>
+                <p className="muted">Registre uma pontuação manual para um aluno em um pilar do método.</p>
+              </div>
+            </div>
+            <form className="form-grid" onSubmit={createExtraPoints}>
+              <label className="field autocomplete-field">
+                <span>Aluno</span>
+                <input
+                  autoComplete="off"
+                  onBlur={() => window.setTimeout(() => setStudentOptionsOpen(false), 150)}
+                  onChange={(event) => updateStudentSearch(event.target.value)}
+                  onFocus={() => {
+                    setStudentOptionsOpen(true);
+                    if (students.length === 0) loadStudentOptions("");
+                  }}
+                  placeholder="Digite nome ou e-mail"
+                  role="combobox"
+                  value={studentSearch}
+                />
+                <input name="extraAlunoId" readOnly type="hidden" value={selectedStudent ? selectedStudent.id : ""} />
+                {studentOptionsOpen ? (
+                  <div className="autocomplete-options">
+                    {studentsLoading ? <span className="autocomplete-empty">Buscando alunos...</span> : null}
+                    {!studentsLoading && students.length === 0 ? <span className="autocomplete-empty">Nenhum aluno encontrado</span> : null}
+                    {!studentsLoading
+                      ? students.map((student) => (
+                          <button key={student.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectExtraStudent(student)} type="button">
+                            <strong>{student.name}</strong>
+                            <span>{student.email}</span>
+                          </button>
+                        ))
+                      : null}
+                  </div>
+                ) : null}
+              </label>
+              <label className="field">
+                <span>Pilar</span>
+                <select name="extraPilarId" required defaultValue="">
+                  <option value="" disabled>
+                    Selecione um pilar
+                  </option>
+                  {pilares.map((pilar) => (
+                    <option key={pilar.id} value={pilar.id}>
+                      {pilar.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Pontos</span>
+                <input name="extraPontos" required min="1" step="1" type="number" placeholder="10" />
+              </label>
+              <label className="field">
+                <span>Motivo</span>
+                <input maxLength={255} name="extraMotivo" placeholder="Ex.: participação, mentoria, contribuição" />
+              </label>
+              <IconButton
+                className="button"
+                disabled={creatingExtra}
+                icon="add_circle"
+                label={creatingExtra ? "Cadastrando pontos extras" : "Cadastrar pontos extras"}
+                type="submit"
+              />
+            </form>
           </>
         ) : (
           <>

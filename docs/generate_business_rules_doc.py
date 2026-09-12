@@ -578,7 +578,8 @@ def add_admin_section(doc: Document, endpoints: list[dict]) -> None:
         [
             ["Dashboard", "Painel consolidado da mentoria", "Mostra alunos ativos, envios, aprovacoes pendentes, ranking, engajamento e cupons gerados."],
             ["Alunos", "Cadastro e manutencao de alunos", "Aceita cadastro manual, importacao CSV, edicao e inativacao logica."],
-            ["Aprovacoes", "Avaliacao de envios", "Permite aprovar, reprovar, pedir ajuste e lancar pontos extras."],
+            ["Aprovacoes", "Avaliacao de envios", "Permite aprovar, reprovar e pedir ajuste em envios de desafios."],
+            ["Relatorios", "Historico de pontos extras", "Permite consultar, cadastrar e editar lancamentos manuais de pontuacao extra."],
             ["Cupons", "Governanca de cupons e numeros da sorte", "Lista cupons por aluno, lista global validada e aciona a distribuicao dos numeros."],
             ["Desafios", "Cadastro da trilha executavel", "Controla pilares, pontos fixos, recorrencia, certificados e tamanho de grupo."],
             ["Pilares", "Manutencao dos pilares do metodo", "Aceita cadastro, edicao e inativacao de pilares."],
@@ -639,7 +640,7 @@ def add_admin_section(doc: Document, endpoints: list[dict]) -> None:
 
     add_heading(doc, "7.3.6 Aprovacoes, pontuacao e pontos extras", 3)
     add_labeled_paragraph(doc, "Web", "A fila de aprovacoes exibe envio, desafio, turma, participantes, evidencias, anexos e historico de status. O professor ou admin decide o resultado.")
-    add_labeled_paragraph(doc, "API", "GET /api/envios-desafios/aprovacoes, PATCH /api/envios-desafios/aprovacoes e POST /api/pontuacoes/extras.")
+    add_labeled_paragraph(doc, "API", "GET /api/envios-desafios/aprovacoes e PATCH /api/envios-desafios/aprovacoes. O historico de pontos extras fica em GET /api/pontuacoes/extras, com cadastro por POST e edicao por PATCH /api/pontuacoes/extras/{id}.")
     add_labeled_paragraph(doc, "Decisoes", "Aprovado, reprovado e ajuste sao as unicas decisoes validas. Feedback e obrigatorio em reprovacao e ajuste.")
     add_labeled_paragraph(doc, "Bloqueios", "Envio cancelado nao pode ser avaliado e envio aprovado nao pode receber nova decisao.")
     add_labeled_paragraph(doc, "Pontuacao automatica", "Ao aprovar, a API gera pontuacao para o aluno responsavel e para todos os participantes ativos do grupo.")
