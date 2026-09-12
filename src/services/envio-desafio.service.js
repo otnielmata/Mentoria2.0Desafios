@@ -207,6 +207,24 @@ function validateAttachment(attachment) {
   return attachment;
 }
 
+function hasSubmissionContent(values) {
+  const items = Array.isArray(values) ? values : [values];
+  return items.some((item) => {
+    if (item === undefined || item === null) return false;
+    if (typeof item === "string") return item.trim().length > 0;
+    if (typeof item === "object") return Object.keys(item).length > 0;
+    return String(item).trim().length > 0;
+  });
+}
+
+function assertEvidenceOrAttachment(evidencias, anexos) {
+  if (!hasSubmissionContent(evidencias) && !hasSubmissionContent(anexos)) {
+    throw createHttpError("Adicione pelo menos uma evidência ou um anexo para enviar o desafio.", 400, {
+      code: "MISSING_EVIDENCE_OR_ATTACHMENT",
+    });
+  }
+}
+
 function parseParticipantes(payload, type) {
   if (type !== GROUP_TYPE) return [];
   const participantes = getFirstValue(payload, ["participantes", "participants"]);
@@ -335,6 +353,7 @@ async function createEnvioFromGroup(authenticatedUserId, payload = {}, grupoId) 
   const participantes = (grupo.participantes || []).map(getEntityId).filter((participanteId) => participanteId !== authenticatedUserId);
   const evidencias = parseEvidencias(payload);
   const anexos = parseAnexos(payload);
+  assertEvidenceOrAttachment(evidencias, anexos);
   const type = Number(grupo.maxParticipantes || 1) > 1 ? GROUP_TYPE : "individual";
   const turmaId = getEntityId(grupo.turma);
   const desafioId = getEntityId(grupo.desafio);
@@ -392,6 +411,7 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
   const participantes = parseParticipantes(payload, type);
   const evidencias = parseEvidencias(payload);
   const anexos = parseAnexos(payload);
+  assertEvidenceOrAttachment(evidencias, anexos);
   const [desafio] = await Promise.all([getActiveDesafio(desafioId), assertTurmaExists(turmaId)]);
   const responsibleId = getEntityId(student);
 
@@ -519,9 +539,12 @@ async function updateEnvio(authenticatedUserId, envioId, payload = {}) {
 
   if (hasOwn(payload, "description") || hasOwn(payload, "descricao")) envio.description = parseRequiredText(payload.description || payload.descricao, "Descrição");
   const hasEvidenceField = ["evidencias", "evidences", "evidence", "evidencia_url"].some((field) => hasOwn(payload, field));
-  if (hasEvidenceField) envio.evidencias = parseEvidencias(payload);
   const hasAttachmentField = ["anexos", "attachments", "attachment", "anexo"].some((field) => hasOwn(payload, field));
-  if (hasAttachmentField) envio.anexos = parseAnexos(payload);
+  const nextEvidencias = hasEvidenceField ? parseEvidencias(payload) : envio.evidencias;
+  const nextAnexos = hasAttachmentField ? parseAnexos(payload) : envio.anexos;
+  assertEvidenceOrAttachment(nextEvidencias, nextAnexos);
+  if (hasEvidenceField) envio.evidencias = nextEvidencias;
+  if (hasAttachmentField) envio.anexos = nextAnexos;
   if (normalizeText(envio.status) === "reprovado") {
     envio.status = PENDING_STATUS;
     envio.feedback = null;

@@ -270,6 +270,30 @@ describe("admin-envio-desafio.service participantes_envio", () => {
     expect(Pontuacao.create).not.toHaveBeenCalled();
   });
 
+  it("bloqueia aprovação de envio sem evidência e sem anexo", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, points: 20, difficulty: "medio" },
+      aluno: OWNER_ID,
+      type: "individual",
+      evidencias: [],
+      anexos: [],
+      status: "pendente",
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+
+    await expect(evaluateEnvio(ADMIN_ID, ENVIO_ID, { decision: "aprovado" })).rejects.toMatchObject({
+      code: "MISSING_EVIDENCE_OR_ATTACHMENT",
+      statusCode: 400,
+    });
+
+    expect(envio.save).not.toHaveBeenCalled();
+    expect(Pontuacao.create).not.toHaveBeenCalled();
+  });
+
   it("bloqueia aprovação antes de salvar quando recorrência excede limite de pontos", async () => {
     const envio = {
       _id: ENVIO_ID,

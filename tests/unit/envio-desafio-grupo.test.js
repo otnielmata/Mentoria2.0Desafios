@@ -134,7 +134,7 @@ describe("envio-desafio.service grupos", () => {
     );
   });
 
-  it("cria envio sem evidência quando a descrição obrigatória foi informada", async () => {
+  it("rejeita envio sem evidência e sem anexo", async () => {
     Desafio.findById.mockResolvedValue({
       _id: DESAFIO_ID,
       status: "ativo",
@@ -142,27 +142,54 @@ describe("envio-desafio.service grupos", () => {
       maxParticipantes: 1,
     });
     Turma.findById.mockResolvedValue({ _id: TURMA_ID, status: "ativa" });
+    await expect(
+      createEnvioDesafio(STUDENT_ID, {
+        desafioId: DESAFIO_ID,
+        turmaId: TURMA_ID,
+        type: "individual",
+        description: "Entrega sem comprovante",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "MISSING_EVIDENCE_OR_ATTACHMENT",
+      message: "Adicione pelo menos uma evidência ou um anexo para enviar o desafio.",
+    });
+
+    expect(EnvioDesafio.create).not.toHaveBeenCalled();
+  });
+
+  it("aceita envio com anexo mesmo sem evidência", async () => {
+    Desafio.findById.mockResolvedValue({
+      _id: DESAFIO_ID,
+      status: "ativo",
+      type: "individual",
+      maxParticipantes: 1,
+    });
+    Turma.findById.mockResolvedValue({ _id: TURMA_ID, status: "ativa" });
+    const anexos = [{ name: "comprovante.png", size: 1, content: "data:image/png;base64,AA==" }];
     EnvioDesafio.create.mockResolvedValue({
       _id: "6814f12ab3f34872f7558f45",
       desafio: DESAFIO_ID,
       turma: TURMA_ID,
       aluno: STUDENT_ID,
-      description: "Entrega sem comprovante",
+      description: "Entrega com comprovante",
       type: "individual",
       evidencias: [],
+      anexos,
       participantes: [],
       status: "pendente",
     });
 
     const result = await createEnvioDesafio(STUDENT_ID, {
-        desafioId: DESAFIO_ID,
-        turmaId: TURMA_ID,
-        type: "individual",
-        description: "Entrega sem comprovante",
+      desafioId: DESAFIO_ID,
+      turmaId: TURMA_ID,
+      type: "individual",
+      description: "Entrega com comprovante",
+      anexos,
     });
 
-    expect(EnvioDesafio.create).toHaveBeenCalledWith(expect.objectContaining({ evidencias: [], anexos: [] }));
-    expect(result).toMatchObject({ status: "pendente", evidencias: [] });
+    expect(EnvioDesafio.create).toHaveBeenCalledWith(expect.objectContaining({ evidencias: [], anexos }));
+    expect(result).toMatchObject({ status: "pendente", evidencias: [], anexos });
   });
 
   it("rejeita participantes duplicados em envio de grupo", async () => {
@@ -364,7 +391,7 @@ describe("envio-desafio.service grupos", () => {
     expect(EnvioDesafio.create).not.toHaveBeenCalled();
   });
 
-  it("permite integrante do grupo editar envio pendente sem obrigar evidência ou anexo", async () => {
+  it("rejeita edição que deixaria o envio sem evidência e sem anexo", async () => {
     const save = jest.fn().mockResolvedValue({
       _id: "6814f12ab3f34872f7558f45",
       desafio: DESAFIO_ID,
@@ -389,20 +416,19 @@ describe("envio-desafio.service grupos", () => {
       save,
     });
 
-    const result = await updateEnvio(PARTICIPANT_ID, "6814f12ab3f34872f7558f45", {
-      description: "Descrição atualizada",
-      evidencias: [],
-      anexos: [],
+    await expect(
+      updateEnvio(PARTICIPANT_ID, "6814f12ab3f34872f7558f45", {
+        description: "Descrição atualizada",
+        evidencias: [],
+        anexos: [],
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "MISSING_EVIDENCE_OR_ATTACHMENT",
+      message: "Adicione pelo menos uma evidência ou um anexo para enviar o desafio.",
     });
 
-    expect(save).toHaveBeenCalled();
-    expect(result).toMatchObject({
-      description: "Descrição atualizada",
-      evidencias: [],
-      anexos: [],
-      status: "pendente",
-      totalParticipantes: 2,
-    });
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("bloqueia edição do envio após aprovação", async () => {

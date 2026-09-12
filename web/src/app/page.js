@@ -4255,6 +4255,10 @@ function StudentChallengesView({ apiClient }) {
 
     try {
       anexo = await readFileAsAttachment(data.get("anexo"));
+      if (!evidencia && !anexo && getArray(existingEnvio, "anexos").length === 0) {
+        setError("Adicione pelo menos uma evidência ou um anexo para enviar o desafio.");
+        return;
+      }
       if (anexo) body.anexos = [anexo];
       if (existingEnvio) {
         await apiClient.request({ method: "PATCH", path: `/envios-desafios/${existingEnvio.id}` }, { body });
@@ -4482,13 +4486,14 @@ function StudentChallengesView({ apiClient }) {
             <textarea maxLength={4000} name="description" required defaultValue={(selectedEnvio && selectedEnvio.description) || ""} placeholder="Descreva o que foi feito." />
           </label>
           <label className="field span-2">
-            <span>Evidência/link/comprovante opcional</span>
+            <span>Evidência/link/comprovante</span>
             <input maxLength={2048} name="evidencia" defaultValue={getFirstEvidence(selectedEnvio)} placeholder="https://..." />
           </label>
           <label className="field span-2">
-            <span>Anexo opcional</span>
+            <span>Anexo</span>
             <input name="anexo" type="file" />
           </label>
+          <small className="muted span-2">Adicione pelo menos uma evidência ou um anexo para enviar o desafio.</small>
           {selectedEnvio && getArray(selectedEnvio, "anexos").length > 0 ? (
             <div className="status-item span-2">
               <span className="muted">Anexo atual</span>

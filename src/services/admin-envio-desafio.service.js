@@ -73,6 +73,24 @@ function parseBoolean(value, fieldName) {
   throw createHttpError(`${fieldName} deve ser verdadeiro ou falso.`, 400);
 }
 
+function hasSubmissionContent(values) {
+  const items = Array.isArray(values) ? values : [values];
+  return items.some((item) => {
+    if (item === undefined || item === null) return false;
+    if (typeof item === "string") return item.trim().length > 0;
+    if (typeof item === "object") return Object.keys(item).length > 0;
+    return String(item).trim().length > 0;
+  });
+}
+
+function assertSubmissionHasEvidenceOrAttachment(envio) {
+  if (!hasSubmissionContent(envio && envio.evidencias) && !hasSubmissionContent(envio && envio.anexos)) {
+    throw createHttpError("Não é possível aprovar um envio sem evidência ou anexo. Adicione pelo menos uma evidência ou um anexo antes de aprovar.", 400, {
+      code: "MISSING_EVIDENCE_OR_ATTACHMENT",
+    });
+  }
+}
+
 function serializeUser(user) {
   if (!user || typeof user !== "object") return user ? { id: getEntityId(user) } : null;
   return {
@@ -345,6 +363,7 @@ async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
     return { envio: serializeEnvio(updated), pontuacao: null };
   }
 
+  assertSubmissionHasEvidenceOrAttachment(envio);
   const desafio = await getDesafioForEnvio(envio);
   const scoreRecipients = await getScoreRecipients(envio);
   const bonusApresentacaoAoVivo = getLivePresentationBonusPoints(desafio, parsedEvaluation.apresentacaoAoVivo);
