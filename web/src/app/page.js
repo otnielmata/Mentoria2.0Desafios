@@ -3098,6 +3098,11 @@ function AdminReportsView({ apiClient }) {
   const [groupSummary, setGroupSummary] = useState({});
   const [groupError, setGroupError] = useState("");
   const [groupLoading, setGroupLoading] = useState(true);
+  const [deliveredRows, setDeliveredRows] = useState([]);
+  const [deliveredFilters, setDeliveredFilters] = useState({ search: "" });
+  const [deliveredPagination, setDeliveredPagination] = useState(getPagination());
+  const [deliveredError, setDeliveredError] = useState("");
+  const [deliveredLoading, setDeliveredLoading] = useState(true);
   const [luckyRows, setLuckyRows] = useState([]);
   const [luckyFilters, setLuckyFilters] = useState({ search: "" });
   const [luckyPagination, setLuckyPagination] = useState(getPagination());
@@ -3130,6 +3135,16 @@ function AdminReportsView({ apiClient }) {
     return buildListPath("/relatorios/grupos-desafios", {
       limit: LIST_PAGE_SIZE,
       page: nextPage,
+      search: nextFilters.search,
+    });
+  }
+
+  function buildDeliveredReportsPath(nextFilters = deliveredFilters, nextPage = deliveredPagination.page || 1) {
+    return buildListPath("/envios-desafios/aprovacoes", {
+      limit: LIST_PAGE_SIZE,
+      page: nextPage,
+      sort: "desc",
+      status: "todos",
       search: nextFilters.search,
     });
   }
@@ -3178,6 +3193,20 @@ function AdminReportsView({ apiClient }) {
     }
   }
 
+  async function loadDeliveredReport(nextFilters = deliveredFilters, nextPage = deliveredPagination.page || 1) {
+    setDeliveredError("");
+    setDeliveredLoading(true);
+    try {
+      const result = await apiClient.request({ method: "GET", path: buildDeliveredReportsPath(nextFilters, nextPage) });
+      setDeliveredRows(getArray(result, "envios"));
+      setDeliveredPagination(getPagination(result));
+    } catch (loadError) {
+      setDeliveredError(getErrorMessage(loadError));
+    } finally {
+      setDeliveredLoading(false);
+    }
+  }
+
   async function loadLuckyReport(nextFilters = luckyFilters, nextPage = luckyPagination.page || 1) {
     setLuckyError("");
     setLuckyLoading(true);
@@ -3214,6 +3243,7 @@ function AdminReportsView({ apiClient }) {
   useEffect(() => {
     loadPointReport();
     loadGroupReport();
+    loadDeliveredReport();
     loadLuckyReport();
     loadExtraPointsReport();
   }, [apiClient]);
@@ -3255,6 +3285,10 @@ function AdminReportsView({ apiClient }) {
     setGroupFilters((current) => ({ ...current, [field]: value }));
   }
 
+  function updateDeliveredFilter(field, value) {
+    setDeliveredFilters((current) => ({ ...current, [field]: value }));
+  }
+
   function updateLuckyFilter(field, value) {
     setLuckyFilters((current) => ({ ...current, [field]: value }));
   }
@@ -3269,6 +3303,11 @@ function AdminReportsView({ apiClient }) {
     await loadGroupReport(groupFilters, 1);
   }
 
+  async function applyDeliveredFilters(event) {
+    event.preventDefault();
+    await loadDeliveredReport(deliveredFilters, 1);
+  }
+
   async function applyLuckyFilters(event) {
     event.preventDefault();
     await loadLuckyReport(luckyFilters, 1);
@@ -3280,6 +3319,10 @@ function AdminReportsView({ apiClient }) {
 
   async function goToGroupPage(page) {
     await loadGroupReport(groupFilters, page);
+  }
+
+  async function goToDeliveredPage(page) {
+    await loadDeliveredReport(deliveredFilters, page);
   }
 
   async function goToLuckyPage(page) {
@@ -3374,6 +3417,11 @@ function AdminReportsView({ apiClient }) {
   async function refreshActiveReport() {
     if (activeReport === "challengeGroups") {
       await loadGroupReport();
+      return;
+    }
+
+    if (activeReport === "deliveredChallenges") {
+      await loadDeliveredReport();
       return;
     }
 
@@ -3513,7 +3561,15 @@ function AdminReportsView({ apiClient }) {
   }
 
   const currentError =
-    activeReport === "challengeGroups" ? groupError : activeReport === "luckyNumbers" ? luckyError : activeReport === "extraPoints" ? extraError : pointError;
+    activeReport === "challengeGroups"
+      ? groupError
+      : activeReport === "deliveredChallenges"
+        ? deliveredError
+        : activeReport === "luckyNumbers"
+          ? luckyError
+          : activeReport === "extraPoints"
+            ? extraError
+            : pointError;
 
   return (
     <div className="content">
@@ -3536,6 +3592,16 @@ function AdminReportsView({ apiClient }) {
           >
             <ButtonIcon name="leaderboard" />
             Pontos por aluno
+          </button>
+          <button
+            aria-selected={activeReport === "deliveredChallenges"}
+            className={`button secondary with-icon${activeReport === "deliveredChallenges" ? " active" : ""}`}
+            onClick={() => setActiveReport("deliveredChallenges")}
+            role="tab"
+            type="button"
+          >
+            <ButtonIcon name="task_alt" />
+            Desafios entregues
           </button>
           <button
             aria-selected={activeReport === "challengeGroups"}
@@ -3683,6 +3749,63 @@ function AdminReportsView({ apiClient }) {
             </table>
             <PaginationControls label="Paginação do relatório de grupos" onPageChange={goToGroupPage} pagination={groupPagination} />
             {!groupLoading && groupRows.length === 0 ? <Notice message="Nenhum grupo encontrado para o filtro informado." /> : null}
+          </>
+        ) : activeReport === "deliveredChallenges" ? (
+          <>
+            <div className="panel-header report-subheader">
+              <div>
+                <h3>Desafios entregues</h3>
+                <p className="muted">Consulte os envios realizados, seus integrantes, evidências e anexos.</p>
+              </div>
+            </div>
+            <form className="toolbar" onSubmit={applyDeliveredFilters}>
+              <label className="field">
+                <span>Filtrar por desafio ou integrante</span>
+                <input
+                  value={deliveredFilters.search}
+                  onChange={(event) => updateDeliveredFilter("search", event.target.value)}
+                  placeholder="Título do desafio ou nome do integrante"
+                />
+              </label>
+              <IconButton icon="filter_alt" label="Filtrar desafios entregues" type="submit" />
+            </form>
+            {deliveredLoading ? <Notice message="Carregando desafios entregues..." /> : null}
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Desafio</th>
+                  <th>Integrantes</th>
+                  <th>Status</th>
+                  <th>Evidências</th>
+                  <th>Anexos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deliveredRows.map((row) => {
+                  const participantNames = getSubmissionParticipantNames(row);
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <strong>{row.desafio ? row.desafio.title : "Desafio não informado"}</strong>
+                        <div className="muted">{row.createdAt ? formatDate(row.createdAt) : ""}</div>
+                      </td>
+                      <td>{participantNames.length > 0 ? participantNames.join(", ") : "Integrantes não informados"}</td>
+                      <td>
+                        <span className={`badge ${getSubmissionBadgeClass(row.status)}`}>{formatSubmissionStatus(row.status)}</span>
+                      </td>
+                      <td>
+                        <LinkList emptyMessage="Sem evidência" items={row.evidencias} />
+                      </td>
+                      <td>
+                        <LinkList download emptyMessage="Sem anexo" items={row.anexos} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <PaginationControls label="Paginação do relatório de desafios entregues" onPageChange={goToDeliveredPage} pagination={deliveredPagination} />
+            {!deliveredLoading && deliveredRows.length === 0 ? <Notice message="Nenhum desafio entregue encontrado para o filtro informado." /> : null}
           </>
         ) : activeReport === "extraPoints" ? (
           <>
