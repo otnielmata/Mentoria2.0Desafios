@@ -45,6 +45,7 @@ const PILAR_ID = "6814f12ab3f34872f7558f44";
 function mockFindChain(model, value) {
   const query = {
     populate: jest.fn(() => query),
+    select: jest.fn(() => query),
     sort: jest.fn(() => query),
     lean: jest.fn().mockResolvedValue(value),
   };
@@ -164,7 +165,7 @@ describe("admin-dashboard.service MR-95", () => {
     });
     expect(JSON.stringify(result)).not.toContain("secret");
     expect(JSON.stringify(result)).not.toContain("password");
-    expect(getCouponOverview).toHaveBeenCalledWith({ sync: true });
+    expect(getCouponOverview).toHaveBeenCalledWith({ sync: false });
   });
 
   it("reordena o top 10 depois de somar os pontos do check-list", async () => {

@@ -38,5 +38,6 @@ pontuacaoSchema.index(
   }
 );
 pontuacaoSchema.index({ "pilares.pilar": 1 });
+pontuacaoSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Pontuacao", pontuacaoSchema);

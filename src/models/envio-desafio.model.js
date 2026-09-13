@@ -32,4 +32,6 @@ const envioDesafioSchema = new mongoose.Schema(
   }
 );
 
+envioDesafioSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("EnvioDesafio", envioDesafioSchema);

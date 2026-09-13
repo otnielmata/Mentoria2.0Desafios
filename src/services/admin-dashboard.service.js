@@ -6,7 +6,6 @@ const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 const { getCouponOverview } = require("./cupom.service");
-const { inactivateExpiredChallenges } = require("./desafio-prazo.service");
 const { getChecklistSummaryByStudentContext } = require("./plano-estudo.service");
 
 const ALLOWED_ROLES = ["professor", "admin"];
@@ -67,31 +66,28 @@ async function getAuthorizedReviewer(authenticatedUserId) {
 }
 
 async function findUsers() {
-  return User.find({}).lean();
+  return User.find({}).select("_id name email role status turmas").lean();
 }
 
 async function findEnvios() {
   return EnvioDesafio.find({})
-    .populate({ path: "turma", select: "name code description status" })
-    .populate({
-      path: "desafio",
-      select: "title description points type pilar pilares",
-      populate: [
-        { path: "pilar", select: "name description status" },
-        { path: "pilares.pilar", select: "name description status" },
-      ],
-    })
-    .sort({ createdAt: -1 })
+    .select("_id aluno participantes status")
     .lean();
 }
 
 async function countActiveDesafios() {
-  await inactivateExpiredChallenges();
-  return Desafio.countDocuments({ status: ACTIVE_STATUS });
+  const startOfToday = new Date();
+  startOfToday.setUTCHours(0, 0, 0, 0);
+
+  return Desafio.countDocuments({
+    status: ACTIVE_STATUS,
+    $or: [{ deliveryDate: null }, { deliveryDate: { $gte: startOfToday } }],
+  });
 }
 
 async function findPontuacoes() {
   return Pontuacao.find({})
+    .select("_id aluno pontos source turma envio desafio pilares createdAt")
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "turma", select: "name code description status" })
     .populate({
@@ -101,14 +97,13 @@ async function findPontuacoes() {
     })
     .populate({
       path: "desafio",
-      select: "title description points type pilar pilares",
+      select: "pilar pilares",
       populate: [
         { path: "pilar", select: "name description status" },
         { path: "pilares.pilar", select: "name description status" },
       ],
     })
     .populate({ path: "pilares.pilar", select: "name description status" })
-    .sort({ createdAt: -1 })
     .lean();
 }
 
@@ -428,15 +423,15 @@ function buildEngajamento(activeStudents, envios, approvedEnvioIds) {
 async function getAdminDashboard(authenticatedUserId) {
   await getAuthorizedReviewer(authenticatedUserId);
 
-  const [users, envios, pontuacoes, activeChallengesCount, checklistContext] = await Promise.all([
+  const [users, envios, pontuacoes, activeChallengesCount, checklistContext, cupons] = await Promise.all([
     findUsers(),
     findEnvios(),
     findPontuacoes(),
     countActiveDesafios(),
     getChecklistSummaryByStudentContext({ populateAluno: true }),
+    getCouponOverview({ sync: false }),
   ]);
   const activeStudents = (users || []).filter(isActiveStudent);
-  const cupons = await getCouponOverview({ sync: true });
   const approvedPontuacoes = (pontuacoes || []).filter(
     (pontuacao) => isApprovedPontuacao(pontuacao) && isActiveStudent(pontuacao.aluno) && isActiveClassScore(pontuacao)
   );

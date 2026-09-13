@@ -16,7 +16,7 @@ const cupomSchema = new mongoose.Schema(
     validatedAt: { type: Date, default: null, index: true },
     validatedByDesafio: { type: mongoose.Schema.Types.ObjectId, ref: "Desafio", default: null, index: true },
     validatedByEnvio: { type: mongoose.Schema.Types.ObjectId, ref: "EnvioDesafio", default: null, index: true },
-    luckyNumber: { type: Number, default: null, min: 1, index: true },
+    luckyNumber: { type: Number, default: null, min: 1 },
     luckyNumberAssignedAt: { type: Date, default: null, index: true },
     canceledAt: { type: Date, default: null, index: true },
   },
