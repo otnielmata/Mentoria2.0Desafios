@@ -4959,7 +4959,7 @@ function StudentGroupsView({ apiClient }) {
         <div className="panel-header">
           <div>
             <h2>Meus Grupos</h2>
-            <p className="muted">Veja com quem você caiu no desafio e combine o canal de contato.</p>
+            <p className="muted">Veja com quem você caiu nos desafios em grupo e combine o canal de contato.</p>
           </div>
           <IconButton icon="refresh" label="Atualizar grupos" onClick={load} />
         </div>

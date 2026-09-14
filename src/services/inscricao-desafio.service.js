@@ -435,6 +435,7 @@ async function listGroups(authenticatedUserId, query = {}) {
 
   if (role === STUDENT_ROLE) {
     filters.participantes = authenticatedUserId;
+    filters.maxParticipantes = { $gt: 1 };
   } else if (!["professor", "admin"].includes(role)) {
     throw createHttpError("Usuário não autorizado a consultar grupos de desafios.", 403);
   }

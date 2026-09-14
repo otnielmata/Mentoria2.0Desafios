@@ -39,7 +39,7 @@ const GrupoDesafio = require("../../src/models/grupo-desafio.model");
 const InscricaoDesafio = require("../../src/models/inscricao-desafio.model");
 const Turma = require("../../src/models/turma.model");
 const User = require("../../src/models/user.model");
-const { cancelSubscription, listMySubscriptions, subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
+const { cancelSubscription, listGroups, listMySubscriptions, subscribeToChallenge, updateGroupContact } = require("../../src/services/inscricao-desafio.service");
 
 const STUDENT_ID = "6814f12ab3f34872f7558f40";
 const DESAFIO_ID = "6814f12ab3f34872f7558f41";
@@ -263,6 +263,33 @@ describe("inscricao-desafio.service", () => {
 
     expect(result.inscricoes).toHaveLength(1);
     expect(result.inscricoes[0].desafio).toMatchObject({ id: DESAFIO_ID, status: "ativo" });
+  });
+
+  it("lista para o aluno somente grupos de desafios coletivos", async () => {
+    const query = {
+      sort: jest.fn().mockReturnThis(),
+      populate: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue([
+        {
+          _id: GRUPO_ID,
+          desafio: desafioPayload(),
+          turma: { _id: TURMA_ID, name: "Turma 1" },
+          participantes: [{ _id: STUDENT_ID, name: "Ana" }],
+          maxParticipantes: 3,
+          status: "formando",
+        },
+      ]),
+    };
+    GrupoDesafio.find.mockReturnValue(query);
+
+    const result = await listGroups(STUDENT_ID);
+
+    expect(GrupoDesafio.find).toHaveBeenCalledWith({
+      participantes: STUDENT_ID,
+      maxParticipantes: { $gt: 1 },
+    });
+    expect(result.grupos).toHaveLength(1);
+    expect(result.grupos[0]).toMatchObject({ id: GRUPO_ID, maxParticipantes: 3 });
   });
 
   it("permite participante atualizar contato do grupo", async () => {
