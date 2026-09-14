@@ -60,8 +60,8 @@ describe("plano-estudo.view", () => {
       month: 6,
       year: 2026,
       limit: 500,
-      startDate: new Date(2026, 5, 1, 0, 0, 0, 0).toISOString(),
-      endDate: new Date(2026, 5, 30, 23, 59, 59, 999).toISOString(),
+      startDate: "2026-06-01T03:00:00.000Z",
+      endDate: "2026-07-01T02:59:59.999Z",
     });
     expect(getCurrentMonthRef(new Date("2026-06-23T12:00:00.000Z"))).toEqual({ year: 2026, month: 6 });
   });
@@ -86,8 +86,8 @@ describe("plano-estudo.view", () => {
     const result = buildWeeklyStudyQuery("2026-06-23T19:00:00.000Z");
 
     expect(result).toEqual({
-      startDate: new Date(2026, 5, 23, 0, 0, 0, 0).toISOString(),
-      endDate: new Date(2026, 5, 29, 23, 59, 59, 999).toISOString(),
+      startDate: "2026-06-23T03:00:00.000Z",
+      endDate: "2026-06-30T02:59:59.999Z",
       limit: 500,
     });
   });

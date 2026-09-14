@@ -1,3 +1,5 @@
+const { getEndOfDayInSaoPaulo, parseDateInSaoPaulo } = require("../lib/timezone");
+
 function getSubscriptionMode(inscricao) {
   return String((inscricao && (inscricao.modalidade || (inscricao.grupo && inscricao.grupo.modalidade))) || "normal").toLowerCase();
 }
@@ -35,9 +37,8 @@ function isChallengeActive(desafio, now = new Date()) {
   if (!desafio || String(desafio.status || "").toLowerCase() !== "ativo") return false;
   const deliveryDate = desafio.deliveryDate || desafio.dataEntrega;
   if (!deliveryDate) return true;
-  const deadline = new Date(deliveryDate);
-  if (Number.isNaN(deadline.getTime())) return false;
-  deadline.setUTCHours(23, 59, 59, 999);
+  const deadline = getEndOfDayInSaoPaulo(parseDateInSaoPaulo(deliveryDate));
+  if (!deadline || Number.isNaN(deadline.getTime())) return false;
   return deadline >= now;
 }
 

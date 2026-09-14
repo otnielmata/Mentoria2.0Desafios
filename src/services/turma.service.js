@@ -12,12 +12,13 @@ const {
   parsePagination,
   toIsoDate,
 } = require("./domain-utils");
+const { parseDateInSaoPaulo } = require("../config/timezone");
 
 const ADMIN_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
 const ACTIVE_TURMA_STATUS = "ativa";
 const CLOSED_STATUS = "encerrada";
-const MIN_SUPPORTED_DATE = new Date("2026-01-01T00:00:00.000Z");
+const MIN_SUPPORTED_DATE = parseDateInSaoPaulo("2026-01-01");
 
 function serializeTurma(turma, alunos = []) {
   const startDate = toIsoDate(turma.startDate);
@@ -56,7 +57,7 @@ async function assertAdmin(authenticatedUserId, message) {
 
 function parseDateField(value, fieldName) {
   if (!value) return null;
-  const date = new Date(value);
+  const date = parseDateInSaoPaulo(value);
   if (Number.isNaN(date.getTime())) throw createHttpError(`${fieldName} deve ser uma data válida.`, 400);
   if (date < MIN_SUPPORTED_DATE) throw createHttpError(`${fieldName} deve ser uma data a partir de 01/01/2026.`, 400);
   return date;

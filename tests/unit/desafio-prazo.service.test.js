@@ -21,23 +21,23 @@ describe("desafio-prazo.service", () => {
     expect(Desafio.updateMany).toHaveBeenCalledWith(
       {
         status: "ativo",
-        deliveryDate: { $ne: null, $lt: new Date("2026-06-22T00:00:00.000Z") },
+        deliveryDate: { $ne: null, $lt: new Date("2026-06-22T03:00:00.000Z") },
       },
       { status: "inativo" }
     );
   });
 
   it("mantém o desafio ativo durante todo o dia limite", () => {
-    const desafio = { status: "ativo", deliveryDate: new Date("2026-06-22T00:00:00.000Z") };
+    const desafio = { status: "ativo", deliveryDate: new Date("2026-06-22T03:00:00.000Z") };
 
     expect(isDeliveryDeadlineExpired(desafio, new Date("2026-06-22T23:59:59.999Z"))).toBe(false);
     expect(getEffectiveChallengeStatus(desafio, new Date("2026-06-22T23:59:59.999Z"))).toBe("ativo");
   });
 
   it("considera o desafio inativo depois do encerramento da data limite", () => {
-    const desafio = { status: "ativo", deliveryDate: new Date("2026-06-22T00:00:00.000Z") };
+    const desafio = { status: "ativo", deliveryDate: new Date("2026-06-22T03:00:00.000Z") };
 
-    expect(isDeliveryDeadlineExpired(desafio, new Date("2026-06-23T00:00:00.000Z"))).toBe(true);
-    expect(getEffectiveChallengeStatus(desafio, new Date("2026-06-23T00:00:00.000Z"))).toBe("inativo");
+    expect(isDeliveryDeadlineExpired(desafio, new Date("2026-06-23T03:00:00.000Z"))).toBe(true);
+    expect(getEffectiveChallengeStatus(desafio, new Date("2026-06-23T03:00:00.000Z"))).toBe("inativo");
   });
 });

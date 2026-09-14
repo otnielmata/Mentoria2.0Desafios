@@ -44,7 +44,7 @@ describe("disponibilidade de desafios inscritos", () => {
   it("mantém disponível desafio ativo dentro do prazo", () => {
     expect(
       isChallengeActive(
-        { status: "ativo", deliveryDate: "2026-06-22T00:00:00.000Z" },
+        { status: "ativo", deliveryDate: "2026-06-22T03:00:00.000Z" },
         new Date("2026-06-22T23:59:59.999Z")
       )
     ).toBe(true);
@@ -54,8 +54,8 @@ describe("disponibilidade de desafios inscritos", () => {
     expect(isChallengeActive({ status: "inativo" }, new Date("2026-06-22T12:00:00.000Z"))).toBe(false);
     expect(
       isChallengeActive(
-        { status: "ativo", deliveryDate: "2026-06-21T00:00:00.000Z" },
-        new Date("2026-06-22T00:00:00.000Z")
+        { status: "ativo", deliveryDate: "2026-06-21T03:00:00.000Z" },
+        new Date("2026-06-22T03:00:00.000Z")
       )
     ).toBe(false);
   });

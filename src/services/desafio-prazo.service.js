@@ -1,21 +1,13 @@
 const Desafio = require("../models/desafio.model");
+const { getEndOfDayInSaoPaulo, getStartOfDayInSaoPaulo } = require("../config/timezone");
 
 const ACTIVE_STATUS = "ativo";
 const INACTIVE_STATUS = "inativo";
 const DEFAULT_INTERVAL_MS = 60 * 1000;
 
-function getStartOfUtcDay(value = new Date()) {
-  const date = value instanceof Date ? new Date(value) : new Date(value);
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
-}
-
 function getDeliveryDeadline(deliveryDate) {
   if (!deliveryDate) return null;
-  const deadline = deliveryDate instanceof Date ? new Date(deliveryDate) : new Date(deliveryDate);
-  if (Number.isNaN(deadline.getTime())) return null;
-  deadline.setUTCHours(23, 59, 59, 999);
-  return deadline;
+  return getEndOfDayInSaoPaulo(deliveryDate);
 }
 
 function isDeliveryDeadlineExpired(desafio, now = new Date()) {
@@ -34,7 +26,7 @@ async function inactivateExpiredChallenges(now = new Date()) {
   return Desafio.updateMany(
     {
       status: ACTIVE_STATUS,
-      deliveryDate: { $ne: null, $lt: getStartOfUtcDay(now) },
+      deliveryDate: { $ne: null, $lt: getStartOfDayInSaoPaulo(now) },
     },
     { status: INACTIVE_STATUS }
   );

@@ -223,8 +223,8 @@ describe("ranking.service MR-94", () => {
 
     expect(Pontuacao.find).toHaveBeenCalledWith({
       createdAt: {
-        $gte: new Date("2026-01-01"),
-        $lte: new Date("2026-01-31T23:59:59.999Z"),
+        $gte: new Date("2026-01-01T03:00:00.000Z"),
+        $lte: new Date("2026-02-01T02:59:59.999Z"),
       },
     });
     expect(result.filtros).toMatchObject({ turmaId: TURMA_1_ID, pilarId: PILAR_1_ID, type: "grupo" });

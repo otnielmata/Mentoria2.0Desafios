@@ -6,6 +6,7 @@ const Pilar = require("../models/pilar.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 const { getEffectiveChallengeStatus, inactivateExpiredChallenges } = require("./desafio-prazo.service");
+const { parseDateInSaoPaulo } = require("../config/timezone");
 const {
   buildPagination,
   createHttpError,
@@ -33,7 +34,7 @@ const ACTIVE_STATUS = "ativo";
 const ALLOWED_STATUSES = ["ativo", "inativo", "apagado"];
 const ALLOWED_RECURRENCE_PERIODS = ["diario", "semanal", "mensal"];
 const ALLOWED_RECURRENCE_ACTIONS = ["bloquear"];
-const MIN_SUPPORTED_DATE = new Date("2026-01-01T00:00:00.000Z");
+const MIN_SUPPORTED_DATE = parseDateInSaoPaulo("2026-01-01");
 
 function serializePilar(pilar) {
   if (!pilar || typeof pilar !== "object") return pilar ? { id: getEntityId(pilar) } : null;
@@ -165,7 +166,7 @@ function escapeRegex(value) {
 
 function parseOptionalDate(value, fieldName) {
   if (value === undefined || value === null || value === "") return null;
-  const date = value instanceof Date ? value : new Date(value);
+  const date = parseDateInSaoPaulo(value);
   if (Number.isNaN(date.getTime())) {
     throw createHttpError(`${fieldName} deve ser uma data válida.`, 400, {
       code: "VALIDATION_ERROR",

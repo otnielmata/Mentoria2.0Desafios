@@ -5,6 +5,7 @@ require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
+const { getStartOfDayInSaoPaulo } = require("../config/timezone");
 const { getCouponOverview } = require("./cupom.service");
 const { getChecklistSummaryByStudentContext } = require("./plano-estudo.service");
 
@@ -76,8 +77,7 @@ async function findEnvios() {
 }
 
 async function countActiveDesafios() {
-  const startOfToday = new Date();
-  startOfToday.setUTCHours(0, 0, 0, 0);
+  const startOfToday = getStartOfDayInSaoPaulo();
 
   return Desafio.countDocuments({
     status: ACTIVE_STATUS,

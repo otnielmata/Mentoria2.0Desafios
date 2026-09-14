@@ -1,6 +1,8 @@
 const dotenv = require("dotenv");
+const { configureApplicationTimeZone, TIME_ZONE, TIME_ZONE_OFFSET } = require("./timezone");
 
 dotenv.config();
+configureApplicationTimeZone();
 
 function firstNonEmpty(...values) {
   return values.find((value) => typeof value === "string" && value.trim()) || "";
@@ -74,6 +76,8 @@ module.exports = {
   mongoUri: resolveMongoUri(),
   mongoEnvName: resolveMongoEnvName(),
   mongoDbName: resolveMongoDbName(),
+  timeZone: TIME_ZONE,
+  timeZoneOffset: TIME_ZONE_OFFSET,
   jwtSecret: process.env.JWT_SECRET || "fallback-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
 };

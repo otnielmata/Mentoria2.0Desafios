@@ -9,6 +9,7 @@ const PlanoEstudoItem = require("../models/plano-estudo-item.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
 const { buildChecklistSummaryByStudent } = require("./plano-estudo.service");
+const { getEndOfDayInSaoPaulo, parseDateInSaoPaulo } = require("../config/timezone");
 
 const ALLOWED_ROLES = ["professor", "admin"];
 const STUDENT_ROLE = "aluno";
@@ -81,7 +82,7 @@ function parseDate(value, message) {
     return undefined;
   }
 
-  const date = new Date(value);
+  const date = parseDateInSaoPaulo(value);
 
   if (Number.isNaN(date.getTime())) {
     throw createHttpError(message, 400);
@@ -94,10 +95,10 @@ function parsePeriodFilters(query = {}) {
   const startDateValue = getFirstValue(query, ["startDate", "dataInicio", "data_inicio", "from"]);
   const endDateValue = getFirstValue(query, ["endDate", "dataFim", "data_fim", "to"]);
   const startDate = parseDate(startDateValue, "startDate deve ser uma data válida.");
-  const endDate = parseDate(endDateValue, "endDate deve ser uma data válida.");
+  let endDate = parseDate(endDateValue, "endDate deve ser uma data válida.");
 
   if (endDate && typeof endDateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(endDateValue)) {
-    endDate.setUTCHours(23, 59, 59, 999);
+    endDate = getEndOfDayInSaoPaulo(endDate);
   }
 
   if (startDate && endDate && startDate > endDate) {

@@ -103,8 +103,8 @@ describe("admin-relatorio-participacao.service MR-95", () => {
 
     expect(User.find).toHaveBeenCalledWith({ role: "aluno", status: "ativo" });
     expect(result.periodo).toEqual({
-      startDate: new Date("2026-01-01").toISOString(),
-      endDate: new Date("2026-01-31T23:59:59.999Z").toISOString(),
+      startDate: "2026-01-01T03:00:00.000Z",
+      endDate: "2026-02-01T02:59:59.999Z",
     });
     expect(result.quantidadeEnvios).toBe(1);
     expect(result.distribuicaoPontos.totalPontos).toBe(40);

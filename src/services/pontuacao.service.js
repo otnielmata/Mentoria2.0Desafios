@@ -9,6 +9,14 @@ const { logDomainEvent } = require("./audit.service");
 const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("./cupom.service");
 const { isLeadershipBonusEnabled } = require("./configuration.service");
 const {
+  addCalendarDaysInSaoPaulo,
+  createDateInSaoPaulo,
+  getDayOfWeekInSaoPaulo,
+  getStartOfDayInSaoPaulo,
+  getTimeZoneParts,
+  parseDateInSaoPaulo,
+} = require("../config/timezone");
+const {
   assertObjectPayload,
   createHttpError,
   getEntityId,
@@ -132,27 +140,28 @@ function assertApprovedEnvio(envio) {
 }
 
 function getPeriodBounds(referenceDate, periodo) {
-  const date = referenceDate instanceof Date ? referenceDate : new Date(referenceDate || Date.now());
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const date = parseDateInSaoPaulo(referenceDate || Date.now());
+  const dayStart = getStartOfDayInSaoPaulo(date);
+  const start = dayStart ? new Date(dayStart) : new Date(date);
   const end = new Date(start);
 
   if (periodo === "semanal") {
-    const day = start.getUTCDay() || 7;
-    start.setUTCDate(start.getUTCDate() - day + 1);
-    end.setTime(start.getTime());
-    end.setUTCDate(end.getUTCDate() + 7);
-    return { start, end };
+    const day = getDayOfWeekInSaoPaulo(start) || 7;
+    const weekStart = addCalendarDaysInSaoPaulo(start, -day + 1);
+    const weekEnd = addCalendarDaysInSaoPaulo(weekStart, 7);
+    return { start: weekStart, end: weekEnd };
   }
 
   if (periodo === "mensal") {
-    start.setUTCDate(1);
-    end.setTime(start.getTime());
-    end.setUTCMonth(end.getUTCMonth() + 1);
-    return { start, end };
+    const parts = getTimeZoneParts(date);
+    const monthStart = createDateInSaoPaulo({ year: parts.year, month: parts.month, day: 1 });
+    const monthEnd = parts.month === 12
+      ? createDateInSaoPaulo({ year: parts.year + 1, month: 1, day: 1 })
+      : createDateInSaoPaulo({ year: parts.year, month: parts.month + 1, day: 1 });
+    return { start: monthStart, end: monthEnd };
   }
 
-  end.setUTCDate(end.getUTCDate() + 1);
-  return { start, end };
+  return { start, end: addCalendarDaysInSaoPaulo(start, 1) };
 }
 
 function getRecurrenceLimit(desafio) {

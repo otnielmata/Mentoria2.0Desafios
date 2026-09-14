@@ -14,6 +14,8 @@ function healthCheck(req, res) {
       mongoDbName: env.mongoDbName || null,
       mongoEnvName: env.mongoEnvName,
       nodeEnv: env.nodeEnv,
+      timeZone: env.timeZone,
+      timeZoneOffset: env.timeZoneOffset,
     },
   });
 }

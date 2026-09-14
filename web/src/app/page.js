@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import apiClientModule from "../lib/api-client";
 import challengeSubscriptionModel from "../models/challenge-subscription.model";
 import planoEstudoView from "../views/plano-estudo.view";
+import timezone from "../lib/timezone";
 
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
 const {
@@ -32,6 +33,7 @@ const {
   toDateKey,
   toIsoFromDateTimeInput,
 } = planoEstudoView;
+const { TIME_ZONE, getDateKeyInSaoPaulo, parseDateInSaoPaulo } = timezone;
 
 const LIST_PAGE_SIZE = 10;
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
@@ -374,16 +376,14 @@ function formatLuckyNumbers(value) {
 
 function formatDate(value) {
   if (!value) return "Sem data";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sem data";
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(date);
+  const date = parseDateInSaoPaulo(value);
+  if (!date || Number.isNaN(date.getTime())) return "Sem data";
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: TIME_ZONE }).format(date);
 }
 
 function formatDateInputValue(value) {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  return getDateKeyInSaoPaulo(value);
 }
 
 function formatRankingPosition(value) {
@@ -474,7 +474,7 @@ function LinkList({ download = false, emptyMessage, items }) {
 }
 
 function todaySuffix() {
-  return new Date().toISOString().slice(0, 10);
+  return getDateKeyInSaoPaulo(new Date());
 }
 
 function readFileAsAttachment(file) {

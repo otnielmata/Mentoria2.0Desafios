@@ -3,6 +3,8 @@ jest.mock("../../src/config/env", () => ({
   mongoDbName: "mentoria_api",
   mongoEnvName: "MONGODB_URI",
   nodeEnv: "production",
+  timeZone: "America/Sao_Paulo",
+  timeZoneOffset: "-03:00",
 }));
 
 jest.mock("../../src/config/database", () => ({
@@ -41,6 +43,7 @@ describe("health.controller", () => {
         status: "ok",
         message: "API running",
         database: expect.objectContaining({ readyState: 1, status: "connected" }),
+        config: expect.objectContaining({ timeZone: "America/Sao_Paulo", timeZoneOffset: "-03:00" }),
       })
     );
   });

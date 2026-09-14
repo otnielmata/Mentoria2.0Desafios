@@ -7,6 +7,7 @@ const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const { getChecklistSummaryFromFilters } = require("./plano-estudo.service");
+const { getEndOfDayInSaoPaulo, parseDateInSaoPaulo } = require("../config/timezone");
 
 const STUDENT_ROLE = "aluno";
 const APPROVED_STATUS = "aprovado";
@@ -78,7 +79,7 @@ function parseDate(value, message) {
     return undefined;
   }
 
-  const date = new Date(value);
+  const date = parseDateInSaoPaulo(value);
 
   if (Number.isNaN(date.getTime())) {
     throw createHttpError(message, 400);
@@ -91,10 +92,10 @@ function parsePeriodoFilter(query = {}) {
   const startDateValue = getFirstValue(query, ["dataInicio", "data_inicio", "startDate", "createdFrom", "from"]);
   const endDateValue = getFirstValue(query, ["dataFim", "data_fim", "endDate", "createdTo", "to"]);
   const dataInicio = parseDate(startDateValue, "Data inicial deve ser uma data válida.");
-  const dataFim = parseDate(endDateValue, "Data final deve ser uma data válida.");
+  let dataFim = parseDate(endDateValue, "Data final deve ser uma data válida.");
 
   if (dataFim && typeof endDateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(endDateValue)) {
-    dataFim.setUTCHours(23, 59, 59, 999);
+    dataFim = getEndOfDayInSaoPaulo(dataFim);
   }
 
   if (dataInicio && dataFim && dataInicio > dataFim) {

@@ -1,6 +1,7 @@
 const EventoAoVivo = require("../models/evento-ao-vivo.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { getMonthRangeInSaoPaulo, parseDateInSaoPaulo } = require("../config/timezone");
 const {
   buildPagination,
   createHttpError,
@@ -27,7 +28,7 @@ const STUDENT_ROLE = "aluno";
 const ACTIVE_STATUS = "ativo";
 const INACTIVE_STATUS = "inativo";
 const VALID_EVENT_TYPES = Object.values(EventoAoVivo.eventTypes);
-const MIN_SUPPORTED_DATE = new Date("2026-01-01T00:00:00.000Z");
+const MIN_SUPPORTED_DATE = parseDateInSaoPaulo("2026-01-01");
 
 function serializeTurmaRef(turma) {
   if (!turma) return null;
@@ -89,7 +90,7 @@ async function assertStudent(authenticatedUserId, message) {
 
 function parseDateField(value, fieldName) {
   if (!value) return null;
-  const date = new Date(value);
+  const date = parseDateInSaoPaulo(value);
   if (Number.isNaN(date.getTime())) throw createHttpError(`${fieldName} deve ser uma data válida.`, 400);
   if (date < MIN_SUPPORTED_DATE) throw createHttpError(`${fieldName} deve ser uma data a partir de 01/01/2026.`, 400);
   return date;
@@ -157,8 +158,7 @@ function buildDateRangeFilter(query = {}) {
     if (!Number.isInteger(parsedYear) || parsedYear < 2000) {
       throw createHttpError("ano deve ser um ano válido.", 400);
     }
-    const startDate = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1, 0, 0, 0, 0));
-    const endDate = new Date(Date.UTC(parsedYear, parsedMonth, 0, 23, 59, 59, 999));
+    const { start: startDate, end: endDate } = getMonthRangeInSaoPaulo(parsedYear, parsedMonth);
     return { startAt: { $gte: startDate, $lte: endDate } };
   }
 

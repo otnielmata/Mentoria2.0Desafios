@@ -10,6 +10,19 @@ const PERSONAL_EVENT_META = {
   icon: "edit_calendar",
 };
 
+const {
+  addCalendarDaysInSaoPaulo,
+  createDateInSaoPaulo,
+  getDateKeyInSaoPaulo,
+  getDayOfWeekInSaoPaulo,
+  getEndOfDayInSaoPaulo,
+  getMonthRangeInSaoPaulo,
+  getStartOfDayInSaoPaulo,
+  getTimeZoneParts,
+  parseDateInSaoPaulo,
+  TIME_ZONE,
+} = require("../lib/timezone");
+
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function pad(value) {
@@ -17,33 +30,27 @@ function pad(value) {
 }
 
 function addDays(date, amount) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + amount);
-  return nextDate;
+  return addCalendarDaysInSaoPaulo(date, amount);
 }
 
 function startOfDay(date) {
-  const nextDate = new Date(date);
-  nextDate.setHours(0, 0, 0, 0);
-  return nextDate;
+  return getStartOfDayInSaoPaulo(date);
 }
 
 function endOfDay(date) {
-  const nextDate = new Date(date);
-  nextDate.setHours(23, 59, 59, 999);
-  return nextDate;
+  return getEndOfDayInSaoPaulo(date);
 }
 
 function formatCalendarDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sem data";
-  return new Intl.DateTimeFormat("pt-BR").format(date);
+  const date = parseDateInSaoPaulo(value);
+  if (!date || Number.isNaN(date.getTime())) return "Sem data";
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: TIME_ZONE }).format(date);
 }
 
 function formatDateTimeInputValue(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const parts = getTimeZoneParts(value);
+  if (!parts) return "";
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
 }
 
 function getDateKeyFromDateTimeInput(value) {
@@ -52,30 +59,28 @@ function getDateKeyFromDateTimeInput(value) {
 
 function toIsoFromDateTimeInput(value) {
   if (!value) return undefined;
-  const date = new Date(value);
+  const date = parseDateInSaoPaulo(value);
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toISOString();
 }
 
 function buildDefaultScoreWindowStartKey(plannedDateKey) {
-  const referenceDate = new Date(`${plannedDateKey}T00:00:00`);
-  if (Number.isNaN(referenceDate.getTime())) return plannedDateKey;
-  referenceDate.setDate(referenceDate.getDate() - referenceDate.getDay());
-  return toDateKey(referenceDate);
+  const referenceDate = parseDateInSaoPaulo(`${plannedDateKey}T00:00`);
+  if (!referenceDate || Number.isNaN(referenceDate.getTime())) return plannedDateKey;
+  const weekStart = addCalendarDaysInSaoPaulo(referenceDate, -(getDayOfWeekInSaoPaulo(referenceDate) || 0));
+  return weekStart ? toDateKey(weekStart) : plannedDateKey;
 }
 
 function addDaysToDateKey(dateKey, amount) {
-  const referenceDate = new Date(`${dateKey}T00:00:00`);
-  if (Number.isNaN(referenceDate.getTime())) return "";
-  referenceDate.setDate(referenceDate.getDate() + amount);
-  return toDateKey(referenceDate);
+  const referenceDate = addCalendarDaysInSaoPaulo(`${dateKey}T00:00`, amount);
+  return referenceDate ? toDateKey(referenceDate) : "";
 }
 
 function getDateKeyDifferenceInDays(startDateKey, endDateKey) {
   if (!startDateKey || !endDateKey) return null;
-  const startDate = new Date(`${startDateKey}T00:00:00`);
-  const endDate = new Date(`${endDateKey}T00:00:00`);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+  const startDate = parseDateInSaoPaulo(`${startDateKey}T00:00`);
+  const endDate = parseDateInSaoPaulo(`${endDateKey}T00:00`);
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
   return Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);
 }
 
@@ -128,8 +133,10 @@ function groupChecklistItemsByDate(items = []) {
   return items
     .map(normalizeChecklistItem)
     .sort((left, right) => {
-      const leftTime = left.startAt ? new Date(left.startAt).getTime() : 0;
-      const rightTime = right.startAt ? new Date(right.startAt).getTime() : 0;
+      const leftDate = left.startAt ? parseDateInSaoPaulo(left.startAt) : null;
+      const rightDate = right.startAt ? parseDateInSaoPaulo(right.startAt) : null;
+      const leftTime = leftDate && !Number.isNaN(leftDate.getTime()) ? leftDate.getTime() : 0;
+      const rightTime = rightDate && !Number.isNaN(rightDate.getTime()) ? rightDate.getTime() : 0;
       return leftTime - rightTime;
     })
     .reduce((accumulator, item) => {
@@ -208,8 +215,8 @@ function buildChecklistSummaryViewModel(items = []) {
 }
 
 function buildWeeklyStudyQuery(startAt) {
-  const referenceDate = new Date(startAt);
-  if (Number.isNaN(referenceDate.getTime())) {
+  const referenceDate = parseDateInSaoPaulo(startAt);
+  if (!referenceDate || Number.isNaN(referenceDate.getTime())) {
     return null;
   }
 
@@ -224,9 +231,9 @@ function buildWeeklyStudyQuery(startAt) {
 }
 
 function getStudyDurationMinutes(startAt, endAt) {
-  const startDate = new Date(startAt);
-  const endDate = new Date(endAt);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+  const startDate = parseDateInSaoPaulo(startAt);
+  const endDate = parseDateInSaoPaulo(endAt);
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
     return 90;
   }
 
@@ -239,9 +246,9 @@ function getStudyDurationMinutes(startAt, endAt) {
 }
 
 function calculateEndAtFromDuration(startAt, durationMinutes) {
-  const startDate = new Date(startAt);
+  const startDate = parseDateInSaoPaulo(startAt);
   const duration = Number(durationMinutes);
-  if (Number.isNaN(startDate.getTime()) || !Number.isInteger(duration) || duration < 1) {
+  if (!startDate || Number.isNaN(startDate.getTime()) || !Number.isInteger(duration) || duration < 1) {
     return undefined;
   }
 
@@ -255,8 +262,9 @@ function hasLiveMentoriaEvent(event = {}) {
 }
 
 function buildWeeklyStudySessions({ startAt, endAt, durationMinutes, liveEvents = [] }) {
-  const referenceDate = new Date(startAt);
-  if (Number.isNaN(referenceDate.getTime())) {
+  const referenceDate = parseDateInSaoPaulo(startAt);
+  const referenceParts = getTimeZoneParts(referenceDate);
+  if (!referenceDate || Number.isNaN(referenceDate.getTime()) || !referenceParts) {
     return [];
   }
 
@@ -266,8 +274,8 @@ function buildWeeklyStudySessions({ startAt, endAt, durationMinutes, liveEvents 
   const rangeStart = startOfDay(referenceDate);
   const scoreWindowStartKey = toDateKey(rangeStart);
   const blockedDays = new Set(liveEvents.filter(hasLiveMentoriaEvent).map((event) => toDateKey(event.startAt || event.dataInicio)));
-  const sessionHours = referenceDate.getHours();
-  const sessionMinutes = referenceDate.getMinutes();
+  const sessionHours = referenceParts.hour;
+  const sessionMinutes = referenceParts.minute;
 
   return Array.from({ length: 7 }, (_, index) => {
     const day = addDays(rangeStart, index);
@@ -276,8 +284,14 @@ function buildWeeklyStudySessions({ startAt, endAt, durationMinutes, liveEvents 
       return null;
     }
 
-    const sessionStart = new Date(day);
-    sessionStart.setHours(sessionHours, sessionMinutes, 0, 0);
+    const dayParts = getTimeZoneParts(day);
+    const sessionStart = createDateInSaoPaulo({
+      year: dayParts.year,
+      month: dayParts.month,
+      day: dayParts.day,
+      hour: sessionHours,
+      minute: sessionMinutes,
+    });
 
     const sessionEnd = new Date(sessionStart.getTime() + sessionDurationMinutes * 60000);
 
@@ -292,43 +306,48 @@ function buildWeeklyStudySessions({ startAt, endAt, durationMinutes, liveEvents 
 }
 
 function toDateKey(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return getDateKeyInSaoPaulo(value);
 }
 
 function formatTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
+  const date = parseDateInSaoPaulo(value);
+  if (!date || Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: TIME_ZONE,
   }).format(date);
 }
 
 function formatMonthLabel(year, month) {
-  const date = new Date(year, month - 1, 1);
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
+  const date = createDateInSaoPaulo({ year, month, day: 1 });
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: TIME_ZONE, year: "numeric" }).format(date);
 }
 
 function buildMonthGrid(year, month) {
-  const firstDay = new Date(year, month - 1, 1);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const startWeekday = firstDay.getDay();
+  const firstDay = createDateInSaoPaulo({ year, month, day: 1 });
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const startWeekday = getDayOfWeekInSaoPaulo(firstDay);
   const cells = [];
 
   for (let index = 0; index < startWeekday; index += 1) {
-    const date = new Date(year, month - 1, index - startWeekday + 1);
+    // Use a civil UTC date only to normalize days from the previous month.
+    const previousMonthDate = new Date(Date.UTC(year, month - 1, index - startWeekday + 1));
+    const date = createDateInSaoPaulo({
+      year: previousMonthDate.getUTCFullYear(),
+      month: previousMonthDate.getUTCMonth() + 1,
+      day: previousMonthDate.getUTCDate(),
+    });
     cells.push({
       date: date.toISOString(),
-      day: date.getDate(),
+      day: getTimeZoneParts(date).day,
       inMonth: false,
       key: toDateKey(date),
     });
   }
 
   for (let day = 1; day <= daysInMonth; day += 1) {
-    const date = new Date(year, month - 1, day);
+    const date = createDateInSaoPaulo({ year, month, day });
     cells.push({
       date: date.toISOString(),
       day,
@@ -339,11 +358,10 @@ function buildMonthGrid(year, month) {
 
   while (cells.length % 7 !== 0) {
     const lastCell = cells[cells.length - 1];
-    const nextDate = new Date(lastCell.date);
-    nextDate.setDate(nextDate.getDate() + 1);
+    const nextDate = addDays(lastCell.date, 1);
     cells.push({
       date: nextDate.toISOString(),
-      day: nextDate.getDate(),
+      day: getTimeZoneParts(nextDate).day,
       inMonth: false,
       key: toDateKey(nextDate),
     });
@@ -415,23 +433,23 @@ function buildCalendarViewModel({ year, month, events = [], showPersonal = true,
 }
 
 function shiftMonth(year, month, delta) {
-  const date = new Date(year, month - 1 + delta, 1);
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
   return {
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
   };
 }
 
 function getCurrentMonthRef(referenceDate = new Date()) {
+  const parts = getTimeZoneParts(referenceDate);
   return {
-    year: referenceDate.getFullYear(),
-    month: referenceDate.getMonth() + 1,
+    year: parts.year,
+    month: parts.month,
   };
 }
 
 function buildAgendaQuery({ year, month }) {
-  const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
-  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+  const { start: startDate, end: endDate } = getMonthRangeInSaoPaulo(year, month);
 
   return {
     month,

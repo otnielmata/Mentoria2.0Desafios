@@ -3,6 +3,7 @@ const PlanoEstudoItem = require("../models/plano-estudo-item.model");
 const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { addCalendarDaysInSaoPaulo, getDateKeyInSaoPaulo, getDayOfWeekInSaoPaulo, parseDateInSaoPaulo } = require("../config/timezone");
 const {
   buildPagination,
   createHttpError,
@@ -59,9 +60,7 @@ function pad(value) {
 }
 
 function toDateKeyFromDate(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  return getDateKeyInSaoPaulo(value);
 }
 
 function normalizeDateKey(value) {
@@ -71,25 +70,24 @@ function normalizeDateKey(value) {
 }
 
 function addDaysToDateKey(dateKey, amount) {
-  const reference = new Date(`${dateKey}T00:00:00.000Z`);
-  if (Number.isNaN(reference.getTime())) return null;
-  reference.setUTCDate(reference.getUTCDate() + amount);
-  return toDateKeyFromDate(reference);
+  const reference = addCalendarDaysInSaoPaulo(`${dateKey}T00:00`, amount);
+  return reference ? toDateKeyFromDate(reference) : null;
 }
 
 function getDateKeyDifferenceInDays(startDateKey, endDateKey) {
   if (!startDateKey || !endDateKey) return null;
-  const startDate = new Date(`${startDateKey}T00:00:00.000Z`);
-  const endDate = new Date(`${endDateKey}T00:00:00.000Z`);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+  const startDate = addCalendarDaysInSaoPaulo(`${startDateKey}T00:00`, 0);
+  const endDate = addCalendarDaysInSaoPaulo(`${endDateKey}T00:00`, 0);
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
   return Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);
 }
 
 function buildDefaultScoreWindowStartKey(plannedDateKey) {
-  const reference = new Date(`${plannedDateKey}T00:00:00.000Z`);
-  if (Number.isNaN(reference.getTime())) return plannedDateKey;
-  reference.setUTCDate(reference.getUTCDate() - reference.getUTCDay());
-  return toDateKeyFromDate(reference);
+  const reference = addCalendarDaysInSaoPaulo(`${plannedDateKey}T00:00`, 0);
+  if (!reference) return plannedDateKey;
+  const daysFromSunday = getDayOfWeekInSaoPaulo(reference);
+  const weekStart = addCalendarDaysInSaoPaulo(reference, -(daysFromSunday || 0));
+  return weekStart ? toDateKeyFromDate(weekStart) : plannedDateKey;
 }
 
 function getEffectivePlannedDateKey(item) {
@@ -395,7 +393,7 @@ async function buildTotalPointsByStudentIds(studentIds = []) {
 
 function normalizeOccurrenceDate(value) {
   if (!value) return new Date();
-  const date = value instanceof Date ? value : new Date(value);
+  const date = parseDateInSaoPaulo(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 

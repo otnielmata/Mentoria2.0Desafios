@@ -6,6 +6,7 @@ const ParticipanteEnvio = require("../models/participante-envio.model");
 const Pilar = require("../models/pilar.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
+const { getEndOfDayInSaoPaulo } = require("../config/timezone");
 const { logDomainEvent } = require("./audit.service");
 const { getEffectiveChallengeStatus, inactivateExpiredChallenges } = require("./desafio-prazo.service");
 const {
@@ -338,8 +339,7 @@ async function getGroupForSubmission(grupoId, authenticatedUserId) {
     throw createHttpError("Todos os participantes do grupo precisam estar ativos.", 400, { code: "INACTIVE_USER" });
   }
 
-  const deliveryDate = desafio.deliveryDate ? new Date(desafio.deliveryDate) : null;
-  if (deliveryDate) deliveryDate.setUTCHours(23, 59, 59, 999);
+  const deliveryDate = desafio.deliveryDate ? getEndOfDayInSaoPaulo(desafio.deliveryDate) : null;
   if (deliveryDate && deliveryDate < new Date()) {
     throw createHttpError("Prazo de entrega do desafio encerrado.", 400, { code: "CHALLENGE_DELIVERY_CLOSED" });
   }

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { getEndOfDayInSaoPaulo, parseDateInSaoPaulo } = require("../config/timezone");
 
 const DIFFICULTY_POINTS = {
   facil: 10,
@@ -245,7 +246,7 @@ function parseDate(value, message) {
     return undefined;
   }
 
-  const date = new Date(value);
+  const date = parseDateInSaoPaulo(value);
   if (Number.isNaN(date.getTime())) {
     throw createHttpError(message, 400);
   }
@@ -256,10 +257,10 @@ function parseDate(value, message) {
 function parsePeriod(query = {}) {
   const startDate = parseDate(getFirstValue(query, ["startDate", "dataInicio", "data_inicio", "from"]), "startDate deve ser uma data válida.");
   const endDateValue = getFirstValue(query, ["endDate", "dataFim", "data_fim", "to"]);
-  const endDate = parseDate(endDateValue, "endDate deve ser uma data válida.");
+  let endDate = parseDate(endDateValue, "endDate deve ser uma data válida.");
 
   if (endDate && typeof endDateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(endDateValue)) {
-    endDate.setUTCHours(23, 59, 59, 999);
+    endDate = getEndOfDayInSaoPaulo(endDate);
   }
 
   if (startDate && endDate && startDate > endDate) {
@@ -300,7 +301,7 @@ function toIsoDate(value) {
     return null;
   }
 
-  const date = value instanceof Date ? value : new Date(value);
+  const date = parseDateInSaoPaulo(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
