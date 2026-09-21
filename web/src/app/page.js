@@ -695,6 +695,7 @@ function ConfigurationView({ apiClient }) {
   const [pagination, setPagination] = useState(getPagination());
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
 
   function buildUsersPath(nextFilters = filters, nextPage = pagination.page || 1) {
