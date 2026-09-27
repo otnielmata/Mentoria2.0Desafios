@@ -25,6 +25,7 @@ const { syncCouponsForStudents } = require("../../src/services/cupom.service");
 const eventoAoVivoService = require("../../src/services/evento-ao-vivo.service");
 const {
   buildChecklistSummary,
+  buildAgendaCalendarQuery,
   createItem,
   deleteItem,
   getAgenda,
@@ -152,11 +153,33 @@ describe("plano-estudo.service", () => {
   it("mescla eventos da mentoria com itens pessoais na agenda", async () => {
     const result = await getAgenda(STUDENT_ID, { month: 6, year: 2026 });
 
+    expect(eventoAoVivoService.listEventosForAgenda).toHaveBeenCalledWith(
+      STUDENT_ID,
+      expect.objectContaining({
+        startDate: "2026-05-31T03:00:00.000Z",
+        endDate: "2026-07-05T02:59:59.999Z",
+      })
+    );
     expect(result.eventosMentoria).toBe(1);
     expect(result.itensPessoais).toBe(1);
     expect(result.agenda).toHaveLength(2);
     expect(result.agenda[0].source).toBe("mentoria");
     expect(result.agenda[1].source).toBe("pessoal");
+  });
+
+  it("expande a agenda para os dias de transição da grade mensal", () => {
+    expect(buildAgendaCalendarQuery({ month: 9, year: 2026 })).toMatchObject({
+      month: 9,
+      year: 2026,
+      startDate: "2026-08-30T03:00:00.000Z",
+      endDate: "2026-10-04T02:59:59.999Z",
+    });
+    expect(buildAgendaCalendarQuery({ month: 10, year: 2026 })).toMatchObject({
+      month: 10,
+      year: 2026,
+      startDate: "2026-09-27T03:00:00.000Z",
+      endDate: "2026-11-01T02:59:59.999Z",
+    });
   });
 
   it("atualiza apenas item do próprio aluno", async () => {

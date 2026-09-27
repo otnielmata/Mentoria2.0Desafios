@@ -4,8 +4,11 @@ const { syncCouponsForStudents } = require("./cupom.service");
 const eventoAoVivoService = require("./evento-ao-vivo.service");
 const {
   addCalendarDaysInSaoPaulo,
+  createDateInSaoPaulo,
   getDateKeyInSaoPaulo,
   getDayOfWeekInSaoPaulo,
+  getEndOfDayInSaoPaulo,
+  getMonthRangeInSaoPaulo,
   parseDateInSaoPaulo,
 } = require("../config/timezone");
 const {
@@ -21,6 +24,7 @@ const {
   parseObjectId,
   parseOptionalText,
   parsePagination,
+  parsePeriod,
   parseRequiredText,
   parseStudyDurationMinutes,
   toIsoDate,
@@ -390,6 +394,12 @@ async function listItems(authenticatedUserId, query = {}) {
 
   const filters = { aluno: authenticatedUserId, deletedAt: null };
   if (query.status) filters.status = String(query.status).trim();
+  const period = parsePeriod(query);
+  if (period.startDate || period.endDate) {
+    filters.startAt = {};
+    if (period.startDate) filters.startAt.$gte = period.startDate;
+    if (period.endDate) filters.startAt.$lte = period.endDate;
+  }
 
   const { page, limit, skip } = parsePagination(query);
   const [total, itens] = await Promise.all([
@@ -493,12 +503,37 @@ function hasPayloadField(payload, fields) {
   return fields.some((field) => Object.prototype.hasOwnProperty.call(payload || {}, field));
 }
 
+function buildAgendaCalendarQuery(query = {}) {
+  const monthValue = getFirstValue(query, ["month", "mes"]);
+  const yearValue = getFirstValue(query, ["year", "ano"]);
+  if (monthValue === undefined || yearValue === undefined) return query;
+
+  const month = Number(monthValue);
+  const year = Number(yearValue);
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000) return query;
+
+  const { start: monthStart } = getMonthRangeInSaoPaulo(year, month);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const startWeekday = getDayOfWeekInSaoPaulo(monthStart);
+  const monthEnd = createDateInSaoPaulo({ year, month, day: daysInMonth, hour: 23, minute: 59, second: 59, millisecond: 999 });
+  const trailingDays = (7 - ((startWeekday + daysInMonth) % 7)) % 7;
+  const firstVisibleDate = addCalendarDaysInSaoPaulo(monthStart, -startWeekday);
+  const lastVisibleDate = addCalendarDaysInSaoPaulo(monthEnd, trailingDays);
+
+  return {
+    ...query,
+    startDate: firstVisibleDate.toISOString(),
+    endDate: getEndOfDayInSaoPaulo(lastVisibleDate).toISOString(),
+  };
+}
+
 async function getAgenda(authenticatedUserId, query = {}) {
   await assertStudent(authenticatedUserId, "Apenas aluno pode consultar a agenda do plano de estudo.");
+  const agendaQuery = buildAgendaCalendarQuery(query);
 
   const [eventos, itensResult] = await Promise.all([
-    eventoAoVivoService.listEventosForAgenda(authenticatedUserId, query),
-    listItems(authenticatedUserId, { ...query, limit: query.limit || 500, page: 1 }),
+    eventoAoVivoService.listEventosForAgenda(authenticatedUserId, agendaQuery),
+    listItems(authenticatedUserId, { ...agendaQuery, limit: query.limit || 500, page: 1 }),
   ]);
 
   const agenda = [...eventos, ...itensResult.itens].sort((left, right) => {
@@ -518,6 +553,7 @@ module.exports = {
   buildChecklistSummary,
   buildChecklistSummaryByStudent,
   createItem,
+  buildAgendaCalendarQuery,
   deleteItem,
   findPlanningItemsByFilters,
   getAgenda,
