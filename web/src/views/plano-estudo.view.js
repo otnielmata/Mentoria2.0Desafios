@@ -16,7 +16,6 @@ const {
   getDateKeyInSaoPaulo,
   getDayOfWeekInSaoPaulo,
   getEndOfDayInSaoPaulo,
-  getMonthRangeInSaoPaulo,
   getStartOfDayInSaoPaulo,
   getTimeZoneParts,
   parseDateInSaoPaulo,
@@ -449,7 +448,14 @@ function getCurrentMonthRef(referenceDate = new Date()) {
 }
 
 function buildAgendaQuery({ year, month }) {
-  const { start: startDate, end: endDate } = getMonthRangeInSaoPaulo(year, month);
+  // The grid includes the last days of the previous month and the first days
+  // of the next month, so the API range must cover every visible cell.
+  const weeks = buildMonthGrid(year, month);
+  const firstCell = weeks[0][0];
+  const lastWeek = weeks[weeks.length - 1];
+  const lastCell = lastWeek[lastWeek.length - 1];
+  const startDate = startOfDay(firstCell.date);
+  const endDate = endOfDay(lastCell.date);
 
   return {
     month,

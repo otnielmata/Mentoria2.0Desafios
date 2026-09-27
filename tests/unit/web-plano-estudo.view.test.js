@@ -60,9 +60,17 @@ describe("plano-estudo.view", () => {
       month: 6,
       year: 2026,
       limit: 500,
-      startDate: "2026-06-01T03:00:00.000Z",
-      endDate: "2026-07-01T02:59:59.999Z",
+      startDate: "2026-05-31T03:00:00.000Z",
+      endDate: "2026-07-05T02:59:59.999Z",
     });
+
+    const septemberQuery = buildAgendaQuery({ year: 2026, month: 9 });
+    expect(septemberQuery.startDate).toBe("2026-08-30T03:00:00.000Z");
+    expect(septemberQuery.endDate).toBe("2026-10-04T02:59:59.999Z");
+
+    const octoberQuery = buildAgendaQuery({ year: 2026, month: 10 });
+    expect(octoberQuery.startDate).toBe("2026-09-27T03:00:00.000Z");
+    expect(octoberQuery.endDate).toBe("2026-11-01T02:59:59.999Z");
     expect(getCurrentMonthRef(new Date("2026-06-23T12:00:00.000Z"))).toEqual({ year: 2026, month: 6 });
   });
 
