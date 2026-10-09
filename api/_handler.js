@@ -23,7 +23,9 @@ function rebuildApiRequestUrl(req) {
 }
 
 module.exports = async function handler(req, res) {
-  await connectDatabase();
+  // A Vercel instance reuses the Mongoose connection between requests. Defaults
+  // are seeded once during the traditional server boot, not on every request.
+  await connectDatabase({ seedDefaults: false });
   req.url = rebuildApiRequestUrl(req);
   return app(req, res);
 };

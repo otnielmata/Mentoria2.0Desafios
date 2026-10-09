@@ -33,5 +33,8 @@ const envioDesafioSchema = new mongoose.Schema(
 );
 
 envioDesafioSchema.index({ createdAt: -1 });
+envioDesafioSchema.index({ turma: 1, aluno: 1, status: 1, createdAt: -1 });
+envioDesafioSchema.index({ turma: 1, participantes: 1, status: 1, createdAt: -1 });
+envioDesafioSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model("EnvioDesafio", envioDesafioSchema);

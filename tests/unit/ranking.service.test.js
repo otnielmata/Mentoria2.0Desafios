@@ -226,6 +226,7 @@ describe("ranking.service MR-94", () => {
         $gte: new Date("2026-01-01T03:00:00.000Z"),
         $lte: new Date("2026-02-01T02:59:59.999Z"),
       },
+      turma: { $in: [TURMA_1_ID] },
     });
     expect(result.filtros).toMatchObject({ turmaId: TURMA_1_ID, pilarId: PILAR_1_ID, type: "grupo" });
     expect(result.ranking).toHaveLength(1);

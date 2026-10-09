@@ -5,8 +5,8 @@ const InscricaoDesafio = require("../models/inscricao-desafio.model");
 const Pilar = require("../models/pilar.model");
 const Pontuacao = require("../models/pontuacao.model");
 const User = require("../models/user.model");
-const { getEffectiveChallengeStatus, inactivateExpiredChallenges } = require("./desafio-prazo.service");
-const { parseDateInSaoPaulo } = require("../config/timezone");
+const { getEffectiveChallengeStatus, isDeliveryDeadlineExpired } = require("./desafio-prazo.service");
+const { getStartOfDayInSaoPaulo, parseDateInSaoPaulo } = require("../config/timezone");
 const {
   buildPagination,
   createHttpError,
@@ -618,7 +618,6 @@ async function createDesafio(authenticatedUserId, payload = {}) {
 
 async function listDesafios(authenticatedUserId, query = {}) {
   const user = await getAuthenticatedUser(authenticatedUserId);
-  await inactivateExpiredChallenges();
   const isAdmin = isAdminUser(user);
   const filters = {};
   const pilarId = parseOptionalObjectId(query.pilarId || query.pilar_id || query.pilar, "Pilar deve ser um identificador válido.");
@@ -634,6 +633,12 @@ async function listDesafios(authenticatedUserId, query = {}) {
     }
   } else {
     filters.status = ACTIVE_STATUS;
+  }
+  const requestedStatus = normalizeText(query.status || "");
+  if (!isAdmin || requestedStatus === ACTIVE_STATUS) {
+    addAndFilter(filters, {
+      $or: [{ deliveryDate: null }, { deliveryDate: { $gte: getStartOfDayInSaoPaulo() } }],
+    });
   }
   const search = parseOptionalText(query.search || query.q || query.titulo || query.title, "Busca");
   if (search) {
@@ -656,12 +661,14 @@ async function listDesafios(authenticatedUserId, query = {}) {
 
 async function getDesafio(authenticatedUserId, desafioId) {
   const user = await getAuthenticatedUser(authenticatedUserId);
-  await inactivateExpiredChallenges();
   const id = parseObjectId(desafioId, "Desafio deve ser um identificador válido.");
   const filters = { _id: id };
   if (!isAdminUser(user)) filters.status = ACTIVE_STATUS;
   const desafio = await Desafio.findOne(filters).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).lean();
   if (!desafio) throw createHttpError("Desafio não encontrado.", 404);
+  if (!isAdminUser(user) && isDeliveryDeadlineExpired(desafio)) {
+    throw createHttpError("Desafio não encontrado.", 404);
+  }
   return serializeDesafio(desafio, { includeQuizAnswers: isAdminUser(user) });
 }
 

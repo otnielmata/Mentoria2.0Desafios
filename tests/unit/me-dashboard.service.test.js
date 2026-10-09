@@ -168,7 +168,7 @@ describe("me-dashboard.service MR-95", () => {
       cuponsValidados: 1,
       cuponsPendentes: 2,
     });
-    expect(getStudentCouponSummary).toHaveBeenCalledWith(STUDENT_ID, { sync: true, populateValidationSource: true });
+    expect(getStudentCouponSummary).toHaveBeenCalledWith(STUDENT_ID, { sync: false, populateValidationSource: true });
   });
 
   it("bloqueia dashboard do aluno para outros perfis", async () => {

@@ -393,7 +393,6 @@ async function cancelSubscription(authenticatedUserId, inscricaoId) {
 
 async function listMySubscriptions(authenticatedUserId) {
   await getAuthenticatedStudent(authenticatedUserId);
-  await inactivateExpiredChallenges();
   const inscricoes = await InscricaoDesafio.find({ aluno: authenticatedUserId, status: SUBSCRIPTION_STATUS })
     .sort({ createdAt: -1 })
     .populate({

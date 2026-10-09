@@ -452,7 +452,6 @@ async function createEnvioDesafio(authenticatedUserId, payload = {}) {
 
 async function listMine(authenticatedUserId, query = {}) {
   await getAuthenticatedStudent(authenticatedUserId);
-  await inactivateExpiredChallenges();
   const period = parsePeriod(query);
   const filters = {
     $or: [{ aluno: authenticatedUserId }, { participantes: authenticatedUserId }],

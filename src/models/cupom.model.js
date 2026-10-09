@@ -28,5 +28,6 @@ const cupomSchema = new mongoose.Schema(
 
 cupomSchema.index({ aluno: 1, ordinal: 1 }, { unique: true });
 cupomSchema.index({ luckyNumber: 1 }, { unique: true, sparse: true });
+cupomSchema.index({ aluno: 1, status: 1 });
 
 module.exports = mongoose.model("Cupom", cupomSchema);

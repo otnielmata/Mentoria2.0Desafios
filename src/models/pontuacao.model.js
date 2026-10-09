@@ -39,5 +39,8 @@ pontuacaoSchema.index(
 );
 pontuacaoSchema.index({ "pilares.pilar": 1 });
 pontuacaoSchema.index({ createdAt: -1 });
+pontuacaoSchema.index({ aluno: 1, createdAt: -1 });
+pontuacaoSchema.index({ turma: 1, createdAt: -1 });
+pontuacaoSchema.index({ source: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Pontuacao", pontuacaoSchema);

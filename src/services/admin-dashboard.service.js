@@ -67,7 +67,7 @@ async function getAuthorizedReviewer(authenticatedUserId) {
 }
 
 async function findUsers() {
-  return User.find({}).select("_id name email role status turmas").lean();
+  return User.find({ role: STUDENT_ROLE, status: ACTIVE_STATUS }).select("_id name email role status turmas").lean();
 }
 
 async function findEnvios() {
@@ -85,8 +85,12 @@ async function countActiveDesafios() {
   });
 }
 
-async function findPontuacoes() {
-  return Pontuacao.find({})
+async function findPontuacoes(approvedEnvioIdsForQuery = []) {
+  const filters = approvedEnvioIdsForQuery.length > 0
+    ? { $or: [{ source: EXTRA_POINTS_SOURCE }, { envio: { $in: approvedEnvioIdsForQuery } }] }
+    : { source: EXTRA_POINTS_SOURCE };
+
+  return Pontuacao.find(filters)
     .select("_id aluno pontos source turma envio desafio pilares createdAt")
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "turma", select: "name code description status" })
@@ -423,14 +427,18 @@ function buildEngajamento(activeStudents, envios, approvedEnvioIds) {
 async function getAdminDashboard(authenticatedUserId) {
   await getAuthorizedReviewer(authenticatedUserId);
 
-  const [users, envios, pontuacoes, activeChallengesCount, checklistContext, cupons] = await Promise.all([
+  const [users, envios, activeChallengesCount, checklistContext, cupons] = await Promise.all([
     findUsers(),
     findEnvios(),
-    findPontuacoes(),
     countActiveDesafios(),
     getChecklistSummaryByStudentContext({ populateAluno: true }),
     getCouponOverview({ sync: false }),
   ]);
+  const approvedEnvioIdsForQuery = (envios || [])
+    .filter((envio) => normalizeText(envio.status) === APPROVED_STATUS)
+    .map((envio) => getEntityId(envio))
+    .filter(Boolean);
+  const pontuacoes = await findPontuacoes(approvedEnvioIdsForQuery);
   const activeStudents = (users || []).filter(isActiveStudent);
   const approvedPontuacoes = (pontuacoes || []).filter(
     (pontuacao) => isApprovedPontuacao(pontuacao) && isActiveStudent(pontuacao.aluno) && isActiveClassScore(pontuacao)

@@ -88,5 +88,6 @@ const desafioSchema = new mongoose.Schema(
 );
 
 desafioSchema.index({ "pilares.pilar": 1 });
+desafioSchema.index({ status: 1, deliveryDate: 1 });
 
 module.exports = mongoose.model("Desafio", desafioSchema);

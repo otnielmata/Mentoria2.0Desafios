@@ -7,7 +7,7 @@ const Pontuacao = require("../models/pontuacao.model");
 const Turma = require("../models/turma.model");
 const User = require("../models/user.model");
 const { getStudentCouponSummary } = require("./cupom.service");
-const { inactivateExpiredChallenges } = require("./desafio-prazo.service");
+const { getStartOfDayInSaoPaulo } = require("../config/timezone");
 const { buildChecklistSummaryByStudent, getChecklistSummaryByStudentContext } = require("./plano-estudo.service");
 
 const STUDENT_ROLE = "aluno";
@@ -92,7 +92,10 @@ async function findStudentPontuacoes(authenticatedUserId, scope) {
     return [];
   }
 
-  return Pontuacao.find({ aluno: authenticatedUserId })
+  return Pontuacao.find({
+    aluno: authenticatedUserId,
+    $or: [{ turma: { $in: scope.turmaIds } }, { turma: null }],
+  })
     .populate({ path: "aluno", select: "turmas" })
     .populate({ path: "turma", select: "name code description status" })
     .populate({
@@ -121,7 +124,7 @@ async function findScopePontuacoes(scope) {
     return [];
   }
 
-  return Pontuacao.find({})
+  return Pontuacao.find({ turma: { $in: scope.turmaIds } })
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "turma", select: "name code description status" })
     .populate({ path: "envio", select: "status turma approvedAt createdAt" })
@@ -152,8 +155,11 @@ async function findStudentEnvios(authenticatedUserId, scope) {
 }
 
 async function countActiveDesafios() {
-  await inactivateExpiredChallenges();
-  return Desafio.countDocuments({ status: ACTIVE_STATUS });
+  const startOfToday = getStartOfDayInSaoPaulo();
+  return Desafio.countDocuments({
+    status: ACTIVE_STATUS,
+    $or: [{ deliveryDate: null }, { deliveryDate: { $gte: startOfToday } }],
+  });
 }
 
 function isApprovedPontuacao(pontuacao) {
@@ -498,7 +504,11 @@ async function getMyDashboard(authenticatedUserId) {
     return emptyDashboard(scope, activeChallengesCount);
   }
 
-  const [studentPontuacoes, scopePontuacoes, studentEnvios] = await Promise.all([
+  const scopeStudentsPromise = typeof User.find === "function"
+    ? User.find({ role: STUDENT_ROLE, status: ACTIVE_STATUS, turmas: { $in: scope.turmaIds } }).select("_id").lean()
+    : Promise.resolve([{ _id: authenticatedUserId }]);
+  const [scopeStudents, studentPontuacoes, scopePontuacoes, studentEnvios] = await Promise.all([
+    scopeStudentsPromise,
     findStudentPontuacoes(authenticatedUserId, scope),
     findScopePontuacoes(scope),
     findStudentEnvios(authenticatedUserId, scope),
@@ -510,11 +520,14 @@ async function getMyDashboard(authenticatedUserId) {
     .filter(isApprovedPontuacao)
     .filter((pontuacao) => matchesScopeByEnvio(pontuacao, scope));
   const approvedEnvioIds = new Set(validStudentPontuacoes.map((pontuacao) => getEntityId(pontuacao.envio)).filter(Boolean));
-  const checklistContext = await getChecklistSummaryByStudentContext({ populateAluno: true });
+  const checklistContext = await getChecklistSummaryByStudentContext({
+    alunoIds: (scopeStudents || []).map((student) => student._id),
+    populateAluno: true,
+  });
   const planningItemsInScope = (checklistContext.items || []).filter((item) => itemMatchesPlanningScope(item, scope));
   const checklistSummaryByStudent = buildChecklistSummaryByStudent(planningItemsInScope);
   const studentChecklistSummary = checklistSummaryByStudent.get(authenticatedUserId) || { totalPontos: 0, totalTarefas: 0, tarefasConcluidas: 0, diasComCheck: 0, semanas: [] };
-  const cupons = await getStudentCouponSummary(authenticatedUserId, { sync: true, populateValidationSource: true });
+  const cupons = await getStudentCouponSummary(authenticatedUserId, { sync: false, populateValidationSource: true });
   const ranking = getStudentRankingPosition(authenticatedUserId, validScopePontuacoes, checklistSummaryByStudent, checklistContext.studentsById || new Map());
   const pontosPorPilar = buildPontosPorPilar(validStudentPontuacoes);
 

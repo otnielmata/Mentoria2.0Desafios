@@ -46,7 +46,14 @@ describe("database.config", () => {
 
     const result = await connectDatabase();
 
-    expect(mongoose.connect).toHaveBeenCalledWith("mongodb://example.test/mentoria_api", { dbName: "mentoria_api" });
+    expect(mongoose.connect).toHaveBeenCalledWith(
+      "mongodb://example.test/mentoria_api",
+      expect.objectContaining({
+        dbName: "mentoria_api",
+        maxPoolSize: 5,
+        serverSelectionTimeoutMS: 5000,
+      })
+    );
     expect(seedDefaultPilares).toHaveBeenCalledTimes(1);
     expect(result).toBe(mongoose.connection);
   });

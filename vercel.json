@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "regions": ["iad1"],
   "installCommand": "npm install && npm --prefix web install",
   "buildCommand": "NODE_ENV=production npm --prefix web run build",
   "outputDirectory": "web/out",

@@ -128,7 +128,11 @@ async function findExistingScoreWindowStartKey(alunoId, plannedDateKey, itemIdTo
     filters._id = { $ne: itemIdToIgnore };
   }
 
-  const items = await PlanoEstudoItem.find(filters).sort({ startAt: 1 }).lean();
+  let query = PlanoEstudoItem.find(filters);
+  if (typeof query.select === "function") {
+    query = query.select("aluno startAt plannedDateKey scoreWindowStartKey completedAt");
+  }
+  const items = await query.sort({ startAt: 1 }).lean();
   const matchingKeys = (items || [])
     .map((item) => getEffectiveScoreWindowStartKey(item))
     .filter((scoreWindowStartKey) => doesScoreWindowContainDateKey(scoreWindowStartKey, plannedDateKey))
@@ -282,7 +286,11 @@ function buildPlanningItemFilters(filters = {}) {
 }
 
 async function findPlanningItemsByFilters(filters = {}) {
-  let query = PlanoEstudoItem.find(buildPlanningItemFilters(filters)).sort({ startAt: 1 });
+  let query = PlanoEstudoItem.find(buildPlanningItemFilters(filters));
+  if (typeof query.select === "function") {
+    query = query.select("aluno startAt plannedDateKey scoreWindowStartKey completedAt");
+  }
+  query = query.sort({ startAt: 1 });
   if (filters.populateAluno) {
     query = query.populate({ path: "aluno", select: "name email role status turmas" });
   }
@@ -392,15 +400,7 @@ async function createItem(authenticatedUserId, payload = {}) {
 async function listItems(authenticatedUserId, query = {}) {
   await assertStudent(authenticatedUserId, "Apenas aluno pode consultar itens do plano de estudo.");
 
-  const filters = { aluno: authenticatedUserId, deletedAt: null };
-  if (query.status) filters.status = String(query.status).trim();
-  const period = parsePeriod(query);
-  if (period.startDate || period.endDate) {
-    filters.startAt = {};
-    if (period.startDate) filters.startAt.$gte = period.startDate;
-    if (period.endDate) filters.startAt.$lte = period.endDate;
-  }
-
+  const filters = buildStudentItemFilters(authenticatedUserId, query);
   const { page, limit, skip } = parsePagination(query);
   const [total, itens] = await Promise.all([
     PlanoEstudoItem.countDocuments(filters),
@@ -412,6 +412,27 @@ async function listItems(authenticatedUserId, query = {}) {
     pagination: buildPagination(total, page, limit),
     itens: itens.map(serializeItem),
   };
+}
+
+function buildStudentItemFilters(authenticatedUserId, query = {}) {
+  const filters = { aluno: authenticatedUserId, deletedAt: null };
+  if (query.status) filters.status = String(query.status).trim();
+  const period = parsePeriod(query);
+  if (period.startDate || period.endDate) {
+    filters.startAt = {};
+    if (period.startDate) filters.startAt.$gte = period.startDate;
+    if (period.endDate) filters.startAt.$lte = period.endDate;
+  }
+
+  return filters;
+}
+
+async function listAgendaItems(authenticatedUserId, query = {}) {
+  await assertStudent(authenticatedUserId, "Apenas aluno pode consultar a agenda do plano de estudo.");
+  const filters = buildStudentItemFilters(authenticatedUserId, query);
+  const itens = await PlanoEstudoItem.find(filters).sort({ startAt: 1 }).limit(500).lean();
+
+  return itens.map(serializeItem);
 }
 
 async function getItem(authenticatedUserId, itemId) {
@@ -533,17 +554,17 @@ async function getAgenda(authenticatedUserId, query = {}) {
 
   const [eventos, itensResult] = await Promise.all([
     eventoAoVivoService.listEventosForAgenda(authenticatedUserId, agendaQuery),
-    listItems(authenticatedUserId, { ...agendaQuery, limit: query.limit || 500, page: 1 }),
+    listAgendaItems(authenticatedUserId, agendaQuery),
   ]);
 
-  const agenda = [...eventos, ...itensResult.itens].sort((left, right) => {
+  const agenda = [...eventos, ...itensResult].sort((left, right) => {
     return new Date(left.startAt).getTime() - new Date(right.startAt).getTime();
   });
 
   return {
     total: agenda.length,
     eventosMentoria: eventos.length,
-    itensPessoais: itensResult.itens.length,
+    itensPessoais: itensResult.length,
     agenda,
   };
 }
@@ -557,6 +578,7 @@ module.exports = {
   deleteItem,
   findPlanningItemsByFilters,
   getAgenda,
+  listAgendaItems,
   getChecklistPointsForDelay,
   getChecklistSummaryByStudentContext,
   getChecklistSummaryFromFilters,

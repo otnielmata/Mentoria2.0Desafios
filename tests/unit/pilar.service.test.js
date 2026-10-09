@@ -30,7 +30,7 @@ describe("pilar.service", () => {
     User.findById.mockResolvedValue({ _id: ADMIN_ID, role: "admin" });
   });
 
-  it("consulta pilares garantindo os 7 padrões pelo backend", async () => {
+  it("consulta pilares sem executar seed em cada requisição", async () => {
     Pilar.findOneAndUpdate.mockResolvedValue({});
     Pilar.countDocuments.mockResolvedValue(7);
     Pilar.find.mockReturnValue({
@@ -54,7 +54,7 @@ describe("pilar.service", () => {
 
     const result = await listPilares(ADMIN_ID);
 
-    expect(Pilar.findOneAndUpdate).toHaveBeenCalledTimes(7);
+    expect(Pilar.findOneAndUpdate).not.toHaveBeenCalled();
     expect(result.total).toBe(7);
     expect(result.pilares.map((pilar) => pilar.name)).toEqual(DEFAULT_PILARES.map((pilar) => pilar.name));
   });

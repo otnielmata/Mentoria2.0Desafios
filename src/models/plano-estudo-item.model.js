@@ -20,4 +20,7 @@ const planoEstudoItemSchema = new mongoose.Schema(
   }
 );
 
+planoEstudoItemSchema.index({ aluno: 1, deletedAt: 1, status: 1, startAt: 1 });
+planoEstudoItemSchema.index({ aluno: 1, deletedAt: 1, status: 1, scoreWindowStartKey: 1 });
+
 module.exports = mongoose.model("PlanoEstudoItem", planoEstudoItemSchema);

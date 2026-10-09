@@ -2,6 +2,8 @@ const {
   ApiClientError,
   API_CONNECTION_ERROR_CODE,
   API_CONNECTION_ERROR_MESSAGE,
+  API_TIMEOUT_ERROR_CODE,
+  API_TIMEOUT_ERROR_MESSAGE,
   ENDPOINT_UNAVAILABLE_CODE,
   ENDPOINT_UNAVAILABLE_MESSAGE,
   buildUrl,
@@ -101,6 +103,19 @@ describe("web api client MR-97", () => {
       status: 0,
     });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("encerra uma consulta que excede o tempo limite sem repetir a requisição", async () => {
+    const fetchImpl = jest.fn().mockImplementation(() => new Promise(() => {}));
+    const client = createApiClient({ fetchImpl, requestTimeoutMs: 5, retryDelayMs: 0 });
+
+    await expect(client.request({ method: "GET", path: "/dashboard" })).rejects.toMatchObject({
+      code: API_TIMEOUT_ERROR_CODE,
+      message: API_TIMEOUT_ERROR_MESSAGE,
+      status: 0,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0][1].signal).toBeDefined();
   });
 
   it("notifica sucesso após gravações e exclusões", async () => {

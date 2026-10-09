@@ -3242,12 +3242,12 @@ function AdminReportsView({ apiClient }) {
   }
 
   useEffect(() => {
-    loadPointReport();
-    loadGroupReport();
-    loadDeliveredReport();
-    loadLuckyReport();
-    loadExtraPointsReport();
-  }, [apiClient]);
+    if (activeReport === "studentPillars") loadPointReport();
+    if (activeReport === "challengeGroups") loadGroupReport();
+    if (activeReport === "deliveredChallenges") loadDeliveredReport();
+    if (activeReport === "luckyNumbers") loadLuckyReport();
+    if (activeReport === "extraPoints") loadExtraPointsReport();
+  }, [activeReport, apiClient]);
 
   async function loadStudentOptions(search = studentSearch) {
     setStudentsLoading(true);

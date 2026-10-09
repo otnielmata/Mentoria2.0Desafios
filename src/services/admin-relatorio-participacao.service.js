@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 require("../models/pilar.model");
 require("../models/turma.model");
-require("../models/desafio.model");
+const Desafio = require("../models/desafio.model");
 require("../models/envio-desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
 const GrupoDesafio = require("../models/grupo-desafio.model");
@@ -37,6 +37,10 @@ function getFirstValue(query, fields) {
 
 function normalizeText(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function getEntityId(entity) {
@@ -215,10 +219,11 @@ function buildEnvioQuery(filters) {
   });
 }
 
-function buildGrupoQuery(filters) {
+function buildGrupoQuery(filters, desafioIds) {
   return omitUndefined({
     turma: filters.turmaId,
     createdAt: filters.createdAt,
+    ...(desafioIds ? { desafio: { $in: desafioIds } } : {}),
   });
 }
 
@@ -237,8 +242,8 @@ async function findEnvios(filters) {
     .lean();
 }
 
-async function findChallengeGroups(filters) {
-  return GrupoDesafio.find(buildGrupoQuery(filters))
+async function findChallengeGroups(filters, options = {}) {
+  let query = GrupoDesafio.find(buildGrupoQuery(filters, options.desafioIds))
     .populate({ path: "turma", select: "name code description status" })
     .populate({
       path: "desafio",
@@ -249,8 +254,13 @@ async function findChallengeGroups(filters) {
       ],
     })
     .populate({ path: "participantes", select: "name email role status" })
-    .sort({ createdAt: -1 })
-    .lean();
+    .sort({ createdAt: -1 });
+
+  if (options.paginate) {
+    query = query.skip(options.skip).limit(options.limit);
+  }
+
+  return query.lean();
 }
 
 async function findEnviosByGroups(groupIds) {
@@ -265,8 +275,13 @@ async function findEnviosByGroups(groupIds) {
     .lean();
 }
 
-async function findPontuacoes() {
-  return Pontuacao.find({})
+async function findPontuacoes(filters = {}) {
+  const queryFilters = omitUndefined({
+    turma: filters.turmaId,
+    createdAt: filters.createdAt,
+  });
+
+  return Pontuacao.find(queryFilters)
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "turma", select: "name code description status" })
     .populate({
@@ -311,7 +326,10 @@ function buildPlanningItemQuery(filters) {
 }
 
 async function findPlanningItems(filters) {
-  return PlanoEstudoItem.find(buildPlanningItemQuery(filters)).sort({ startAt: 1 }).lean();
+  return PlanoEstudoItem.find(buildPlanningItemQuery(filters))
+    .select("aluno startAt plannedDateKey scoreWindowStartKey completedAt")
+    .sort({ startAt: 1 })
+    .lean();
 }
 
 function buildStudentQuery(filters) {
@@ -327,8 +345,15 @@ function buildStudentQuery(filters) {
   return query;
 }
 
-async function findStudents(filters) {
-  return User.find(buildStudentQuery(filters)).select("name email role status turmas").lean();
+async function findStudents(filters, search = "") {
+  const query = buildStudentQuery(filters);
+  const normalizedSearch = String(search || "").trim();
+  if (normalizedSearch) {
+    const searchRegex = new RegExp(escapeRegex(normalizedSearch), "i");
+    query.$or = [{ name: searchRegex }, { email: searchRegex }];
+  }
+
+  return User.find(query).select("name email role status turmas").lean();
 }
 
 function getCreatedAt(entity) {
@@ -917,7 +942,7 @@ async function getParticipationReport(authenticatedUserId, query = {}) {
   await getAuthorizedReviewer(authenticatedUserId);
 
   const filters = parseFilters(query);
-  const [students, envios, pontuacoes] = await Promise.all([findStudents(filters), findEnvios(filters), findPontuacoes()]);
+  const [students, envios, pontuacoes] = await Promise.all([findStudents(filters), findEnvios(filters), findPontuacoes(filters)]);
   const filteredEnvios = (envios || []).filter(
     (envio) => matchesDate(envio, filters) && matchesPilar(envio, filters) && matchesTurmaByEnvio(envio, filters)
   );
@@ -1122,7 +1147,11 @@ async function getStudentPillarReport(authenticatedUserId, query = {}) {
   const filters = parseFilters(query);
   const pagination = parsePagination(query);
   const search = String(getFirstValue(query, ["search", "busca", "nome", "aluno"]) || "").trim();
-  const [students, pontuacoes, planningItems] = await Promise.all([findStudents(filters), findPontuacoes(), findPlanningItems(filters)]);
+  const [students, pontuacoes, planningItems] = await Promise.all([
+    findStudents(filters, search),
+    findPontuacoes(filters),
+    findPlanningItems(filters),
+  ]);
   const filteredPontuacoes = (pontuacoes || []).filter((pontuacao) => matchesPontuacaoFilters(pontuacao, filters));
   const planningSummaryByStudent = buildChecklistSummaryByStudent(planningItems || []);
   const rows = buildStudentPillarRows(students || [], filteredPontuacoes, planningSummaryByStudent, filters).filter((row) =>
@@ -1254,12 +1283,72 @@ function buildChallengeGroupSummary(rows) {
   );
 }
 
+async function findChallengeIdsByPilar(pilarId) {
+  if (!pilarId) return undefined;
+
+  const desafios = await Desafio.find({ $or: [{ pilar: pilarId }, { "pilares.pilar": pilarId }] }).select("_id").lean();
+  return (desafios || []).map(getEntityId).filter(Boolean);
+}
+
+async function buildChallengeGroupSummaryFromDatabase(filters, desafioIds, totalGrupos) {
+  const envioFilters = omitUndefined({
+    turma: filters.turmaId,
+    createdAt: filters.createdAt,
+    ...(desafioIds ? { desafio: { $in: desafioIds } } : {}),
+    grupo: { $ne: null },
+  });
+  const grupoFilters = buildGrupoQuery(filters, desafioIds);
+
+  const [gruposFormados, enviosRealizados, pendentes, aprovados] = await Promise.all([
+    GrupoDesafio.countDocuments({ ...grupoFilters, status: "completo" }),
+    EnvioDesafio.countDocuments(envioFilters),
+    EnvioDesafio.countDocuments({ ...envioFilters, status: PENDING_STATUS }),
+    EnvioDesafio.countDocuments({ ...envioFilters, status: APPROVED_STATUS }),
+  ]);
+
+  return {
+    totalGrupos,
+    gruposFormados,
+    enviosRealizados,
+    pendentes,
+    aprovados,
+  };
+}
+
 async function getChallengeGroupsReport(authenticatedUserId, query = {}) {
   await getAuthorizedReviewer(authenticatedUserId);
 
   const filters = parseFilters(query);
   const pagination = parsePagination(query);
   const search = String(getFirstValue(query, ["search", "busca", "nome", "desafio"]) || "").trim();
+
+  if (!search) {
+    const desafioIds = await findChallengeIdsByPilar(filters.pilarId);
+    const grupoQuery = buildGrupoQuery(filters, desafioIds);
+    const [total, grupos] = await Promise.all([
+      GrupoDesafio.countDocuments(grupoQuery),
+      findChallengeGroups(filters, {
+        desafioIds,
+        paginate: true,
+        skip: pagination.skip,
+        limit: pagination.limit,
+      }),
+    ]);
+    const groupIds = grupos.map(getEntityId).filter(Boolean);
+    const latestSubmissionByGroup = buildLatestSubmissionByGroup(await findEnviosByGroups(groupIds));
+    const rows = grupos.map((grupo) => serializeChallengeGroupRow(grupo, latestSubmissionByGroup.get(getEntityId(grupo))));
+
+    return {
+      filtros: {
+        ...serializeFilters(filters),
+      },
+      pagination: buildPagination(total, pagination.page, pagination.limit),
+      resumo: await buildChallengeGroupSummaryFromDatabase(filters, desafioIds, total),
+      grupos: rows,
+      relatorio: rows,
+    };
+  }
+
   const grupos = (await findChallengeGroups(filters)).filter((grupo) => matchesDate(grupo, filters) && matchesPilar({ desafio: grupo.desafio }, filters));
   const groupIds = grupos.map(getEntityId).filter(Boolean);
   const latestSubmissionByGroup = buildLatestSubmissionByGroup(await findEnviosByGroups(groupIds));

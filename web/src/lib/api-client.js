@@ -4,6 +4,8 @@ const ENDPOINT_UNAVAILABLE_CODE = "ENDPOINT_UNAVAILABLE";
 const ENDPOINT_UNAVAILABLE_MESSAGE = "Funcionalidade indisponível no momento. Tente novamente mais tarde.";
 const API_CONNECTION_ERROR_CODE = "API_CONNECTION_ERROR";
 const API_CONNECTION_ERROR_MESSAGE = "Não foi possível conectar à API. Aguarde alguns segundos e tente atualizar a tela.";
+const API_TIMEOUT_ERROR_CODE = "API_TIMEOUT";
+const API_TIMEOUT_ERROR_MESSAGE = "A API demorou mais que o esperado. Tente atualizar a tela em alguns instantes.";
 const MUTATION_METHODS = ["POST", "PATCH", "PUT", "DELETE"];
 const SESSION_ERROR_CODES = new Set(["AUTHENTICATION_REQUIRED", "SESSION_INVALID", "INACTIVE_USER", "SESSION_REVOKED", "TOKEN_INVALID"]);
 
@@ -57,6 +59,7 @@ function createApiClient(options = {}) {
     onUnauthorized = () => {},
     onMutationSuccess = () => {},
     retryDelayMs = 250,
+    requestTimeoutMs = 20000,
   } = options;
 
   if (typeof fetchImpl !== "function") {
@@ -80,13 +83,48 @@ function createApiClient(options = {}) {
       body: requestOptions.body && typeof requestOptions.body !== "string" ? JSON.stringify(requestOptions.body) : requestOptions.body,
     };
     let response;
+    async function fetchWithTimeout() {
+      if (!requestTimeoutMs || requestTimeoutMs < 1 || typeof AbortController === "undefined") {
+        return fetchImpl(url, fetchOptions);
+      }
+
+      const controller = new AbortController();
+      let timeoutId;
+      const optionsWithSignal = {
+        ...fetchOptions,
+        signal: requestOptions.signal || controller.signal,
+      };
+
+      try {
+        return await Promise.race([
+          fetchImpl(url, optionsWithSignal),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+              controller.abort();
+              reject(new ApiClientError(API_TIMEOUT_ERROR_MESSAGE, {
+                status: 0,
+                code: API_TIMEOUT_ERROR_CODE,
+                endpoint: getEndpointPath(endpoint),
+              }));
+            }, requestTimeoutMs);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
     try {
-      response = await fetchImpl(url, fetchOptions);
+      response = await fetchWithTimeout();
     } catch (networkError) {
+      if (networkError instanceof ApiClientError && networkError.code === API_TIMEOUT_ERROR_CODE) {
+        throw networkError;
+      }
+
       if (method === "GET") {
         if (retryDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         try {
-          response = await fetchImpl(url, fetchOptions);
+          response = await fetchWithTimeout();
         } catch {
           throw new ApiClientError(API_CONNECTION_ERROR_MESSAGE, {
             status: 0,
@@ -151,6 +189,8 @@ module.exports = {
   ApiClientError,
   API_CONNECTION_ERROR_CODE,
   API_CONNECTION_ERROR_MESSAGE,
+  API_TIMEOUT_ERROR_CODE,
+  API_TIMEOUT_ERROR_MESSAGE,
   ENDPOINT_UNAVAILABLE_CODE,
   ENDPOINT_UNAVAILABLE_MESSAGE,
   buildUrl,

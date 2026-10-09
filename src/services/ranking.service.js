@@ -197,14 +197,20 @@ async function buildScope(authenticatedUser, filters) {
   };
 }
 
-function buildPontuacaoFilters(filters) {
-  return omitUndefined({
+function buildPontuacaoFilters(filters, scope) {
+  const mongoFilters = omitUndefined({
     createdAt: filters.createdAt,
   });
+
+  if (scope && Array.isArray(scope.allowedTurmaIds)) {
+    mongoFilters.turma = { $in: scope.allowedTurmaIds };
+  }
+
+  return mongoFilters;
 }
 
-async function findPontuacoes(filters) {
-  return Pontuacao.find(buildPontuacaoFilters(filters))
+async function findPontuacoes(filters, scope) {
+  return Pontuacao.find(buildPontuacaoFilters(filters, scope))
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "turma", select: "name code description status" })
     .populate({
@@ -453,8 +459,14 @@ async function getFilteredRanking(authenticatedUserId, query = {}) {
 
   const shouldIncludeChecklist = !filters.pilarId && !filters.type;
   const [pontuacoes, checklistContext] = await Promise.all([
-    findPontuacoes(filters),
-    shouldIncludeChecklist ? getChecklistSummaryByStudentContext({ startDate: filters.startDate, endDate: filters.endDate, populateAluno: true }) : null,
+    findPontuacoes(filters, scope),
+    shouldIncludeChecklist
+      ? getChecklistSummaryByStudentContext({
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          populateAluno: true,
+        })
+      : null,
   ]);
   const filteredPontuacoes = (pontuacoes || [])
     .filter(isValidApprovedPontuacao)

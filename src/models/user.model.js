@@ -40,6 +40,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.index({ role: 1, status: 1, name: 1 });
+userSchema.index({ turmas: 1, status: 1 });
+
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;

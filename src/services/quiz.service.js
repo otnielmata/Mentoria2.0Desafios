@@ -8,7 +8,7 @@ const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
 const { syncCouponsForStudents } = require("./cupom.service");
 const { generatePontuacoesForApprovedEnvio } = require("./pontuacao.service");
-const { getEffectiveChallengeStatus, inactivateExpiredChallenges, isDeliveryDeadlineExpired } = require("./desafio-prazo.service");
+const { getEffectiveChallengeStatus, isDeliveryDeadlineExpired } = require("./desafio-prazo.service");
 const {
   createHttpError,
   getEntityId,
@@ -228,7 +228,6 @@ async function findStudentTurma(student) {
 }
 
 async function getActiveQuizChallenge(desafioId) {
-  await inactivateExpiredChallenges();
   const desafio = await resolveQuery(
     Desafio.findById(desafioId).populate([{ path: "pilar" }, { path: "pilares.pilar" }])
   );

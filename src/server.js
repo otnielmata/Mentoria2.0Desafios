@@ -5,7 +5,7 @@ const { inactivateExpiredChallenges, startChallengeDeadlineScheduler } = require
 
 async function startServer() {
   try {
-    await connectDatabase();
+    await connectDatabase({ seedDefaults: true });
     await inactivateExpiredChallenges();
     startChallengeDeadlineScheduler();
     app.listen(env.port, () => {

@@ -1,7 +1,6 @@
 const Desafio = require("../models/desafio.model");
 const Pilar = require("../models/pilar.model");
 const User = require("../models/user.model");
-const { seedDefaultPilares } = require("../seeds/pilares.seed");
 const {
   buildPagination,
   createHttpError,
@@ -81,7 +80,6 @@ function parsePilarStatus(value) {
 
 async function listPilares(authenticatedUserId, query = {}) {
   const user = await getAuthenticatedUser(authenticatedUserId);
-  await seedDefaultPilares();
   const filters = {};
   if (!ADMIN_ROLES.includes(normalizeText(user.role))) {
     filters.status = ACTIVE_STATUS;
