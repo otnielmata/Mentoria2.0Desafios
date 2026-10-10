@@ -4014,13 +4014,13 @@ function StudentChallengesView({ apiClient }) {
   const [quizError, setQuizError] = useState("");
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizSubmitting, setQuizSubmitting] = useState(false);
-  const [challengeStatusFilter, setChallengeStatusFilter] = useState("ativo");
+  const [sentChallengeStatusFilter, setSentChallengeStatusFilter] = useState("ativo");
 
-  async function load({ resetSelection = false, status = challengeStatusFilter } = {}) {
+  async function load({ resetSelection = false } = {}) {
     setError("");
     try {
       const [desafiosResult, inscricoesResult, enviosResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: buildListPath("/desafios", { limit: 100, status }) }),
+        apiClient.request({ method: "GET", path: buildListPath("/desafios", { limit: 100, status: "ativo" }) }),
         apiClient.request({ method: "GET", path: "/desafios/inscricoes/minhas" }),
         apiClient.request({ method: "GET", path: "/envios-desafios/meus?limit=100" }),
       ]);
@@ -4041,8 +4041,8 @@ function StudentChallengesView({ apiClient }) {
   }
 
   useEffect(() => {
-    load({ status: challengeStatusFilter });
-  }, [apiClient, challengeStatusFilter]);
+    load();
+  }, [apiClient]);
 
   async function subscribe(desafioId, modalidade = "normal") {
     setFeedback("");
@@ -4282,6 +4282,9 @@ function StudentChallengesView({ apiClient }) {
   const selectedEnvioEditable =
     Boolean(selectedInscricao && isChallengeActive(selectedInscricao.desafio)) &&
     (!selectedEnvio || isEditableSubmission(selectedEnvio.status));
+  const visibleEnvios = envios.filter((envio) =>
+    sentChallengeStatusFilter === "inativo" ? !isChallengeActive(envio.desafio) : isChallengeActive(envio.desafio)
+  );
 
   return (
     <div className="content">
@@ -4291,13 +4294,6 @@ function StudentChallengesView({ apiClient }) {
             <h2>Desafios</h2>
             <p className="muted">Inscreva-se nos desafios tradicionais. Questionários são individuais e começam em “Responder agora”.</p>
           </div>
-          <label className="field">
-            <span>Exibir desafios</span>
-            <select value={challengeStatusFilter} onChange={(event) => setChallengeStatusFilter(event.target.value)}>
-              <option value="ativo">Ativos</option>
-              <option value="inativo">Inativos</option>
-            </select>
-          </label>
           <IconButton icon="refresh" label="Atualizar desafios" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
@@ -4520,7 +4516,19 @@ function StudentChallengesView({ apiClient }) {
       </section>
 
       <section className="panel">
-        <h2>Meus desafios enviados</h2>
+        <div className="panel-header">
+          <div>
+            <h2>Meus desafios enviados</h2>
+            <p className="muted">Consulte os envios relacionados a desafios ativos ou inativos.</p>
+          </div>
+          <label className="field">
+            <span>Exibir envios</span>
+            <select value={sentChallengeStatusFilter} onChange={(event) => setSentChallengeStatusFilter(event.target.value)}>
+              <option value="ativo">Desafios ativos</option>
+              <option value="inativo">Desafios inativos</option>
+            </select>
+          </label>
+        </div>
         <table className="table">
           <thead>
             <tr>
@@ -4533,7 +4541,7 @@ function StudentChallengesView({ apiClient }) {
             </tr>
           </thead>
           <tbody>
-            {envios.map((envio) => {
+            {visibleEnvios.map((envio) => {
               const challengeActive = isChallengeActive(envio.desafio);
               const submissionEditable = challengeActive && isEditableSubmission(envio.status) && findInscricaoForEnvio(envio);
               const participantNames = getSubmissionParticipantNames(envio);
@@ -4565,6 +4573,15 @@ function StudentChallengesView({ apiClient }) {
             })}
           </tbody>
         </table>
+        {visibleEnvios.length === 0 ? (
+          <Notice
+            message={
+              sentChallengeStatusFilter === "ativo"
+                ? "Nenhum desafio enviado relacionado a desafio ativo."
+                : "Nenhum desafio enviado relacionado a desafio inativo."
+            }
+          />
+        ) : null}
       </section>
     </div>
   );
