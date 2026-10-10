@@ -22,14 +22,35 @@ function getGroupParticipantNames(inscricao) {
   return getNamedParticipants((inscricao && inscricao.grupo && inscricao.grupo.participantes) || []);
 }
 
+function getSubmissionParticipants(envio) {
+  if (!envio) return [];
+  const participants = new Map();
+  const candidates = [
+    envio.aluno,
+    envio.responsavel,
+    envio.lider,
+    ...(Array.isArray(envio.participantesDetalhes) ? envio.participantesDetalhes : []),
+    ...(Array.isArray(envio.participantes) ? envio.participantes : []),
+  ];
+
+  candidates.forEach((participant) => {
+    if (!participant || typeof participant !== "object") return;
+    const name = String(participant.name || participant.nome || "").trim();
+    if (!name) return;
+    const key = String(participant.id || participant._id || participant.email || name).toLowerCase();
+    if (!participants.has(key)) participants.set(key, participant);
+  });
+
+  return Array.from(participants.values());
+}
+
 function getSubmissionParticipantNames(envio) {
   if (!envio) return [];
   return getNamedParticipants([
     envio.aluno,
     envio.responsavel,
     envio.lider,
-    ...(Array.isArray(envio.participantesDetalhes) ? envio.participantesDetalhes : []),
-    ...(Array.isArray(envio.participantes) ? envio.participantes : []),
+    ...getSubmissionParticipants(envio),
   ]);
 }
 
@@ -57,6 +78,7 @@ function getSubscriptionActionState(inscricao) {
 
 module.exports = {
   getGroupParticipantNames,
+  getSubmissionParticipants,
   getSubmissionParticipantNames,
   getSubscriptionActionState,
   getSubscriptionMode,

@@ -436,6 +436,15 @@ const WEB_API_ENDPOINTS = [
     roles: ["professor", "admin"],
   },
   {
+    key: "admin.approvals.removeParticipant",
+    feature: "Aprovações",
+    screen: "Aprovações",
+    menu: "Aprovações",
+    method: "DELETE",
+    path: "/admin/envios-desafios/:id/participantes/:participantId",
+    roles: ["professor", "admin"],
+  },
+  {
     key: "admin.groups",
     feature: "Grupos",
     screen: "Grupos",

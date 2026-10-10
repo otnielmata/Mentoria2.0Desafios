@@ -529,6 +529,29 @@ paths:
           description: Perfil sem permissão
         "409":
           description: Pontuação duplicada para mesma evidência, desafio e aluno
+  /api/admin/envios-desafios/:id/participantes/:participantId:
+    delete:
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      summary: Remove um participante de um envio pendente antes da aprovação
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - in: path
+          name: participantId
+          required: true
+          schema:
+            type: string
+          description: Identificador do participante que não participou da entrega
+      responses:
+        "200":
+          description: Participante removido do envio sem alterar os demais integrantes
+        "400":
+          description: Envio já avaliado, envio individual ou tentativa de remover o responsável
+        "403":
+          description: Perfil sem permissão
+        "404":
+          description: Envio ou participante não encontrado
   /api/envios-desafios/{id}/participantes:
     put:
       tags: [Envios]

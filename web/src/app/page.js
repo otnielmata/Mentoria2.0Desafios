@@ -10,6 +10,7 @@ import timezone from "../lib/timezone";
 const { ENDPOINT_UNAVAILABLE_CODE, createApiClient } = apiClientModule;
 const {
   getGroupParticipantNames,
+  getSubmissionParticipants,
   getSubmissionParticipantNames,
   getSubscriptionActionState,
   getSubscriptionMode,
@@ -2855,6 +2856,7 @@ function AdminApprovalsView({ apiClient }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [evaluatingId, setEvaluatingId] = useState("");
+  const [removingParticipantId, setRemovingParticipantId] = useState("");
 
   function buildApprovalsPath(nextFilters = filters, nextPage = pagination.page || 1) {
     return buildListPath("/envios-desafios/aprovacoes", {
@@ -2925,6 +2927,27 @@ function AdminApprovalsView({ apiClient }) {
     }
   }
 
+  async function removeParticipant(envio, participant) {
+    const participantId = getEntityId(participant);
+    if (!participantId) return;
+    const participantName = participant.name || participant.nome || participant.email || "este participante";
+    if (typeof window !== "undefined" && !window.confirm(`Remover ${participantName} deste envio antes da aprovação?`)) return;
+
+    const operationId = `${envio.id}:${participantId}`;
+    setFeedback("");
+    setError("");
+    setRemovingParticipantId(operationId);
+    try {
+      await apiClient.request({ method: "DELETE", path: `/admin/envios-desafios/${envio.id}/participantes/${participantId}` });
+      setFeedback(`${participantName} foi removido deste envio e não receberá pontuação por ele.`);
+      await load(filters, pagination.page || 1);
+    } catch (removalError) {
+      setError(getErrorMessage(removalError));
+    } finally {
+      setRemovingParticipantId("");
+    }
+  }
+
   return (
     <div className="content">
       <section className="panel">
@@ -2983,11 +3006,35 @@ function AdminApprovalsView({ apiClient }) {
             </div>
             <div className="status-item">
               <span className="muted">Participantes</span>
-              <strong>
-                {getSubmissionParticipantNames(envio).length > 0
-                  ? getSubmissionParticipantNames(envio).join(", ")
-                  : "Participantes não informados"}
-              </strong>
+              {getSubmissionParticipants(envio).length > 0 ? (
+                <div className="submission-participants">
+                  {getSubmissionParticipants(envio).map((participant) => {
+                    const participantId = getEntityId(participant);
+                    const operationId = `${envio.id}:${participantId}`;
+                    const ownerId = envio.alunoId || getEntityId(envio.aluno);
+                    const canRemove = participantId && participantId !== ownerId;
+                    return (
+                      <span className="submission-participant" key={operationId}>
+                        <strong>{participant.name || participant.nome || participant.email || "Aluno sem nome"}</strong>
+                        {envio.status === "pendente" && envio.type === "grupo" && canRemove ? (
+                          <IconButton
+                            className="button ghost participant-remove-button"
+                            disabled={removingParticipantId === operationId}
+                            icon="close"
+                            label={`Remover ${participant.name || participant.email || "participante"} deste envio`}
+                            onClick={() => removeParticipant(envio, participant)}
+                          />
+                        ) : null}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <strong>Participantes não informados</strong>
+              )}
+              {envio.status === "pendente" && envio.type === "grupo" ? (
+                <small className="muted">Remova quem não participou antes de aprovar.</small>
+              ) : null}
             </div>
             <div className="status-item">
               <span className="muted">Evidências</span>

@@ -4,6 +4,7 @@ import subscriptionModel from "./challenge-subscription.model";
 
 const {
   getGroupParticipantNames,
+  getSubmissionParticipants,
   getSubmissionParticipantNames,
   getSubscriptionActionState,
   isChallengeActive,
@@ -89,5 +90,22 @@ describe("integrantes relacionados aos desafios", () => {
     });
 
     expect(names).toEqual(["Ana", "Bruno", "Carla"]);
+  });
+
+  it("retorna participantes do envio com identificadores para ações administrativas", () => {
+    const participants = getSubmissionParticipants({
+      aluno: { id: "1", name: "Ana" },
+      participantesDetalhes: [{ id: "2", name: "Bruno" }],
+      participantes: [
+        { id: "2", name: "Bruno" },
+        { id: "3", name: "Carla" },
+      ],
+    });
+
+    expect(participants).toEqual([
+      { id: "1", name: "Ana" },
+      { id: "2", name: "Bruno" },
+      { id: "3", name: "Carla" },
+    ]);
   });
 });

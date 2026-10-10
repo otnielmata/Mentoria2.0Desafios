@@ -21,5 +21,11 @@ router.patch(
   authorizeRoles(adminRoles),
   adminEnvioDesafioController.evaluate
 );
+router.delete(
+  "/admin/envios-desafios/:id/participantes/:participantId",
+  authMiddleware,
+  authorizeRoles(adminRoles),
+  adminEnvioDesafioController.removeParticipant
+);
 
 module.exports = router;

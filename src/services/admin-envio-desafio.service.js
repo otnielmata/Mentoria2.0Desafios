@@ -1,6 +1,6 @@
 const Desafio = require("../models/desafio.model");
 const EnvioDesafio = require("../models/envio-desafio.model");
-require("../models/grupo-desafio.model");
+const GrupoDesafio = require("../models/grupo-desafio.model");
 const ParticipanteEnvio = require("../models/participante-envio.model");
 const User = require("../models/user.model");
 const { logDomainEvent } = require("./audit.service");
@@ -163,6 +163,9 @@ function serializeDesafio(desafio) {
 
 function getRelatedParticipants(envio, relationalParticipants = []) {
   const ownerId = getEntityId(envio && envio.aluno);
+  const removedParticipantIds = new Set(
+    (Array.isArray(envio && envio.removedParticipantes) ? envio.removedParticipantes : []).map(getEntityId).filter(Boolean)
+  );
   const participantsById = new Map();
   const candidates = [
     ...(envio && Array.isArray(envio.participantes) ? envio.participantes : []),
@@ -173,11 +176,31 @@ function getRelatedParticipants(envio, relationalParticipants = []) {
   candidates.forEach((candidate) => {
     const participant = candidate && candidate.aluno ? candidate.aluno : candidate;
     const participantId = getEntityId(participant);
-    if (!participantId || participantId === ownerId || participantsById.has(participantId)) return;
+    if (!participantId || participantId === ownerId || removedParticipantIds.has(participantId) || participantsById.has(participantId)) return;
     participantsById.set(participantId, participant);
   });
 
   return Array.from(participantsById.values());
+}
+
+async function getActiveParticipantIds(envio) {
+  const directParticipantIds = Array.isArray(envio && envio.participantes) ? envio.participantes.map(getEntityId).filter(Boolean) : [];
+  const relationalQuery = ParticipanteEnvio.find({ envio: getEntityId(envio), status: "ativo" });
+  const relationalParticipants = relationalQuery && typeof relationalQuery.lean === "function" ? await relationalQuery.lean() : await relationalQuery;
+  const groupId = getEntityId(envio && envio.grupo);
+  let group = null;
+  if (groupId && typeof GrupoDesafio.findById === "function") {
+    const groupQuery = GrupoDesafio.findById(groupId);
+    group = groupQuery && typeof groupQuery.lean === "function" ? await groupQuery.lean() : await groupQuery;
+  }
+
+  return new Set(
+    [
+      ...directParticipantIds,
+      ...(relationalParticipants || []).map((participant) => getEntityId(participant.aluno)).filter(Boolean),
+      ...((group && Array.isArray(group.participantes) ? group.participantes : []).map(getEntityId).filter(Boolean)),
+    ]
+  );
 }
 
 function serializeEnvio(envio, relationalParticipants = []) {
@@ -197,6 +220,7 @@ function serializeEnvio(envio, relationalParticipants = []) {
     participantes: participantes.map((participante) =>
       typeof participante === "object" ? serializeUser(participante) : { id: getEntityId(participante) }
     ),
+    removedParticipantes: (envio.removedParticipantes || []).map(getEntityId).filter(Boolean),
     totalParticipantes: new Set([getEntityId(envio.aluno), ...participantes.map(getEntityId)].filter(Boolean)).size,
     status: envio.status,
     feedback: envio.feedback,
@@ -384,7 +408,66 @@ async function evaluateEnvio(authenticatedUserId, envioId, payload = {}) {
   };
 }
 
+async function removeParticipant(authenticatedUserId, envioId, participantId) {
+  const reviewer = await getReviewer(authenticatedUserId);
+  const id = parseObjectId(envioId, "Envio deve ser um identificador válido.");
+  const removedId = parseObjectId(participantId, "Participante deve ser um identificador válido.");
+  const envio = await EnvioDesafio.findById(id);
+  if (!envio) throw createHttpError("Envio de desafio não encontrado.", 404);
+  if (normalizeText(envio.status) !== PENDING_STATUS) {
+    throw createHttpError("Somente envios pendentes podem ter participantes removidos.", 400, {
+      code: "PARTICIPANT_REMOVAL_BLOCKED_AFTER_REVIEW",
+    });
+  }
+  if (normalizeText(envio.type) !== "grupo") {
+    throw createHttpError("Participantes só podem ser removidos de envios em grupo.", 400, {
+      code: "PARTICIPANT_REMOVAL_REQUIRES_GROUP",
+    });
+  }
+
+  const ownerId = getEntityId(envio.aluno);
+  if (removedId === ownerId) {
+    throw createHttpError("O responsável pelo envio não pode ser removido.", 400, {
+      code: "SUBMISSION_OWNER_CANNOT_BE_REMOVED",
+    });
+  }
+
+  const activeParticipantIds = await getActiveParticipantIds(envio);
+  const alreadyRemoved = (envio.removedParticipantes || []).map(getEntityId).includes(removedId);
+  if (!activeParticipantIds.has(removedId) && !alreadyRemoved) {
+    throw createHttpError("Participante não encontrado neste envio.", 404, {
+      code: "SUBMISSION_PARTICIPANT_NOT_FOUND",
+    });
+  }
+
+  const removedAt = new Date();
+  envio.participantes = (envio.participantes || []).map(getEntityId).filter((idValue) => idValue !== removedId);
+  envio.removedParticipantes = [...new Set([...(envio.removedParticipantes || []).map(getEntityId), removedId])];
+  const updated = await envio.save();
+  await ParticipanteEnvio.updateMany(
+    { envio: id, aluno: removedId, status: "ativo" },
+    { status: "removido", removedAt }
+  );
+  await logDomainEvent({
+    eventType: "participante_removido_envio",
+    actor: reviewer._id || reviewer.id,
+    aluno: removedId,
+    desafio: getEntityId(envio.desafio),
+    envio: id,
+    turma: getEntityId(envio.turma),
+    statusNovo: envio.status,
+    metadata: { motivo: "participante_nao_participou_da_entrega" },
+    occurredAt: removedAt,
+  });
+
+  return {
+    envio: serializeEnvio(updated),
+    participanteRemovido: removedId,
+  };
+}
+
 module.exports = {
   evaluateEnvio,
   listPending,
+  removeParticipant,
 };

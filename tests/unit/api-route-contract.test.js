@@ -50,6 +50,7 @@ const webContractRouteKeys = [
   "GET /envios-desafios/meus",
   "GET /envios-desafios/aprovacoes",
   "PATCH /envios-desafios/aprovacoes",
+  "DELETE /admin/envios-desafios/:id/participantes/:participantId",
   "POST /pontuacoes/extras",
   "GET /grupos",
   "GET /grupos/meus",

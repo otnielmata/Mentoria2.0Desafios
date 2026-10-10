@@ -10,6 +10,7 @@ jest.mock("../../src/models/envio-desafio.model", () => ({
 
 jest.mock("../../src/models/participante-envio.model", () => ({
   find: jest.fn(),
+  updateMany: jest.fn(),
 }));
 
 jest.mock("../../src/models/pontuacao.model", () => ({
@@ -36,7 +37,7 @@ const Pontuacao = require("../../src/models/pontuacao.model");
 const User = require("../../src/models/user.model");
 const { logDomainEvent } = require("../../src/services/audit.service");
 const { syncCouponsForStudents, validatePendingCouponsForStudents } = require("../../src/services/cupom.service");
-const { evaluateEnvio, listPending } = require("../../src/services/admin-envio-desafio.service");
+const { evaluateEnvio, listPending, removeParticipant } = require("../../src/services/admin-envio-desafio.service");
 
 const ADMIN_ID = "6814f12ab3f34872f7558f40";
 const ENVIO_ID = "6814f12ab3f34872f7558f41";
@@ -55,6 +56,7 @@ describe("admin-envio-desafio.service participantes_envio", () => {
     ParticipanteEnvio.find.mockReturnValue({
       lean: jest.fn().mockResolvedValue([{ aluno: PARTICIPANT_ID }]),
     });
+    ParticipanteEnvio.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 1 });
     Pontuacao.find.mockReturnValue({
       lean: jest.fn().mockResolvedValue([]),
     });
@@ -157,6 +159,64 @@ describe("admin-envio-desafio.service participantes_envio", () => {
       ]),
     });
     expect(result.envios[0].participantes).toHaveLength(2);
+  });
+
+  it("remove participante não participante do envio pendente e desativa seu vínculo", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: { _id: DESAFIO_ID, title: "Desafio em grupo", points: 20 },
+      turma: "6814f12ab3f34872f7558f45",
+      aluno: OWNER_ID,
+      type: "grupo",
+      status: "pendente",
+      participantes: [PARTICIPANT_ID, SECOND_PARTICIPANT_ID],
+      removedParticipantes: [],
+      save: jest.fn().mockImplementation(async function save() {
+        return this;
+      }),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+
+    const result = await removeParticipant(ADMIN_ID, ENVIO_ID, PARTICIPANT_ID);
+
+    expect(envio.participantes).toEqual([SECOND_PARTICIPANT_ID]);
+    expect(envio.removedParticipantes).toEqual([PARTICIPANT_ID]);
+    expect(ParticipanteEnvio.updateMany).toHaveBeenCalledWith(
+      { envio: ENVIO_ID, aluno: PARTICIPANT_ID, status: "ativo" },
+      { status: "removido", removedAt: expect.any(Date) }
+    );
+    expect(logDomainEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "participante_removido_envio",
+        actor: ADMIN_ID,
+        aluno: PARTICIPANT_ID,
+        envio: ENVIO_ID,
+        statusNovo: "pendente",
+      })
+    );
+    expect(result.participanteRemovido).toBe(PARTICIPANT_ID);
+  });
+
+  it("protege o responsável pelo envio contra remoção", async () => {
+    const envio = {
+      _id: ENVIO_ID,
+      desafio: DESAFIO_ID,
+      turma: "6814f12ab3f34872f7558f45",
+      aluno: OWNER_ID,
+      type: "grupo",
+      status: "pendente",
+      participantes: [PARTICIPANT_ID],
+      removedParticipantes: [],
+      save: jest.fn(),
+    };
+    EnvioDesafio.findById.mockResolvedValue(envio);
+
+    await expect(removeParticipant(ADMIN_ID, ENVIO_ID, OWNER_ID)).rejects.toMatchObject({
+      code: "SUBMISSION_OWNER_CANNOT_BE_REMOVED",
+      statusCode: 400,
+    });
+    expect(envio.save).not.toHaveBeenCalled();
+    expect(ParticipanteEnvio.updateMany).not.toHaveBeenCalled();
   });
 
   it("aprova envio com bônus de apresentação ao vivo para todos os integrantes", async () => {

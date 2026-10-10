@@ -28,8 +28,18 @@ async function evaluateFromBody(req, res, next) {
   }
 }
 
+async function removeParticipant(req, res, next) {
+  try {
+    const result = await adminEnvioDesafioService.removeParticipant(req.user.id, req.params.id, req.params.participantId);
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   evaluate,
   evaluateFromBody,
   listPending,
+  removeParticipant,
 };

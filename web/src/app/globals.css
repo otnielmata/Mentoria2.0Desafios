@@ -770,6 +770,43 @@ h3 {
   font-size: 18px;
 }
 
+.submission-participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.submission-participant {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.submission-participant strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+
+.participant-remove-button {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  color: var(--danger);
+}
+
+.participant-remove-button:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

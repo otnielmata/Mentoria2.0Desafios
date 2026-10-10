@@ -16,6 +16,7 @@ const envioDesafioSchema = new mongoose.Schema(
     evidencias: { type: [mongoose.Schema.Types.Mixed], default: [] },
     anexos: { type: [mongoose.Schema.Types.Mixed], default: [] },
     participantes: { type: [mongoose.Schema.Types.ObjectId], ref: "User", default: [] },
+    removedParticipantes: { type: [mongoose.Schema.Types.ObjectId], ref: "User", default: [] },
     grupo: { type: mongoose.Schema.Types.ObjectId, ref: "GrupoDesafio", default: null, index: true },
     status: { type: String, default: "pendente", trim: true, index: true },
     feedback: { type: String, default: null, trim: true },
