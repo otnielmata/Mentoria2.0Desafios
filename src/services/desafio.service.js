@@ -31,6 +31,7 @@ const ALLOWED_TYPES = ["individual", "grupo", "ambos"];
 const ALLOWED_CHALLENGE_TYPES = ["standard", "quiz"];
 const GROUP_TYPES = ["grupo", "ambos"];
 const ACTIVE_STATUS = "ativo";
+const INACTIVE_STATUS = "inativo";
 const ALLOWED_STATUSES = ["ativo", "inativo", "apagado"];
 const ALLOWED_RECURRENCE_PERIODS = ["diario", "semanal", "mensal"];
 const ALLOWED_RECURRENCE_ACTIONS = ["bloquear"];
@@ -624,6 +625,7 @@ async function listDesafios(authenticatedUserId, query = {}) {
   if (pilarId) addAndFilter(filters, { $or: [{ pilar: pilarId }, { "pilares.pilar": pilarId }] });
 
   if (query.type || query.tipo) filters.type = parseType(query.type || query.tipo);
+  const requestedStatus = normalizeText(query.status || "");
   if (isAdmin) {
     const status = query.status ? normalizeText(query.status) : "";
     if (status && !["todos", "all"].includes(status)) {
@@ -631,11 +633,17 @@ async function listDesafios(authenticatedUserId, query = {}) {
     } else {
       filters.status = { $ne: "apagado" };
     }
+  } else if (requestedStatus === INACTIVE_STATUS) {
+    addAndFilter(filters, {
+      $or: [
+        { status: INACTIVE_STATUS },
+        { status: ACTIVE_STATUS, deliveryDate: { $lt: getStartOfDayInSaoPaulo() } },
+      ],
+    });
   } else {
     filters.status = ACTIVE_STATUS;
   }
-  const requestedStatus = normalizeText(query.status || "");
-  if (!isAdmin || requestedStatus === ACTIVE_STATUS) {
+  if (!isAdmin && requestedStatus !== INACTIVE_STATUS) {
     addAndFilter(filters, {
       $or: [{ deliveryDate: null }, { deliveryDate: { $gte: getStartOfDayInSaoPaulo() } }],
     });

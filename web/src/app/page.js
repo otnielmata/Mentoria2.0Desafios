@@ -4014,12 +4014,13 @@ function StudentChallengesView({ apiClient }) {
   const [quizError, setQuizError] = useState("");
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const [challengeStatusFilter, setChallengeStatusFilter] = useState("ativo");
 
-  async function load({ resetSelection = false } = {}) {
+  async function load({ resetSelection = false, status = challengeStatusFilter } = {}) {
     setError("");
     try {
       const [desafiosResult, inscricoesResult, enviosResult] = await Promise.all([
-        apiClient.request({ method: "GET", path: "/desafios?limit=100" }),
+        apiClient.request({ method: "GET", path: buildListPath("/desafios", { limit: 100, status }) }),
         apiClient.request({ method: "GET", path: "/desafios/inscricoes/minhas" }),
         apiClient.request({ method: "GET", path: "/envios-desafios/meus?limit=100" }),
       ]);
@@ -4040,8 +4041,8 @@ function StudentChallengesView({ apiClient }) {
   }
 
   useEffect(() => {
-    load();
-  }, [apiClient]);
+    load({ status: challengeStatusFilter });
+  }, [apiClient, challengeStatusFilter]);
 
   async function subscribe(desafioId, modalidade = "normal") {
     setFeedback("");
@@ -4290,7 +4291,14 @@ function StudentChallengesView({ apiClient }) {
             <h2>Desafios</h2>
             <p className="muted">Inscreva-se nos desafios tradicionais. Questionários são individuais e começam em “Responder agora”.</p>
           </div>
-          <IconButton icon="refresh" label="Atualizar desafios" onClick={load} />
+          <label className="field">
+            <span>Exibir desafios</span>
+            <select value={challengeStatusFilter} onChange={(event) => setChallengeStatusFilter(event.target.value)}>
+              <option value="ativo">Ativos</option>
+              <option value="inativo">Inativos</option>
+            </select>
+          </label>
+          <IconButton icon="refresh" label="Atualizar desafios" onClick={() => load()} />
         </div>
         <Notice message={feedback} />
         <Notice message={error} type="error" />
@@ -4308,6 +4316,7 @@ function StudentChallengesView({ apiClient }) {
           <tbody>
             {desafios.map((desafio) => {
               const quizChallenge = isQuizChallenge(desafio);
+              const desafioAtivo = isChallengeActive(desafio);
               const inscricao = findInscricaoForDesafio(desafio);
               const subscriptionState = getSubscriptionActionState(inscricao);
               const isSubscribed = subscriptionState.isSubscribed;
@@ -4321,6 +4330,7 @@ function StudentChallengesView({ apiClient }) {
                   <td>
                     <strong>{desafio.title}</strong>
                     <p className="muted">{desafio.description}</p>
+                    <small className="muted">Status: {formatStatus(desafio.status)}</small>
                   </td>
                   <td>{formatPilarPoints(desafio)}</td>
                   <td>{formatNumber(desafio.points)}</td>
@@ -4334,7 +4344,7 @@ function StudentChallengesView({ apiClient }) {
                   </td>
                   <td>
                     <div className="actions table-actions">
-                      {quizChallenge ? (
+                      {desafioAtivo && quizChallenge ? (
                         <button
                           className={`button secondary with-icon${quizRespondido ? " quiz-responded" : ""}`}
                           type="button"
@@ -4345,19 +4355,19 @@ function StudentChallengesView({ apiClient }) {
                           {quizRespondido ? "Respondido" : "Responder agora"}
                         </button>
                       ) : null}
-                      {!quizChallenge && subscriptionState.showNormal ? (
+                      {desafioAtivo && !quizChallenge && subscriptionState.showNormal ? (
                           <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled || subscribingId === desafio.id} onClick={() => subscribe(desafio.id, "normal")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "how_to_reg"} />
                           {isSubscribed ? "Inscrito" : "Inscrever-se"}
                         </button>
                       ) : null}
-                      {!quizChallenge && subscriptionState.showEnglish ? (
+                      {desafioAtivo && !quizChallenge && subscriptionState.showEnglish ? (
                         <button className="button secondary with-icon" type="button" disabled={subscriptionState.actionDisabled || subscribingId === desafio.id} onClick={() => subscribe(desafio.id, "ingles")}>
                           <ButtonIcon name={isSubscribed ? "verified" : "translate"} />
                           {isSubscribed ? "Inscrito em Inglês" : "Inscrever-se em Inglês"}
                         </button>
                       ) : null}
-                      {!quizChallenge && isSubscribed && !desafioTradicionalEntregue ? (
+                      {desafioAtivo && !quizChallenge && isSubscribed && !desafioTradicionalEntregue ? (
                         <button className="button ghost with-icon" type="button" disabled={subscribingId === desafio.id} onClick={() => cancelSubscription(inscricao)}>
                           <ButtonIcon name="unsubscribe" />
                           Cancelar inscrição

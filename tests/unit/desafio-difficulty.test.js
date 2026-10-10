@@ -425,4 +425,41 @@ describe("desafio.service difficulty", () => {
     expect(result.pagination).toEqual({ page: 1, limit: 10, total: 1, totalPages: 1 });
     expect(result.desafios[0].status).toBe("ativo");
   });
+
+  it("permite ao aluno consultar desafios inativos sem incluir apagados", async () => {
+    User.findById.mockResolvedValue({ _id: "6814f12ab3f34872f7558f50", role: "aluno" });
+    Desafio.countDocuments.mockResolvedValue(1);
+    const lean = jest.fn().mockResolvedValue([
+      {
+        _id: "6814f12ab3f34872f7558f53",
+        title: "Desafio encerrado",
+        description: "Consulta histórica.",
+        points: 10,
+        type: "individual",
+        maxParticipantes: 1,
+        status: "inativo",
+      },
+    ]);
+    const limit = jest.fn(() => ({ lean }));
+    const skip = jest.fn(() => ({ limit }));
+    const sort = jest.fn(() => ({ skip }));
+    const populate = jest.fn(() => ({ sort }));
+    Desafio.find.mockReturnValue({ populate });
+
+    const result = await listDesafios("6814f12ab3f34872f7558f50", { status: "inativo", page: "1", limit: "10" });
+
+    expect(Desafio.countDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        $and: expect.arrayContaining([
+          expect.objectContaining({
+            $or: expect.arrayContaining([
+              { status: "inativo" },
+              { status: "ativo", deliveryDate: expect.objectContaining({ $lt: expect.any(Date) }) },
+            ]),
+          }),
+        ]),
+      })
+    );
+    expect(result.desafios[0].status).toBe("inativo");
+  });
 });
