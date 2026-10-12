@@ -657,7 +657,12 @@ async function listDesafios(authenticatedUserId, query = {}) {
   const { page, limit, skip } = parsePagination(query);
   const [total, desafios] = await Promise.all([
     Desafio.countDocuments(filters),
-    Desafio.find(filters).populate([{ path: "pilar" }, { path: "pilares.pilar" }]).sort({ title: 1 }).skip(skip).limit(limit).lean(),
+    Desafio.find(filters)
+      .populate([{ path: "pilar" }, { path: "pilares.pilar" }])
+      .sort({ deliveryDate: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
   ]);
 
   return {

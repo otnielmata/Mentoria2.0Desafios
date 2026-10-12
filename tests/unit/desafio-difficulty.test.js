@@ -408,6 +408,7 @@ describe("desafio.service difficulty", () => {
 
     const result = await listDesafios("6814f12ab3f34872f7558f50", { page: "1", limit: "10" });
 
+    expect(sort).toHaveBeenCalledWith({ deliveryDate: -1, createdAt: -1 });
     expect(Desafio.countDocuments).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "ativo",
@@ -448,6 +449,7 @@ describe("desafio.service difficulty", () => {
 
     const result = await listDesafios("6814f12ab3f34872f7558f50", { status: "inativo", page: "1", limit: "10" });
 
+    expect(sort).toHaveBeenCalledWith({ deliveryDate: -1, createdAt: -1 });
     expect(Desafio.countDocuments).toHaveBeenCalledWith(
       expect.objectContaining({
         $and: expect.arrayContaining([
