@@ -203,7 +203,16 @@ function buildPontuacaoFilters(filters, scope) {
   });
 
   if (scope && Array.isArray(scope.allowedTurmaIds)) {
-    mongoFilters.turma = { $in: scope.allowedTurmaIds };
+    // Pontos extras podem ter sido lançados antes de o aluno ser associado a uma turma.
+    // Eles ainda devem aparecer no ranking do próprio aluno, com o escopo validado abaixo.
+    if (scope.role === STUDENT_ROLE && !filters.turmaId) {
+      mongoFilters.$or = [
+        { turma: { $in: scope.allowedTurmaIds } },
+        { source: EXTRA_POINTS_SOURCE },
+      ];
+    } else {
+      mongoFilters.turma = { $in: scope.allowedTurmaIds };
+    }
   }
 
   return mongoFilters;
@@ -263,6 +272,10 @@ function isValidApprovedPontuacao(pontuacao) {
   );
 }
 
+function isExtraPontuacao(pontuacao) {
+  return normalizeText(pontuacao && pontuacao.source) === EXTRA_POINTS_SOURCE;
+}
+
 function alunoHasTurma(pontuacao, turmaId) {
   const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
   return turmas.some((turma) => getEntityId(turma) === turmaId);
@@ -278,10 +291,12 @@ function matchesScope(pontuacao, scope) {
     return scope.allowedTurmaIds.includes(envioTurmaId);
   }
 
-  return false;
+  return isExtraPontuacao(pontuacao) && scope.allowedTurmaIds.some((turmaId) => alunoHasTurma(pontuacao, turmaId));
 }
 
 function isActiveClassScore(pontuacao) {
+  if (isExtraPontuacao(pontuacao)) return true;
+
   const turma = pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma);
   if (!turma || typeof turma !== "object") return false;
   return !turma.status || normalizeText(turma.status) === "ativa";

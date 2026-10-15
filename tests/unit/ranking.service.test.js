@@ -161,6 +161,30 @@ describe("ranking.service MR-94", () => {
     ]);
   });
 
+  it("inclui pontos extras sem turma no ranking administrativo", async () => {
+    mockPontuacaoFind([
+      {
+        _id: "6814f12ab3f34872f7558f70",
+        aluno: { _id: ALUNO_A_ID, name: "Ana", email: "ana@email.com", role: "aluno", status: "ativo", turmas: [] },
+        source: "pontuacao_extra",
+        pontos: 12,
+        envio: null,
+        desafio: null,
+        turma: null,
+        createdAt: new Date("2026-01-20T10:00:00.000Z"),
+      },
+    ]);
+
+    const result = await getFilteredRanking(ADMIN_ID);
+
+    expect(result.ranking).toEqual([
+      expect.objectContaining({
+        aluno: expect.objectContaining({ id: ALUNO_A_ID }),
+        totalPontos: 12,
+      }),
+    ]);
+  });
+
   it("aplica filtros administrativos de turma, pilar, período e tipo sobre pontos aprovados", async () => {
     mockPontuacaoFind([
       createPontuacao({
@@ -266,5 +290,38 @@ describe("ranking.service MR-94", () => {
     expect(result.escopo.turmaIds).toEqual([TURMA_1_ID]);
     expect(result.totalParticipantes).toBe(1);
     expect(result.ranking.map((row) => row.aluno.id)).toEqual([STUDENT_ID]);
+  });
+
+  it("mostra pontos extras sem turma no ranking do aluno quando o aluno está ativo", async () => {
+    User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "aluno" });
+    mockTurmaFind([{ _id: TURMA_1_ID }]);
+    mockPontuacaoFind([
+      {
+        _id: "6814f12ab3f34872f7558f71",
+        aluno: {
+          _id: STUDENT_ID,
+          name: "Aluno",
+          email: "aluno@email.com",
+          role: "aluno",
+          status: "ativo",
+          turmas: [TURMA_1_ID],
+        },
+        source: "pontuacao_extra",
+        pontos: 8,
+        envio: null,
+        desafio: null,
+        turma: null,
+        createdAt: new Date("2026-01-20T10:00:00.000Z"),
+      },
+    ]);
+
+    const result = await getFilteredRanking(STUDENT_ID);
+
+    expect(result.ranking).toEqual([
+      expect.objectContaining({
+        aluno: expect.objectContaining({ id: STUDENT_ID }),
+        totalPontos: 8,
+      }),
+    ]);
   });
 });

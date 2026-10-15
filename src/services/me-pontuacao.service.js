@@ -206,6 +206,10 @@ function isValidApprovedPontuacao(pontuacao) {
   );
 }
 
+function isExtraPontuacao(pontuacao) {
+  return normalizeText(pontuacao && pontuacao.source) === EXTRA_POINTS_SOURCE;
+}
+
 function alunoHasTurma(pontuacao, turmaId) {
   const turmas = Array.isArray(pontuacao && pontuacao.aluno && pontuacao.aluno.turmas) ? pontuacao.aluno.turmas : [];
   return turmas.some((turma) => getEntityId(turma) === turmaId);
@@ -220,6 +224,10 @@ async function findActiveTurmaIds(studentId) {
 }
 
 function matchesActiveTurma(pontuacao, activeTurmaIds) {
+  // Pontuação extra pertence diretamente ao aluno e pode ter sido lançada
+  // antes de existir uma turma ativa vinculada ao registro.
+  if (isExtraPontuacao(pontuacao)) return true;
+
   if (activeTurmaIds === null) return true;
   const turma = pontuacao.turma || (pontuacao.envio && pontuacao.envio.turma);
   const turmaId = getEntityId(turma);
@@ -346,6 +354,7 @@ function serializeDesafio(desafio) {
 
 function serializeHistoricoItem(pontuacao) {
   const pontos = Number(pontuacao.pontos || 0);
+  const pontuacaoExtra = isExtraPontuacao(pontuacao);
   const configuredBase = Number(pontuacao.pontosBase || 0);
   const configuredBonus = Number(pontuacao.bonusApresentacaoAoVivo || 0);
   const apresentacaoAoVivo = pontuacao.apresentacaoAoVivo === true || /apresentacao_ao_vivo/i.test(String(pontuacao.motivo || ""));
@@ -364,7 +373,9 @@ function serializeHistoricoItem(pontuacao) {
     pontosBase,
     bonusApresentacaoAoVivo,
     apresentacaoAoVivo,
-    descricaoPontuacao: apresentacaoAoVivo
+    descricaoPontuacao: pontuacaoExtra
+      ? `${pontos} pontos extras${pontuacao.motivo ? `: ${pontuacao.motivo}` : ""}`
+      : apresentacaoAoVivo
       ? `${pontosBase} pontos base + ${bonusApresentacaoAoVivo} pontos de apresentação ao vivo`
       : `${pontos} pontos do desafio`,
     motivo: pontuacao.motivo,

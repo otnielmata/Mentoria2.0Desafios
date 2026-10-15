@@ -134,6 +134,42 @@ describe("me-pontuacao.service MR-94", () => {
     );
   });
 
+  it("inclui pontos extras sem turma no total e no histórico do aluno", async () => {
+    mockPontuacaoFind([
+      {
+        _id: "6814f12ab3f34872f7558f72",
+        aluno: { _id: STUDENT_ID, turmas: [TURMA_ID] },
+        source: "pontuacao_extra",
+        pontos: 8,
+        pilares: [{ pilar: { _id: PILAR_2_ID, name: "Visibilidade" }, pontos: 8 }],
+        motivo: "Participação especial",
+        envio: null,
+        desafio: null,
+        turma: null,
+        createdAt: new Date("2026-01-20T10:00:00.000Z"),
+      },
+    ]);
+
+    const result = await getMyPontuacoes(STUDENT_ID);
+
+    expect(result.totalPontos).toBe(8);
+    expect(result.desafiosAprovados).toBe(0);
+    expect(result.historico).toEqual([
+      expect.objectContaining({
+        source: "pontuacao_extra",
+        pontos: 8,
+        descricaoPontuacao: "8 pontos extras: Participação especial",
+      }),
+    ]);
+    expect(result.pontosPorPilar).toEqual([
+      expect.objectContaining({
+        pilar: expect.objectContaining({ id: PILAR_2_ID }),
+        pontos: 8,
+        desafiosAprovados: 0,
+      }),
+    ]);
+  });
+
   it("bloqueia consulta de pontuação para perfil diferente de aluno", async () => {
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "admin" });
 
