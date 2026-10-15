@@ -124,7 +124,12 @@ async function findScopePontuacoes(scope) {
     return [];
   }
 
-  return Pontuacao.find({ turma: { $in: scope.turmaIds } })
+  return Pontuacao.find({
+    $or: [
+      { turma: { $in: scope.turmaIds } },
+      { source: EXTRA_POINTS_SOURCE },
+    ],
+  })
     .populate({ path: "aluno", select: "name email role status turmas" })
     .populate({ path: "turma", select: "name code description status" })
     .populate({ path: "envio", select: "status turma approvedAt createdAt" })
@@ -203,7 +208,7 @@ function matchesScopeByEnvio(pontuacao, scope) {
     return scope.turmaIds.includes(envioTurmaId);
   }
 
-  return false;
+  return normalizeText(pontuacao.source) === EXTRA_POINTS_SOURCE && scope.turmaIds.some((turmaId) => alunoHasTurma(pontuacao, turmaId));
 }
 
 function serializePilar(pilar) {

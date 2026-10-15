@@ -171,6 +171,41 @@ describe("me-dashboard.service MR-95", () => {
     expect(getStudentCouponSummary).toHaveBeenCalledWith(STUDENT_ID, { sync: false, populateValidationSource: true });
   });
 
+  it("inclui pontos extras sem turma no resumo da tela inicial", async () => {
+    const extraPontuacao = {
+      _id: "6814f12ab3f34872f7558f70",
+      aluno: {
+        _id: STUDENT_ID,
+        name: "Aluno",
+        role: "aluno",
+        status: "ativo",
+        turmas: [TURMA_ID],
+      },
+      source: "pontuacao_extra",
+      pontos: 8,
+      pilares: [{ pilar: { _id: PILAR_ID, name: "Prática" }, pontos: 8 }],
+      turma: null,
+      envio: null,
+      desafio: null,
+      createdAt: new Date("2026-01-20T10:00:00.000Z"),
+    };
+    mockFindChain(Pontuacao, [extraPontuacao]);
+    mockFindChain(Pontuacao, [extraPontuacao]);
+    mockFindChain(EnvioDesafio, []);
+
+    const result = await getMyDashboard(STUDENT_ID);
+
+    expect(result.totalPontos).toBe(8);
+    expect(result.desafiosAprovados).toBe(0);
+    expect(result.pontosPorPilar).toEqual([
+      expect.objectContaining({
+        pilar: expect.objectContaining({ id: PILAR_ID }),
+        pontos: 8,
+        desafiosAprovados: 0,
+      }),
+    ]);
+  });
+
   it("bloqueia dashboard do aluno para outros perfis", async () => {
     User.findById.mockResolvedValue({ _id: STUDENT_ID, role: "admin" });
 
